@@ -1,0 +1,14 @@
+; 資料庫連線設定範本
+; 使用方式：複製本檔為 config.ini，再依你的環境填入實際連線資訊。
+;   cp config.ini.example config.ini   （Windows: copy config.ini.example config.ini）
+; 注意：config.ini 已列入 .gitignore，不會被 git 追蹤，請勿把真實帳密提交到版本庫。
+
+[default]
+
+[database]
+host = 127.0.0.1
+port = 3306
+db = lab
+user = root
+password =
+charset = utf8
