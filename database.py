@@ -7,10 +7,31 @@ import pandas as pd
 
 
 class Database:
-    def __init__(self):
+    # 市場 → 交易所清單（company.exchange_name）
+    MARKET_EXCHANGES = {
+        "TW": ["TWSE"],
+        "US": ["NASDAQ", "NYSE", "AMEX"],
+    }
+    # 市場 → 大盤基準所在的資料表
+    BENCHMARK_TABLE = {
+        "TW": "taiex",
+        "US": "sp500",
+    }
+
+    def __init__(self, market="TW"):
+        self.market = str(market).upper()
+        if self.market not in self.MARKET_EXCHANGES:
+            raise ValueError(
+                f"未知市場 market={market}，目前支援 {list(self.MARKET_EXCHANGES)}"
+            )
         self._config = Config()
         self._db_data= self._config.get_database_config()
         # self.connection()
+
+    def _exchange_in_clause(self):
+        """依市場產生 exchange_name 的 IN 條件字串（值來自受信任的內建清單）。"""
+        exch = "','".join(self.MARKET_EXCHANGES[self.market])
+        return f"exchange_name IN ('{exch}')"
 
     """
     stock_index = {open, high, low, close, volume, market_capital}
@@ -49,10 +70,10 @@ class Database:
             # data = cursor.fetchone()
             # print('連線成功')
 
-            # 選取台股(有帶入一些條件，避免數量過多)
-            sql = " SELECT company_symbol,name,date,open,high,low,close,volume,market_capital \
+            # 依市場選取（台股 TWSE / 美股 NASDAQ,NYSE,AMEX）
+            sql = f" SELECT company_symbol,name,date,open,high,low,close,volume,market_capital \
                     FROM company RIGHT JOIN stock ON company.id = stock.company_id \
-                    WHERE exchange_name='TWSE'\
+                    WHERE {self._exchange_in_clause()}\
                     AND date > 2018-01-01"
             # AND company_symbol>8700
             # AND company_symbol<9000"
@@ -84,17 +105,18 @@ class Database:
         try:
             db = self.create_connection()
             cursor = db.cursor()
-            sql = " SELECT date, company_symbol, factor_name, factor_value \
+            # 多帶 filing_date（公告日）：台股為 NULL、美股有值，供前瞻防護分流
+            sql = f" SELECT date, company_symbol, factor_name, factor_value, filing_date \
                     FROM factor RIGHT JOIN factorvalue ON factor.id = factorvalue.factor_id  \
                     LEFT JOIN  company ON factorvalue.company_id = company.id \
-                    WHERE exchange_name='TWSE'\
+                    WHERE {self._exchange_in_clause()}\
                     AND date > 2018-01-01"
             # AND company_symbol>8700
             # AND company_symbol<9000"
 
             cursor.execute(sql)
             data = cursor.fetchall()
-            columns = ["date", "company_symbol", "factor_name", "factor_value"]
+            columns = ["date", "company_symbol", "factor_name", "factor_value", "filing_date"]
             df = CustomDataFrame(data, columns=columns)
             # print('The raw data get from database:\n')
             # print(df)
@@ -105,12 +127,13 @@ class Database:
             print("無法執行SQL語法")
             return e
 
-    # 取得台股加權指數(taiex)
+    # 取得大盤基準（台股 taiex / 美股 sp500）
     def get_taiex_data(self):
         try:
             db = self.create_connection()
             cursor = db.cursor()
-            sql = " SELECT date, open, high, low, close, volume, market_capital FROM taiex"
+            table = self.BENCHMARK_TABLE[self.market]
+            sql = f" SELECT date, open, high, low, close, volume, market_capital FROM {table}"
 
             cursor.execute(sql)
             data = cursor.fetchall()    

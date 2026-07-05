@@ -27,23 +27,37 @@ def format_price_data(raw_price_data, item):
     return CustomDataFrame(pivot_data)
 
 
-def format_report_data(raw_report_data, factor):
+def format_report_data(raw_report_data, factor, market="TW"):
     """
     格式化原始報告資料成不同因子的DataFrame字典。
 
     參數：
     raw_report_data (DataFrame)：來自DB表格的原始報告資料。
     factor (str)：要提取的因子名稱。
+    market (str)：市場別。台股("TW")用期末日 date 當索引（後續由 adjust_index_of_report
+        套月份規則）；美股("US")直接用公告日 filing_date 當索引，避免前瞻偏誤、不套月份規則。
 
     返回：
     dict：包含每家公司和日期的因子值的DataFrame字典。
     """
     factor_list = factor.split(",")
+    is_us = str(market).upper() == "US"
     dfs_by_id = {}
     for f in factor_list:
-        temp_df = raw_report_data[raw_report_data["factor_name"] == f].pivot(
-            index="date", columns="company_symbol", values="factor_value"
-        )
+        sub = raw_report_data[raw_report_data["factor_name"] == f]
+        if is_us:
+            # 美股：以 filing_date（公告日）為索引；去除無公告日者，同公司同公告日取最後一筆
+            sub = sub.dropna(subset=["filing_date"])
+            temp_df = sub.pivot_table(
+                index="filing_date", columns="company_symbol",
+                values="factor_value", aggfunc="last",
+            )
+            temp_df.index = pd.to_datetime(temp_df.index)
+            temp_df = temp_df.sort_index()
+        else:
+            temp_df = sub.pivot(
+                index="date", columns="company_symbol", values="factor_value"
+            )
         dfs_by_id[f] = CustomDataFrame(temp_df)
 
     return dfs_by_id

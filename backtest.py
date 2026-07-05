@@ -86,8 +86,8 @@ def rebase(prices, value=100):
 
 def sim(position: Union[pd.DataFrame, pd.Series],
         resample:Union[str, None]=None, resample_offset:Union[str, None] = None,
-        position_limit:float=1, fee_ratio:float=1.425/1000,
-        tax_ratio: float=3/1000, stop_loss: Union[float, None]=None,
+        position_limit:float=1, fee_ratio=None,
+        tax_ratio=None, stop_loss: Union[float, None]=None,
         
         # 跟rooling相關參數
         rolling_ratio:float=1.0, rolling_freq:Union[str, None]=None,
@@ -114,6 +114,13 @@ def sim(position: Union[pd.DataFrame, pd.Series],
     else:
         data=Data()
         price = data.get('price:close')
+
+    # 費率依市場分流（美股無證交稅）；未指定(None)時依 data.market 推斷，台股維持原值
+    _mkt = getattr(data, "market", "TW")
+    if fee_ratio is None:
+        fee_ratio = 1.0 / 1000 if _mkt == "US" else 1.425 / 1000
+    if tax_ratio is None:
+        tax_ratio = 0.0 if _mkt == "US" else 3 / 1000
 
     high = price
     low = price

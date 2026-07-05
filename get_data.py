@@ -23,15 +23,17 @@ def get_input_args(attr):
 
 
 class Data:
-    def __init__(self):
+    def __init__(self, market="TW"):
         """
         初始化物件，連接資料庫並下載相關資料。
 
         Args:
-            self: 類的實例（通常是類的物件，不需要額外指定）。
+            market (str): 市場別，"TW"(台股，預設) 或 "US"(美股)。
+                差異全部收斂在此資料層：交易所篩選、大盤基準表、財報前瞻防護(月份規則 vs filing_date)。
         """
+        self.market = str(market).upper()
         # 連接資料庫並下載股價資料
-        self.db = Database()
+        self.db = Database(market=self.market)
         self.raw_price_data = self.db.get_daily_stock()
         self.all_price_dict = self.handle_price_data()
         # 下載財報資料
@@ -60,7 +62,7 @@ class Data:
         Returns:
             pandas.DataFrame: 處理後的財報資料的DataFrame。
         """
-        return format_report_data(self.raw_report_data, factor)
+        return format_report_data(self.raw_report_data, factor, market=self.market)
 
     def handle_price_data(self):
         """
@@ -125,8 +127,11 @@ class Data:
             # 財報資料的Header為大寫
             item = item.upper().replace(" ", "")
             report_data = self.format_report_data(item)
-            # 財報資料日期調整
-            adjusted_report_data = adjust_index_of_report(report_data)
+            # 財報資料日期調整：台股套月份規則；美股已用 filing_date 當索引，不再調整
+            if self.market == "US":
+                adjusted_report_data = report_data
+            else:
+                adjusted_report_data = adjust_index_of_report(report_data)
             # 處理財報資料缺漏植問題: ffill
             for df in adjusted_report_data.values():
                 df.fillna(method="ffill", inplace=True)
