@@ -239,6 +239,10 @@ def main():
             univ |= set(d.columns)
     close = data.get("price:close")
     common = [c for c in close.columns if c in univ]
+    _ulim = int(os.environ.get("US_UNIV_LIMIT", "0") or 0)   # >0：只留前 N 檔（冒煙測試用）
+    if _ulim > 0:
+        common = common[:_ulim]
+        print(f"   [US_UNIV_LIMIT] 宇宙限縮為前 {_ulim} 檔：{common}")
     START = pd.Timestamp(os.environ.get("US_START", "2018-01-01"))   # 美股 MVP：2018+
     for k in list(data.all_price_dict.keys()):
         df = data.all_price_dict[k].reindex(columns=common)
