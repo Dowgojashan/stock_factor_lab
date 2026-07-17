@@ -1,0 +1,14 @@
+[
+  {
+    "label": "US_f3_N5-10_c20_M_SMOKE",
+    "market": "US",
+    "rebalance": "M",
+    "status": "done"
+  },
+  {
+    "label": "US_f3_N5-10_c20_Q_SMOKE",
+    "market": "US",
+    "rebalance": "Q",
+    "status": "done"
+  }
+]

@@ -25,16 +25,17 @@ sys.path.insert(0, ".")
 from get_data import Data
 from condition_factory import build_conditions
 from combinations import sim_conditions
-from io_persistence import save_all_for_label
+from io_persistence import save_all_for_label, export_report_collection_artifacts
 
 # ==================== 參數 ====================
 USE_CACHE = True
 MARKET = "US"
-JSON_FILE = "fcv_experiment_spec.json"
-LABEL = "fcv_experiment_spec_US"          # US 專屬（避免覆蓋台股）
+JSON_FILE = "spec_US.json"                # A3 q_band 分位數 spec（宇宙＝Russell 3000）
+LABEL = "spec_US"                         # US 專屬（避免覆蓋台股）
 MIN_TRADES = 5
 TOP_K = 10000
 ENTRY_THRESH = 1e-9
+BATCH_SIZE = int(os.environ.get("BATCH_SIZE", "150"))   # 分批回測：每批策略數（記憶體安全）
 SMOKE_LIMIT = int(os.environ.get("SMOKE_LIMIT", "0")) or None   # 0/未設=全量；>0=只回測前 N 個
 PICKLE_DIR = Path("results_pickle")
 ART_DIR = Path("results_artifacts")
@@ -198,6 +199,37 @@ def expand_with_v(final_masks, v_mask, suffix_v0="__v0", suffix_v1="__v1", price
         expanded[f"{name}{suffix_v1}"] = (m & v_mask_aligned)
     return expanded
 
+# ==================== 串流展開（記憶體安全版 F/C/V）====================
+def stream_strategy_masks(P1, P3, field_cache, v_mask, price_index):
+    """串流產生 F/C/V 展開後的每個策略遮罩，一次 yield 一個 (name, daily_mask)。
+    語意等同 f_factor→c_factor→expand_with_v，但**不同時 materialize 全部 2310 個 frame**：
+    逐 base 組合即時展開 C×V 後 yield，交由呼叫端分批回測+落地+釋放 → 峰值記憶體 O(1 batch)。"""
+    P1_masks = build_masks(P1, field_cache, price_index=price_index, prefix="P1")
+    P3_masks = build_masks(P3, field_cache, price_index=price_index, prefix="P3")
+    P3_items = [("None", None)] + list(P3_masks.items())   # None＝不加 P3
+    for p1_cond in P1:
+        p1_name, p1_field = p1_cond["name"], p1_cond["field"]
+        p1_mask = P1_masks.get(p1_name)
+        if p1_mask is None:
+            continue
+        # P2 候選＝None + 所有「異因子」的 P1 條件（與 f_factor 一致）
+        p2_candidates = [None] + [c for c in P1 if c["field"] != p1_field]
+        for p2_cond in p2_candidates:
+            if p2_cond is None:
+                base, p2_name = p1_mask, "None"
+            else:
+                p2_name = p2_cond["name"]
+                p2_mask = P1_masks.get(p2_name)
+                if p2_mask is None:
+                    continue
+                base = p1_mask & p2_mask
+            for p3_name, p3_mask in P3_items:
+                cmask = base if p3_mask is None else (base & p3_mask)
+                key = f"{p1_name}__{p2_name}__{p3_name}"
+                yield f"{key}__v0", cmask
+                yield f"{key}__v1", cmask & v_mask
+
+
 # ==================== 預篩（cell 23）+ 淨化（cell 24）====================
 def count_trades_from_position(pos, thresh=ENTRY_THRESH):
     if isinstance(pos, pd.Series):
@@ -213,6 +245,22 @@ def quick_stats(pos):
         return dict(trades_total=0)
     changed = (v[1:] != v[:-1]).any(axis=1).sum()
     return dict(trades_total=int(changed))
+
+def load_russell_symbols(data):
+    """讀 DB 的 russell3000 成分表，回傳 symbol 集合（宇宙圈定用）。
+    成分表由 collector 端維護（見 stock_factor_collector/UPDATE_US.md §0.6），
+    symbol 已正規化為破折號格式（如 BRK-B），與價格/因子欄位對齊。"""
+    conn = data.db.create_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT symbol FROM russell3000")
+        return {r[0] for r in cur.fetchall() if r and r[0]}
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
 
 def ensure_dtindex_cols(df, cols):
     if not isinstance(df.index, pd.DatetimeIndex):
@@ -238,12 +286,15 @@ def main():
         if d is not None:
             univ |= set(d.columns)
     close = data.get("price:close")
-    common = [c for c in close.columns if c in univ]
+    # --- Russell 3000 宇宙圈定：先篩宇宙，之後 q_band 才在正確母體上排名（A3 filter-before-rank）---
+    russell = load_russell_symbols(data)
+    common = [c for c in close.columns if c in univ and c in russell]
+    print(f"   Russell 3000 成分={len(russell)}｜∩有因子∩有價格={len(common)}")
     _ulim = int(os.environ.get("US_UNIV_LIMIT", "0") or 0)   # >0：只留前 N 檔（冒煙測試用）
     if _ulim > 0:
         common = common[:_ulim]
         print(f"   [US_UNIV_LIMIT] 宇宙限縮為前 {_ulim} 檔：{common}")
-    START = pd.Timestamp(os.environ.get("US_START", "2018-01-01"))   # 美股 MVP：2018+
+    START = pd.Timestamp(os.environ.get("US_START", "2000-01-01"))   # 回測窗 2000–2026（老師定案）
     for k in list(data.all_price_dict.keys()):
         df = data.all_price_dict[k].reindex(columns=common)
         df.index = pd.to_datetime(df.index)
@@ -271,47 +322,73 @@ def main():
         else:
             field_cache[field] = raw if raw.index.equals(price_index) else align_to_trading_days(raw, price_index, field_name=field)
 
-    # --- F / C / V 展開 ---
-    t = time.time()
-    p1p2 = f_factor(P1, field_cache, price_index=price_index)
-    final_masks = c_factor(p1p2, P3, field_cache, price_index=price_index)
+    # --- 先篩宇宙：把財報 frame 欄位限縮到 Russell 3000∩宇宙，q_band 才在正確母體上排名 ---
+    #     q_band 對「傳進來的 frame」做橫斷面 rank(axis=1)，故限縮欄位＝排名母體＝Russell 3000。
+    #     不可「全 US 排名後再交集」（見 A3 計畫步驟1 filter-before-rank 警告）。
+    for field in list(field_cache):
+        if field.startswith("report:"):
+            field_cache[field] = field_cache[field].reindex(columns=common)
+
+    # --- V 遮罩（建一次，限縮到 Russell 宇宙）---
     v_mask = build_v_pe_mask(data, pe_field="report:pe", window=4, price_index=price_index, use_cache=USE_CACHE)
-    final_masks = expand_with_v(final_masks, v_mask, price_index=price_index)
-    print(f"   展開後策略總數：{len(final_masks)}（耗時 {time.time()-t:.1f}s）")
+    v_mask = v_mask.reindex(columns=common, fill_value=False)
 
-    # --- 預篩 ---
-    kept = {}
-    for name, pos in final_masks.items():
-        if quick_stats(pos)["trades_total"] >= MIN_TRADES:
-            kept[name] = pos
-    if TOP_K and kept:
-        kept = dict(sorted(kept.items(), key=lambda kv: count_trades_from_position(kv[1]), reverse=True)[:TOP_K])
-    print(f"   預篩後策略：{len(kept)} / {len(final_masks)}（MIN_TRADES={MIN_TRADES}）")
-
-    # --- 欄位/索引淨化 + 對齊到價格宇宙 ---
-    kept = {name: ensure_dtindex_cols(pos, common) for name, pos in kept.items()}
-
-    # --- SMOKE：先小量驗證 ---
-    label = LABEL
-    if SMOKE_LIMIT:
-        kept = dict(list(kept.items())[:SMOKE_LIMIT])
-        label = LABEL + "_SMOKE"
-        print(f"   [SMOKE] 只回測前 {len(kept)} 個策略，label={label}")
-
-    # --- 回測 + 儲存 ---
-    print(f">> 回測 {len(kept)} 個策略 ...")
+    # --- 串流展開 + 分批回測 + 逐批落地（記憶體安全）---
+    #     不一次 materialize 全部遮罩/報告：每湊滿 BATCH_SIZE 就回測→寫 artifacts→釋放，
+    #     峰值記憶體 ≈ 一個 batch 的遮罩+報告（O(1 batch)），與策略總數無關。
+    label = LABEL + ("_SMOKE" if SMOKE_LIMIT else "")
+    art_label_dir = ART_DIR / label
+    print(f">> 串流展開 + 分批回測（BATCH_SIZE={BATCH_SIZE}）→ label={label}")
     t = time.time()
-    rc = sim_conditions(conditions=kept, resample="M", data=data)
-    print(f"   回測完成（耗時 {time.time()-t:.1f}s）")
-    save_all_for_label(report_collection=rc, base_pickle_dir=PICKLE_DIR,
-                       base_artifacts_dir=ART_DIR, label=label, to_parquet=True)
-    print(f">> 已存至 results_pickle/{label} 與 results_artifacts/{label}")
+    stats_rows, batch = [], {}
+    n_seen = n_kept = n_bt = 0
+    batch_idx = 0
 
-    # --- 摘要 ---
-    stats = rc.get_stats()
-    print("\n===== 摘要（前 5 名 by CAGR）=====")
-    st = stats.T.sort_values("CAGR", ascending=False)
-    print(st.head(5).to_string())
+    def flush():
+        nonlocal batch, batch_idx, n_bt
+        if not batch:
+            return
+        batch_idx += 1
+        rc = sim_conditions(conditions=batch, resample="M", data=data)
+        export_report_collection_artifacts(rc, art_label_dir, to_parquet=True)  # 逐策略 artifacts
+        for nm, rep in rc.reports.items():
+            try:
+                s = rep.get_stats(); s["strategy"] = nm; stats_rows.append(s)
+            except Exception as e:
+                warnings.warn(f"[stats] {nm}: {e}")
+        n_bt += len(batch)
+        print(f"   [batch {batch_idx}] 回測+落地 {len(batch)} 個（累計 {n_bt}）耗時 {time.time()-t:.0f}s", flush=True)
+        batch = {}
+        del rc
+
+    for name, mask in stream_strategy_masks(P1, P3, field_cache, v_mask, price_index):
+        n_seen += 1
+        if quick_stats(mask)["trades_total"] < MIN_TRADES:
+            continue
+        batch[name] = ensure_dtindex_cols(mask, common)
+        n_kept += 1
+        if len(batch) >= BATCH_SIZE:
+            flush()
+        if SMOKE_LIMIT and n_kept >= SMOKE_LIMIT:
+            break
+    flush()
+    print(f"   展開總數={n_seen}、預篩保留={n_kept}、回測={n_bt}（MIN_TRADES={MIN_TRADES}，耗時 {time.time()-t:.1f}s）")
+
+    # --- 合併 stats 落地（逐批 export 已寫過 batch-local stats，這裡覆蓋成完整版）---
+    if stats_rows:
+        stats_df = pd.DataFrame(stats_rows)
+        try:
+            stats_df.to_parquet(art_label_dir / "stats.parquet")
+        except Exception as e:
+            warnings.warn(f"[stats] parquet 失敗改 csv：{e}")
+            stats_df.to_csv(art_label_dir / "stats.csv", index=False)
+        print(f">> 完整 stats 落地 → {art_label_dir}/stats（{len(stats_df)} 策略）")
+        try:
+            top = stats_df.set_index("strategy").sort_values("CAGR", ascending=False)
+            print("\n===== 摘要（前 5 名 by CAGR）=====")
+            print(top.head(5).to_string())
+        except Exception:
+            pass
     print(f"\n總耗時 {time.time()-t0:.1f}s")
 
 

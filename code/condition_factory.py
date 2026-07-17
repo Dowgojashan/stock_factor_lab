@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import weakref
+
 import numpy as np
 import pandas as pd
 
@@ -185,6 +187,56 @@ def ytd_avg_gt_prev_year_same_period_avg_factory():
 
 
 # ---------------------------
+# 橫斷面分位 band（A3：q_band）
+#   每期(每列)在同市場內對各公司做「橫斷面」百分位排名，判斷是否落在第 k 個 N 分位 band。
+#   語意＝「同期同儕的相對位置」（factor 本義）：無前瞻、桶佔比恆≈1/N、跨市場可比。
+#   ⚠️ 這是「橫斷面」運算，與 rise_q / is_highest_q / yoy_gt 等「時序」條件不同——
+#      不可壓縮成公告更新點（_compress_report_updates）；那會讓同期各公司錯位。
+#      直接對日頻 ffill 後的 frame 排名即可（frame 每格＝該公司該日已公告的最新值，
+#      前瞻防護由讀取層 filing_date / adjust_index_of_report 保證）。
+# ---------------------------
+
+# frame 身分 → 該 frame 的橫斷面百分位排名。用意：同一因子的 N 個 band 共用同一次 rank
+# （每因子只算一次、不重算 N 次）。以 weakref 綁定 frame 生命週期並在回收時自動清除，
+# 避免用「殘留的全域 id 快取」造成 id 被回收再用時取到舊 rank。
+_QBAND_RANK_CACHE: dict = {}
+
+
+def _cached_pct_rank(s):
+    """回傳 s 的橫斷面百分位排名 s.rank(axis=1, pct=True)；同一個 frame 物件只算一次。"""
+    key = id(s)
+    entry = _QBAND_RANK_CACHE.get(key)
+    if entry is not None and entry[0]() is s:  # 確認是同一個「活著的」物件，非 id 回收再用
+        return entry[1]
+    pct = s.rank(axis=1, pct=True)
+    try:
+        _QBAND_RANK_CACHE[key] = (
+            weakref.ref(s, lambda _ref: _QBAND_RANK_CACHE.pop(key, None)),
+            pct,
+        )
+    except TypeError:
+        pass  # s 不可被 weak-reference：不快取即可，正確性不受影響
+    return pct
+
+
+def q_band_factory(k, n):
+    """橫斷面第 k 個 n 分位 band（k=0..n-1）：百分位 pct 落在 (k/n, (k+1)/n]。
+    - 不重疊、不漏：N 個 band 剛好把 (0,1] 分成 N 段，每個非 NaN 公司每期恰落一桶。
+    - 首桶下界為開區間，但 pct 最小值＝1/有效家數 > 0，故最小者仍入桶 0；末桶上界含 1.0。
+    - NaN（無資料 / 已下市）公司 rank 為 NaN → 不入任何桶（天然排除）。
+    """
+    k = int(k)
+    n = int(n)
+    lo, hi = k / n, (k + 1) / n
+
+    def _cond(s):
+        pct = _cached_pct_rank(s)
+        return (pct > lo) & (pct <= hi)
+
+    return _cond
+
+
+# ---------------------------
 # 所有支援的條件工廠函式
 # ---------------------------
 
@@ -211,6 +263,9 @@ CONDITION_FACTORY = {
     "yoy_gt": yoy_gt_factory,
     "ytd_avg_gt_prev_year_avg": ytd_avg_gt_prev_year_avg_factory,
     "ytd_avg_gt_prev_year_same_period_avg": ytd_avg_gt_prev_year_same_period_avg_factory,
+
+    # 橫斷面分位 band（A3）
+    "q_band": q_band_factory,
 }
 
 
@@ -247,6 +302,8 @@ def auto_name(factor: str, cond_type: str, args: list) -> str:
         return f"{factor_upper}_ytdavg_gt_lyavg"
     elif cond_type == "ytd_avg_gt_prev_year_same_period_avg":
         return f"{factor_upper}_ytdavg_gt_lyytdavg"
+    elif cond_type == "q_band":
+        return f"{factor_upper}_qb{args[0]}of{args[1]}"
     else:
         return f"{factor_upper}_{cond_type}_{'_'.join(map(str, args))}"
 

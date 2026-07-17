@@ -17,6 +17,13 @@ class Database:
         "TW": "taiex",
         "US": "sp500",
     }
+    # 市場 → 資料起點（回測窗）。None＝不設下界（台股保留 2000+ 全歷史）。
+    # 價格用交易日 date 過濾；財報用公告日 filing_date 過濾，並留 2 年緩衝，
+    # 以保留跨窗初期 ffill / 季度回看所需的「最近一筆」財報。
+    # 美股乾淨基本面(有 filing_date)實測深至 1994/1986（見 collector UPDATE_US.md §0.5），
+    # 故回測窗放深至 2000（價格起點 2000、財報起點 1998＝2 年緩衝）。
+    MARKET_PRICE_START = {"TW": None, "US": "2000-01-01"}
+    MARKET_REPORT_START = {"TW": None, "US": "1998-01-01"}
 
     def __init__(self, market="TW"):
         self.market = str(market).upper()
@@ -32,6 +39,21 @@ class Database:
         """依市場產生 exchange_name 的 IN 條件字串（值來自受信任的內建清單）。"""
         exch = "','".join(self.MARKET_EXCHANGES[self.market])
         return f"exchange_name IN ('{exch}')"
+
+    def _start_clause(self, column, start):
+        """回傳日期下界 SQL 片段；start 為 None 時不過濾（台股保留全歷史）。
+        注意：原本 `AND date > 2018-01-01`（未加引號）是整數算術 2018-1-1=2016，
+        與日期(轉 YYYYMMDD 數值)比較後恆真＝過濾失效。此處改為正確的字串比較。"""
+        return f" AND {column} >= '{start}'" if start else ""
+
+    def _universe_clause(self, symbol_col="company_symbol"):
+        """美股：把宇宙圈定在 Russell 3000 成分表（論文美股宇宙＝Russell 3000）。
+        成分表 russell3000 由 collector 端維護（見 stock_factor_collector/UPDATE_US.md §0.6），
+        symbol 已正規化為破折號格式，與 company_symbol 對齊。
+        台股回傳空字串＝SQL 完全不變（保持全歷史、byte-identical 隔離）。"""
+        if self.market == "US":
+            return f" AND {symbol_col} IN (SELECT symbol FROM russell3000)"
+        return ""
 
     """
     stock_index = {open, high, low, close, volume, market_capital}
@@ -74,7 +96,8 @@ class Database:
             sql = f" SELECT company_symbol,name,date,open,high,low,close,volume,market_capital \
                     FROM company RIGHT JOIN stock ON company.id = stock.company_id \
                     WHERE {self._exchange_in_clause()}\
-                    AND date > 2018-01-01"
+                    {self._universe_clause('company_symbol')}\
+                    {self._start_clause('date', self.MARKET_PRICE_START[self.market])}"
             # AND company_symbol>8700
             # AND company_symbol<9000"
 
@@ -110,7 +133,8 @@ class Database:
                     FROM factor RIGHT JOIN factorvalue ON factor.id = factorvalue.factor_id  \
                     LEFT JOIN  company ON factorvalue.company_id = company.id \
                     WHERE {self._exchange_in_clause()}\
-                    AND date > 2018-01-01"
+                    {self._universe_clause('company_symbol')}\
+                    {self._start_clause('filing_date', self.MARKET_REPORT_START[self.market])}"
             # AND company_symbol>8700
             # AND company_symbol<9000"
 
