@@ -32,6 +32,21 @@ CATALOG_DIR = Path("_catalog")
 # 數值指紋：用來抓「完全相同」的重複策略
 FINGERPRINT = ["CAGR", "max_drawdown", "win_ratio", "ytd"]
 
+# 舊實驗產物，預設不納入 catalog（避免與新 sweep job 重疊雙數）。
+# 尤其 spec_US（N=5、月頻、未去重）是新 US_f3_N5-10_c20_M 的子集 → 會重複計數。
+LEGACY_LABELS = {"spec_US", "fcv_experiment_spec", "fcv_experiment_spec_US"}
+
+# 與 io_persistence._sanitize 對齊（此處自帶一份，讓 catalog_builder 可獨立執行、不必 import
+# 帶 pickle/report 依賴的 io_persistence）。artifacts 目錄名由 export 端 sanitize，
+# 故 artifacts_dir 也必須套同一規則，否則路徑對不上（#5）。
+_ILLEGAL = r'[\/:*?"<>|]'
+
+
+def _sanitize(s: str) -> str:
+    if s is None:
+        return "None"
+    return re.sub(_ILLEGAL, "_", str(s).strip()).rstrip(" .")
+
 
 def parse_name(name: str) -> dict:
     """策略名 split('__') → [F1, F2, C, V]（與 report_analysis / analyze_spec_us 一致）。"""
@@ -81,16 +96,18 @@ def load_job(job_dir: Path):
     spec_meta = meta.get("meta", {}) or {}
     df["N_list"] = str(spec_meta.get("N_list"))
     df["factors"] = str(spec_meta.get("factors"))
-    df["artifacts_dir"] = df["strategy"].map(lambda s: str(job_dir / str(s)))
+    df["artifacts_dir"] = df["strategy"].map(lambda s: str(job_dir / _sanitize(s)))  # #5
     return df
 
 
-def build(include_smoke=False):
+def build(include_smoke=False, include_legacy=False):
     if not ART_DIR.exists():
         raise SystemExit(f"找不到 {ART_DIR}")
     jobs = sorted(p for p in ART_DIR.iterdir() if p.is_dir())
     if not include_smoke:
         jobs = [p for p in jobs if not p.name.endswith("_SMOKE")]
+    if not include_legacy:
+        jobs = [p for p in jobs if p.name not in LEGACY_LABELS]
 
     frames, used = [], []
     for j in jobs:
@@ -111,15 +128,18 @@ def build(include_smoke=False):
         if c in cat.columns:
             cat[c] = pd.to_numeric(cat[c], errors="coerce")
 
-    # 全域去重：同一 job 內已在展開時去重；此處抓跨 job／殘留的完全重複
+    # 去重（兩種）：
+    #  is_dup       ── 同一 job 內、數值指紋完全相同（抓對稱重複；新 job 已展開去重故 ≈0，舊 spec_US 會被抓）
+    #  is_cross_dup ── 同一 (market, rebalance) 下、同名策略跨 job 重複（抓 legacy/config 重疊，防雙數）
     fp = [c for c in FINGERPRINT if c in cat.columns]
     cat["is_dup"] = cat.duplicated(subset=["job_label"] + fp, keep="first")
+    cat["is_cross_dup"] = cat.duplicated(subset=["market", "rebalance", "strategy"], keep="first")
 
     front = ["strategy", "market", "rebalance", "job_label",
              "F1", "F2", "C", "V", "F1_factor", "F2_factor",
              "F1_band", "F1_N", "F2_band", "F2_N", "C_kind",
              "CAGR", "sharpe_ann", "max_drawdown", "avg_drawdown", "win_ratio", "ytd",
-             "is_dup", "universe_size", "N_list", "factors", "artifacts_dir"]
+             "is_dup", "is_cross_dup", "universe_size", "N_list", "factors", "artifacts_dir"]
     cols = [c for c in front if c in cat.columns] + [c for c in cat.columns if c not in front]
     cat = cat[cols]
 
@@ -132,7 +152,7 @@ def build(include_smoke=False):
         out = CATALOG_DIR / "master_index.csv"
         cat.to_csv(out, index=False)
 
-    uniq = cat.loc[~cat["is_dup"]]
+    uniq = cat.loc[~cat["is_dup"] & ~cat["is_cross_dup"]]
     reg = CATALOG_DIR / "dedup_registry.parquet"
     try:
         uniq[[c for c in ("strategy", "job_label", "market", "rebalance") if c in uniq.columns]] \
@@ -143,7 +163,8 @@ def build(include_smoke=False):
     print("===== Catalog 建立完成 =====")
     for name, n in used:
         print(f"  {name:26s} {n:>7,} 策略")
-    print(f"\n  總計 {len(cat):,} 列｜獨立 {len(uniq):,}｜重複 {int(cat['is_dup'].sum()):,}")
+    print(f"\n  總計 {len(cat):,} 列｜獨立 {len(uniq):,}｜"
+          f"同 job 重複 {int(cat['is_dup'].sum()):,}｜跨 job 重疊 {int(cat['is_cross_dup'].sum()):,}")
     print(f"  → {out}")
     if "market" in cat.columns:
         print("\n  各市場/頻率分佈：")
@@ -162,8 +183,10 @@ def build(include_smoke=False):
 def main():
     ap = argparse.ArgumentParser(description="建立百科全書索引 master_index")
     ap.add_argument("--include-smoke", action="store_true", help="連 _SMOKE 的 job 也納入")
+    ap.add_argument("--include-legacy", action="store_true",
+                    help=f"連舊實驗產物也納入（{sorted(LEGACY_LABELS)}），預設排除以免重疊雙數")
     args = ap.parse_args()
-    build(include_smoke=args.include_smoke)
+    build(include_smoke=args.include_smoke, include_legacy=args.include_legacy)
 
 
 if __name__ == "__main__":

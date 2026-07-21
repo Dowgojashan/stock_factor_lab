@@ -39,19 +39,17 @@ except Exception:
 from get_data import Data
 from condition_factory import build_conditions
 from combinations import sim_conditions
-from io_persistence import export_report_collection_artifacts
+from io_persistence import _to_parquet_or_csv, _sanitize, _ensure_dir
 
 # ==================== 常數 ====================
 MIN_TRADES = 5
 ENTRY_THRESH = 1e-9
 ART_DIR = Path("results_artifacts")
+DEFAULT_START = "2000-01-01"     # MarketData 的 fallback；per-market 起點由 sweep_config.MARKET_START 傳入
 
 # 用來界定「有因子的宇宙」。TW 缺的欄位會自動略過。
 FACTOR_FIELDS = ["report:ROE", "report:EPS", "report:FCF_P",
                  "report:DEBTRATIO", "report:REVENUE", "report:PE"]
-
-# 各市場回測窗起點（A4 定案：台美同為 2000–2026）
-MARKET_START = {"US": "2000-01-01", "TW": "2000-01-01"}
 
 
 # ==================== 對齊工具 ====================
@@ -114,8 +112,7 @@ class MarketData:
             common = common[:univ_limit]       # 冒煙用
         self.common = common
 
-        start = start or MARKET_START.get(self.market, "2000-01-01")
-        START = pd.Timestamp(start)
+        START = pd.Timestamp(start or DEFAULT_START)
         for k in list(self.data.all_price_dict.keys()):
             df = self.data.all_price_dict[k].reindex(columns=common)
             df.index = pd.to_datetime(df.index)
@@ -153,7 +150,14 @@ class MarketData:
         return f
 
     def get_mask(self, cond):
-        """建某條件的遮罩，跨 spec 快取（同名條件不重算）。"""
+        """建某條件的遮罩，跨 spec 快取（同名條件不重算）。
+
+        ⚠️ 快取 key=(field, name)，跨 spec 共用的正確性**依賴一個不變式**：
+           條件名必須唯一決定其語意（含 args）。`condition_factory.auto_name` 對所有型別都
+           把 args 編進名字（q_band→qbKofN、rise_q→riseqN…）故成立。
+           M/Q 兩 job 用同一 spec、名稱相同 → 正確重用同一 mask（這是載入共享的關鍵）。
+           **若日後新增條件型別而 auto_name 未把 args 編進名字，此快取會取到錯的 mask。**
+        """
         key = (cond["field"], cond["name"])
         if key in self._mask_cache:
             return self._mask_cache[key]
@@ -237,13 +241,29 @@ def stream_strategy_masks(P1, P3, md, dedup=True):
                 yield f"{key}__v1", cmask & v_mask
 
 
-# ==================== sharpe_ann（取代壞掉的 daily_sharpe）====================
+# ==================== return_table / sharpe_ann（取代壞掉的 daily_sharpe）====================
+def return_table_to_df(return_table):
+    """把 rep.return_table（{year:{month:val}}）穩健地轉成 年×月 DataFrame。
+    ⚠️ 鍵型別混雜（int 年 + str 'YTD' 之類）會讓 pd.DataFrame 建構時排序失敗
+       （'<' not supported between 'str' and 'int'），退化策略（交易稀疏）常見。
+       故先把所有鍵統一成 str 再建，避免混型別比較。"""
+    if not isinstance(return_table, dict) or not return_table:
+        return None
+    norm = {}
+    for k, v in return_table.items():
+        norm[str(k)] = {str(ik): iv for ik, iv in v.items()} if isinstance(v, dict) else v
+    df = pd.DataFrame(norm).T
+    df.columns = [str(c) for c in df.columns]
+    return df
+
+
 def sharpe_ann_from_return_table(return_table):
     """從 return_table（逐年×逐月報酬）算正確年化 Sharpe：mean/std×√12。
     去掉起訖的結構性零（策略起訖前後未持倉）。daily_sharpe 是壞值，見 A4 §10。"""
     try:
-        rt = pd.DataFrame(return_table).T
-        rt.columns = [str(c) for c in rt.columns]
+        rt = return_table_to_df(return_table)
+        if rt is None:
+            return np.nan
         cols = [c for c in (str(i) for i in range(1, 13)) if c in rt.columns]
         if not cols:
             return np.nan
@@ -257,6 +277,37 @@ def sharpe_ann_from_return_table(return_table):
         return float(m.mean() / m.std() * np.sqrt(12))
     except Exception:
         return np.nan
+
+
+# ==================== 逐 report 落地（get_stats 只算一次）====================
+def write_report_artifacts(rc, out_dir):
+    """逐策略寫明細 artifacts（trades/position/stock_data/return_table）並收 stats。
+    **get_stats() 每策略只算一次**（不用 export_report_collection_artifacts，避免重複 get_stats），
+    順便補上正確的 sharpe_ann。回傳 stats Series 清單。"""
+    out_dir = Path(out_dir)
+    rows = []
+    for name, rep in rc.reports.items():
+        sdir = _ensure_dir(out_dir / _sanitize(name))
+        if hasattr(rep, "trades"):
+            _to_parquet_or_csv(rep.trades, sdir / "trades", True)
+        if hasattr(rep, "position"):
+            _to_parquet_or_csv(rep.position, sdir / "position", True)
+        if hasattr(rep, "stock_data"):
+            _to_parquet_or_csv(rep.stock_data, sdir / "stock_data", True)
+        try:
+            rt_df = return_table_to_df(getattr(rep, "return_table", None))
+            if rt_df is not None:
+                _to_parquet_or_csv(rt_df, sdir / "return_table", True)
+        except Exception as e:
+            warnings.warn(f"[return_table] {name}: {e}")
+        try:
+            s = rep.get_stats()                                   # ★ 只算一次
+            s["strategy"] = name
+            s["sharpe_ann"] = sharpe_ann_from_return_table(getattr(rep, "return_table", None))
+            rows.append(s)
+        except Exception as e:
+            warnings.warn(f"[stats] {name}: {e}")
+    return rows
 
 
 # ==================== 跑一份 spec ====================
@@ -293,15 +344,7 @@ def run_spec(md, spec, label, rebalance="M", batch_size=150, art_dir=ART_DIR,
             return
         bi += 1
         rc = sim_conditions(conditions=batch, resample=rebalance, data=md.data)
-        export_report_collection_artifacts(rc, out_dir, to_parquet=True)
-        for nm, rep in rc.reports.items():
-            try:
-                s = rep.get_stats()
-                s["strategy"] = nm
-                s["sharpe_ann"] = sharpe_ann_from_return_table(getattr(rep, "return_table", None))
-                stats_rows.append(s)
-            except Exception as e:
-                warnings.warn(f"[stats] {nm}: {e}")
+        stats_rows.extend(write_report_artifacts(rc, out_dir))   # 逐 report get_stats 只算一次
         n_bt += len(batch)
         if verbose:
             print(f"   [{label} batch {bi}] +{len(batch)}（累計 {n_bt}）{time.time()-t0:.0f}s",
@@ -321,14 +364,19 @@ def run_spec(md, spec, label, rebalance="M", batch_size=150, art_dir=ART_DIR,
             break
     flush()
 
-    # 合併 stats（逐批 export 寫過 batch-local stats，這裡覆蓋成完整版）
-    if stats_rows:
-        sdf = pd.DataFrame(stats_rows)
-        try:
-            sdf.to_parquet(out_dir / "stats.parquet")
-        except Exception as e:
-            warnings.warn(f"[stats] parquet 失敗改 csv：{e}")
-            sdf.to_csv(out_dir / "stats.csv", index=False)
+    # #1：0 策略視為失敗，不寫 _DONE（否則會被 catalog 略過又被 is_done 永久跳過）。
+    #     raise 讓 sweep_driver 的 except 寫 _FAILED + log，下次會重試。
+    if n_bt == 0:
+        raise RuntimeError(
+            f"[{label}] 展開後 0 個策略通過 MIN_TRADES（資料可能缺失或全被濾除）；不寫 _DONE")
+
+    # 合併 stats
+    sdf = pd.DataFrame(stats_rows)
+    try:
+        sdf.to_parquet(out_dir / "stats.parquet")
+    except Exception as e:
+        warnings.warn(f"[stats] parquet 失敗改 csv：{e}")
+        sdf.to_csv(out_dir / "stats.csv", index=False)
 
     secs = time.time() - t0
     meta = dict(label=label, market=md.market, rebalance=rebalance, dedup=dedup,
