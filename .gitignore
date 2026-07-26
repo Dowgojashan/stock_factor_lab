@@ -265,3 +265,6 @@ desktop.ini
 db_config.json
 credentials.json
 secrets.json
+
+# Unpublished thesis reference material — must never be committed
+/參考資料/

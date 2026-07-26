@@ -8,7 +8,26 @@
       "Bash(../.venv/Scripts/python.exe sweep_config.py)",
       "Bash(nohup ../.venv/Scripts/python.exe -u sweep_supervisor.py -- --markets TW)",
       "Bash(echo \"launched pid $!\")",
-      "Bash(../.venv/Scripts/python.exe analyze_job.py --label TW_f3_N5-10_c20_M --skip-credibility)"
+      "Bash(../.venv/Scripts/python.exe analyze_job.py --label TW_f3_N5-10_c20_M --skip-credibility)",
+      "Bash(find /c/Users/iplab/Desktop /c/Users/iplab/Downloads /c/Users/iplab/Documents -maxdepth 3 \\\\\\( -iname \"*.pdf\" -o -iname \"*論文*\" -o -iname \"*余姵穎*\" -o -iname \"*參考*\" \\\\\\) 2>/dev/null)",
+      "Read(//c/Users/iplab/Desktop/**)",
+      "Bash(grep -i \"\\\\.pdf$\")",
+      "Bash(gh auth *)",
+      "Bash(git -c core.quotepath=false show --stat a053237)",
+      "Bash(python -m pip show git-filter-repo)",
+      "Bash(python -m pip install --quiet git-filter-repo)",
+      "Bash(echo \"exit:$?\")",
+      "Bash(git -c core.quotepath=false ls-files)",
+      "Bash(grep \"\\\\.pdf$\")",
+      "Bash(mkdir -p /c/Users/iplab/Documents/_backup_from_repo)",
+      "Bash(cp \"參考資料/余姵穎_宣告式多因子量化回測系統之設計與實作.pdf\" /c/Users/iplab/Documents/_backup_from_repo/)",
+      "Read(//c/Users/iplab/Documents/**)",
+      "Bash(git stash *)",
+      "Bash(python -m git_filter_repo --path \"參考資料/余姵穎_宣告式多因子量化回測系統之設計與實作.pdf\" --invert-paths --force)",
+      "Bash(git remote *)",
+      "Bash(mkdir -p \"參考資料\")",
+      "Bash(cp \"/c/Users/iplab/Documents/_backup_from_repo/余姵穎_宣告式多因子量化回測系統之設計與實作.pdf\" \"參考資料/\")",
+      "Bash(git check-ignore *)"
     ]
   }
 }
