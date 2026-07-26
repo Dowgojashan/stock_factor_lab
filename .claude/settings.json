@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tasklist)",
+      "Bash(../.venv/Scripts/python.exe sweep_driver.py --markets TW --dry-run)",
+      "Bash(../.venv/Scripts/python.exe -c ' *)",
+      "Bash(PYTHONIOENCODING=utf-8 ../.venv/Scripts/python.exe -c ' *)",
+      "Bash(../.venv/Scripts/python.exe sweep_config.py)",
+      "Bash(nohup ../.venv/Scripts/python.exe -u sweep_supervisor.py -- --markets TW)",
+      "Bash(echo \"launched pid $!\")",
+      "Bash(../.venv/Scripts/python.exe analyze_job.py --label TW_f3_N5-10_c20_M --skip-credibility)"
+    ]
+  }
+}

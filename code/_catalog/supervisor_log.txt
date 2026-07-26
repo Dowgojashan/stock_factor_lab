@@ -1,3 +1,6 @@
 [2026-07-15 22:18:11] [supervisor] 啟動：D:\研究所\stock_factor_lab-master\stock_factor_lab\.venv\Scripts\python.exe -u D:\研究所\stock_factor_lab-master\stock_factor_lab\code\sweep_driver.py --dry-run --markets US
 [2026-07-15 22:18:12] [supervisor] driver 結束 rc=0｜本輪耗時 0.0 分｜_DONE 0 → 0
 [2026-07-15 22:18:12] [supervisor] ✅ driver 正常結束（全部完成、無失敗）。supervisor 收工。
+[2026-07-26 01:15:25] [supervisor] 啟動：D:\git\stock_factor_lab\.venv\Scripts\python.exe -u D:\git\stock_factor_lab\code\sweep_driver.py --markets TW
+[2026-07-26 07:56:23] [supervisor] driver 結束 rc=0｜本輪耗時 401.0 分｜_DONE 2 → 4
+[2026-07-26 07:56:23] [supervisor] ✅ driver 正常結束（全部完成、無失敗）。supervisor 收工。

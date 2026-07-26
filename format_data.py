@@ -187,6 +187,15 @@ def adjust_index_of_report(df_dict):
             new_index.append(new_date)
 
         df.index = new_index
+
+        # 月份規則是多對一映射：同一目標日可能同時收到兩個不同期末日的資料
+        # （例如多數公司 9/30、少數公司 9/28 都映射到同年 11/15），若留著重複索引，
+        # 後續 get_data.py 的 ffill 會沿索引往下把其餘公司的欄位用前一期舊值蓋掉。
+        # 這裡按目標日合併：逐欄取第一個非空值。撞期的兩批公司本身互斥（各公司只會
+        # 出現在其中一列），故無真衝突；純屬映射巧合而非同一公司重複申報。
+        if df.index.duplicated().any():
+            df = df.groupby(df.index).first()
+
         adjusted_dict[factor] = df
 
     return adjusted_dict
