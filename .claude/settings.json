@@ -27,7 +27,32 @@
       "Bash(git remote *)",
       "Bash(mkdir -p \"參考資料\")",
       "Bash(cp \"/c/Users/iplab/Documents/_backup_from_repo/余姵穎_宣告式多因子量化回測系統之設計與實作.pdf\" \"參考資料/\")",
-      "Bash(git check-ignore *)"
+      "Bash(git check-ignore *)",
+      "Bash(echo \"cd d:\\\\\\\\git\\\\\\\\stock_factor_lab\")",
+      "Bash(git fetch *)",
+      "Bash(python -m pip install --quiet PyMuPDF)",
+      "Bash(python -c \"import fitz; print\\('PyMuPDF ok', fitz.__doc__\\)\")",
+      "Bash(python -c ' *)",
+      "Bash(mkdir -p _archive)",
+      "Bash(mv code/results_artifacts/TW_f3_N5-10_c20_M code/results_artifacts/TW_f3_N5-10_c20_Q _archive/)",
+      "Bash(mv _analysis_outputs/TW_f3_N5-10_c20_M _analysis_outputs/TW_f3_N5-10_c20_Q _archive/)",
+      "Bash(mkdir -p _archive/_analysis_outputs)",
+      "Bash(mv _analysis_outputs/TW_f3_N5-10_c20_M _analysis_outputs/TW_f3_N5-10_c20_Q _analysis_outputs/TW_f3_N5-10_c20_M_run.log _analysis_outputs/TW_f3_N5-10_c20_Q_run.log _archive/_analysis_outputs/)",
+      "Bash(mkdir -p _archive/logs)",
+      "Bash(mv tw_sweep_full.log _scratch_tw_smoke.log _scratch_tw_smoke2.log _archive/logs/)",
+      "Bash(../.venv/Scripts/python.exe run_factor_batches.py --candidates PE --dry-run)",
+      "Bash(../.venv/Scripts/python.exe run_factor_batches.py --candidates PE --smoke)",
+      "Bash(../.venv/Scripts/python.exe -u analyze_batch.py --label TW_batch_PE_M)",
+      "Bash(echo \"EXIT CODE: $?\")",
+      "Bash(../.venv/Scripts/python.exe -u run_factor_batches.py --candidates EV_EBITDA,EV_S,CROIC,FCF_OI,ROIC,PB,PS,P_IC,OCF_E,MOM)",
+      "Bash(timeout 300 ../.venv/Scripts/python.exe -c ' *)",
+      "Bash(../.venv/Scripts/python.exe -c \"import ast; ast.parse\\(open\\('run_factor_batches.py', encoding='utf-8'\\).read\\(\\)\\)\")",
+      "Bash(../.venv/Scripts/python.exe run_factor_batches.py --market US --candidates PE --dry-run)",
+      "Read(//d//**)",
+      "Read(//d/研究所/**)",
+      "Read(//d/git/stock_factor_collector/**)",
+      "Bash(xargs -I{} basename {})",
+      "Read(//d/git/stock_factor_collector/CollectorFactory/USCollectorFactory/**)"
     ]
   }
 }

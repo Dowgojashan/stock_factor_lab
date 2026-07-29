@@ -48,8 +48,13 @@ ART_DIR = Path("results_artifacts")
 DEFAULT_START = "2000-01-01"     # MarketData 的 fallback；per-market 起點由 sweep_config.MARKET_START 傳入
 
 # 用來界定「有因子的宇宙」。TW 缺的欄位會自動略過。
+# 後段 11 個為因子候選批次（run_factor_batches.py）新增，涵蓋論文3.6.1節候選因子中
+# 台股資料庫實際可得的欄位（見 fcv_backtest.ipynb 已驗證的 factor_name 清單）。
 FACTOR_FIELDS = ["report:ROE", "report:EPS", "report:FCF_P",
-                 "report:DEBTRATIO", "report:REVENUE", "report:PE"]
+                 "report:DEBTRATIO", "report:REVENUE", "report:PE",
+                 "report:EV_EBITDA", "report:EV_S", "report:CROIC", "report:FCF_OI",
+                 "report:ROIC", "report:PB", "report:PS", "report:P_IC", "report:OCF_E",
+                 "report:MOM"]
 
 
 # ==================== 對齊工具 ====================

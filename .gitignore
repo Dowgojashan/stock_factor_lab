@@ -247,6 +247,7 @@ results_pickle/
 results_artifacts/
 _analysis_outputs/
 code/timing_logs/
+/_archive/
 
 
 # Manual backup files
