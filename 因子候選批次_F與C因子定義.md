@@ -7,7 +7,9 @@
 ## 1. 實驗設計概要
 
 每個候選因子各自跑一批獨立的回測 + 20張圖表分析（`TW_batch_{候選}_M` / `US_batch_{候選}_M`），
-**11批彼此獨立、不合併成一個大池**——每批都是一次完整的「固定三因子 + 1候選因子」測試。
+**10批彼此獨立、不合併成一個大池**——每批都是一次完整的「固定三因子 + 1候選因子」測試。
+
+> 原本規劃11個候選因子（含PE），2026-07-29與老師開會確認後**移除PE**，詳見§2.2下方說明。
 
 單批展開規模：F1×F2組合（~170）× C狀態（20個C + None基準 = 21）× V（v0/v1）≈ **7,140個策略**。
 
@@ -23,7 +25,7 @@
 | EPS | report:eps |
 | FCF_P | report:fcf_p（自由現金流殖利率） |
 
-### 2.2 候選因子（11個，每批只加1個）
+### 2.2 候選因子（現行10個，每批只加1個）
 
 **選用理由**：不是依財務理論精選，而是資料庫實際可用的因子欄位（`fcv_backtest.ipynb`已驗證過的
 `factor_name`清單）扣掉固定三因子後的全部剩餘欄位。對應論文3.6.1節候選因子測試的精神，但範圍
@@ -31,10 +33,15 @@
 
 | 分類 | 因子 |
 |---|---|
-| 估值倍數 | PE（本益比）、EV_EBITDA、EV_S、PB（股價淨值比）、PS（股價營收比）、P_IC（股價/投入資本） |
+| 估值倍數 | EV_EBITDA、EV_S、PB（股價淨值比）、PS（股價營收比）、P_IC（股價/投入資本） |
 | 資本報酬/獲利能力 | ROIC（投入資本報酬率）、CROIC（現金投入資本報酬率） |
 | 現金流品質 | FCF_OI（自由現金流/營業利益）、OCF_E（營運現金流/盈餘） |
 | 動量 | MOM |
+
+**PE 已排除（2026-07-29，與老師開會確認）**：PE同時是候選因子(F)、又是V構面估值濾網
+（`fcv_core.py::get_v_mask`預設抓`report:pe`）的依據，兩邊都用PE會重複探索同一個訊號，
+故拔除F裡的PE、保留V的PE。原本`TW_batch_PE_M`的回測+圖表資料本身有效，已搬移至
+`_archive/TW_PE_excluded_F_V_overlap/`（含說明），其餘10批完全不受影響、不需重跑。
 
 ### 2.3 分桶方式
 
@@ -128,15 +135,16 @@ FCF_P沒有「今年至今均 > 去年全年均」版本（`C_SKIP = {("FCF_P", 
 實際回測數依 `fcv_core.py::MIN_TRADES` 品質濾網（低於5次交易的策略剔除）略有增減：
 
 - 台股：多數批次6,800~7,100（MOM因子因分桶樣本少，僅4,203）
-- 美股：PE批次全數存活7,140；其餘10批因`filing_date`資料缺口，候選因子維度失效，
-  詳見 `_archive/US_invalid_filing_date_gap/README.md`
+- 美股：目前10個候選因子皆因`filing_date`資料缺口而無效（原本PE批次唯一有效，
+  但PE已排除），詳見 `_archive/US_invalid_filing_date_gap/README.md`；需等美股資料源
+  補上這10個因子的`filing_date`後才有真正可用的美股候選因子結果。
 
-## 6. 11批清單
+## 6. 批次清單
 
-`code/run_factor_batches.py::CANDIDATES`：
+`code/run_factor_batches.py::CANDIDATES`（PE已排除，見§2.2）：
 
 ```
-PE, EV_EBITDA, EV_S, CROIC, FCF_OI, ROIC, PB, PS, P_IC, OCF_E, MOM
+EV_EBITDA, EV_S, CROIC, FCF_OI, ROIC, PB, PS, P_IC, OCF_E, MOM
 ```
 
 每個候選各自一批（`{market}_batch_{候選}_M`），共用同一次`MarketData`資料載入以節省時間，
