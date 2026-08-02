@@ -32,7 +32,9 @@ from fcv_core import MarketData, run_spec, is_done, ART_DIR      # noqa: E402
 from sweep_config import COMMON_FACTORS, build_p1, build_p3, MARKET_START  # noqa: E402
 from condition_factory import build_conditions                    # noqa: E402
 
-CANDIDATES = ["PE", "EV_EBITDA", "EV_S", "CROIC", "FCF_OI", "ROIC",
+# PE 已排除（2026-07-29 與老師確認）：PE 同時是候選因子(F)又是 V 構面估值濾網
+# （fcv_core.py::get_v_mask 預設抓 report:pe）的依據，兩邊都用PE重複探索同一訊號，故拔除。
+CANDIDATES = ["EV_EBITDA", "EV_S", "CROIC", "FCF_OI", "ROIC",
               "PB", "PS", "P_IC", "OCF_E", "MOM"]
 
 CATALOG_DIR = Path("_catalog")

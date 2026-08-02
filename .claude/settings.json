@@ -52,7 +52,17 @@
       "Read(//d/研究所/**)",
       "Read(//d/git/stock_factor_collector/**)",
       "Bash(xargs -I{} basename {})",
-      "Read(//d/git/stock_factor_collector/CollectorFactory/USCollectorFactory/**)"
+      "Read(//d/git/stock_factor_collector/CollectorFactory/USCollectorFactory/**)",
+      "Bash(mkdir -p _archive/TW_PE_excluded_F_V_overlap)",
+      "Bash(mv \"code/results_artifacts/TW_batch_PE_M\" \"_archive/TW_PE_excluded_F_V_overlap/\")",
+      "Bash(mkdir -p \"_archive/TW_PE_excluded_F_V_overlap/_analysis_outputs\")",
+      "Bash(mv \"_analysis_outputs/TW_batch_PE_M\" \"_archive/TW_PE_excluded_F_V_overlap/_analysis_outputs/\")",
+      "Bash(git ls-tree *)",
+      "Bash(git checkout *)",
+      "Bash(git restore *)",
+      "Bash(git reflog *)",
+      "Bash(git gc *)",
+      "Bash(git update-ref *)"
     ]
   }
 }

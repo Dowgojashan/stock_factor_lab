@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-11個候選因子批次橫向比較彙整：讀各批 stats.parquet + credibility_metrics_top50.parquet，
+候選因子批次橫向比較彙整：讀各批 stats.parquet + credibility_metrics_top50.parquet，
 算出每批的關鍵指標，輸出一份 JSON 供報告頁面使用。不重跑回測、不動任何既有程式碼。
+
+PE 已排除（2026-07-29 與老師確認）：PE 同時是候選因子又是 V 構面估值濾網的依據，重複探索
+同一訊號，故拔除，剩 10 個候選。
 """
 import json
 import re
@@ -15,7 +18,8 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from analyze_batch import load_stats, f1_median_order, factor_list, parse_bucket  # noqa: E402
 
-CANDIDATES = ["PE", "EV_EBITDA", "EV_S", "CROIC", "FCF_OI", "ROIC",
+# PE 已排除（2026-07-29 與老師確認，見 run_factor_batches.py 註解）
+CANDIDATES = ["EV_EBITDA", "EV_S", "CROIC", "FCF_OI", "ROIC",
               "PB", "PS", "P_IC", "OCF_E", "MOM"]
 COMMON = {"ROE", "EPS", "FCF_P"}
 
@@ -70,7 +74,7 @@ def summarize(candidate: str) -> dict:
 def main():
     results = [summarize(c) for c in CANDIDATES]
     out = {
-        "generated_from": "TW_batch_{candidate}_M x 11",
+        "generated_from": "TW_batch_{candidate}_M x 10",
         "common_factors": sorted(COMMON),
         "candidates": results,
     }
