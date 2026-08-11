@@ -242,12 +242,53 @@ __pycache__/Backtest.cpython-38.pyc
 __pycache__/get_data.cpython-38.pyc
 
 ### Project ###
-# Backtest and analysis outputs
+# ─────────────────────────────────────────────────────────────
+# 分界線：回測「原始產物」不上傳，「分析過的結果」要上傳
+#
+#   🚫 不上傳：每個策略的逐日明細（trades / position / stock_data /
+#              return_table / stats.parquet）。這些是跑出來的中間產物，
+#              數十萬個檔案、合計約 490 GB，重跑就有。
+#
+#   ✅ 要上傳：_analysis_outputs*/ 底下的 CSV / PNG / MD，
+#              也就是已經彙整分析過、論文會直接引用的結果（約 90 MB）。
+#
+#   若要重現原始產物：依 _analysis_outputs_*/PhaseN_結果分析.md 開頭
+#   記載的「執行腳本」重跑即可，各目錄內的 _MANIFEST.json 有完整參數。
+# ─────────────────────────────────────────────────────────────
+
+# ⚠️ .gitignore 不支援行尾註解（# 會被當成 pattern 的一部分），
+#    所有說明都必須自成一行。
+
+# 回測原始產物（巨大）
+#   code/results_artifacts/  58.5 GB
+#   /_archive/              160.9 GB
 results_pickle/
 results_artifacts/
-_analysis_outputs/
 code/timing_logs/
 /_archive/
+
+# 封存的舊回測，合計約 270 GB（各目錄自帶 README 說明封存原因）
+#   code/_ARCHIVE_results_artifacts_thru2026-07/  257.7 GB
+#   code/_ARCHIVE_L3L4_strict_oldbench203/         11.9 GB
+#   code/_ARCHIVE_phase1_run1_16factors/            0.4 GB
+#   code/_ARCHIVE_phase1_run2_withV/                0.6 GB
+_ARCHIVE_*/
+
+# 舊版逐批 20 張圖圖鑑（56 MB / 413 檔）
+#   結論已被 2026-08 的 SOP 重跑取代，且含已知無效的台股 MOM 結果。
+#   若要一併上傳，把下面這行註解掉即可。
+_analysis_outputs/
+
+# Cython 編譯產物（原始碼 core/backtest_core.pyx / .cpp / setup.py 有版控，
+# 編譯結果與平台綁定，各自 `python core/setup.py build_ext --inplace` 產生）
+core/build/
+*.pyd
+*.obj
+*.exp
+
+# 會議逐字稿／錄音整理（含指導教授談話內容，不對外公開）
+*逐字稿*
+*咪挺*
 
 
 # Manual backup files

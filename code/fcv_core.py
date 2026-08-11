@@ -95,7 +95,7 @@ class MarketData:
     財報 frame 在 get_field() 就限縮到宇宙欄位 → q_band 排名母體正確（filter-before-rank）。
     """
 
-    def __init__(self, market, start=None, univ_limit=0, verbose=True):
+    def __init__(self, market, start=None, end=None, univ_limit=0, verbose=True):
         self.market = str(market).upper()
         t0 = time.time()
         if verbose:
@@ -118,10 +118,16 @@ class MarketData:
         self.common = common
 
         START = pd.Timestamp(start or DEFAULT_START)
+        # end=None（預設）＝跑到資料最末端，與加入本參數前的行為完全相同。
+        # 給定 end 時＝in-sample 上界，2026-08 起改以此明確界定樣本內/外（見 重跑計畫_老師方法論SOP.md）。
+        END = pd.Timestamp(end) if end else None
         for k in list(self.data.all_price_dict.keys()):
             df = self.data.all_price_dict[k].reindex(columns=common)
             df.index = pd.to_datetime(df.index)
-            self.data.all_price_dict[k] = df[df.index >= START]
+            df = df[df.index >= START]
+            if END is not None:
+                df = df[df.index <= END]
+            self.data.all_price_dict[k] = df
 
         idx = self.data.get("price:close").index
         self.price_index = idx if isinstance(idx, pd.DatetimeIndex) else pd.to_datetime(idx)
@@ -130,7 +136,8 @@ class MarketData:
         self._mask_cache = {}
         self._v_mask = None
         if verbose:
-            print(f"   因子宇宙={len(univ)}｜回測宇宙={len(common)}｜起點>={START.date()}｜"
+            rng = f"起點>={START.date()}" + (f"｜終點<={END.date()}" if END is not None else "")
+            print(f"   因子宇宙={len(univ)}｜回測宇宙={len(common)}｜{rng}｜"
                   f"交易日={len(self.price_index)} "
                   f"({self.price_index.min().date()}~{self.price_index.max().date()})｜"
                   f"耗時 {time.time()-t0:.0f}s", flush=True)
@@ -209,12 +216,28 @@ class MarketData:
 
 
 # ==================== 串流展開（F/C/V，含對稱去重）====================
-def stream_strategy_masks(P1, P3, md, dedup=True):
+def stream_strategy_masks(P1, P3, md, dedup=True, v_modes=("v0", "v1"),
+                          allowed_f_pairs=None):
     """串流 yield (name, daily_mask)，不同時 materialize 全部。
 
     dedup=True：F1×F2 只產**無序對**（j>i）→ EPS__ROE 與 ROE__EPS 不重複，省 45%。
+
+    v_modes：要展開哪些 V 構面。預設 ("v0","v1") ＝加入本參數前的行為完全相同。
+      傳 ("v0",) 可只跑不套估值濾網的版本——供「一次只開一個構面」的分階段實驗
+      （Phase 1 單因子線性檢定）使用，策略數直接減半。
+
+    allowed_f_pairs：F 構面白名單，一組 f"{F1名}__{F2名}" 字串（F2=None 時寫 "None"）。
+      預設 None ＝不過濾，行為與加入本參數前完全相同。
+      給定時只展開名單內的 F 組合——供分階段實驗把上一關**已篩選過**的組合帶進下一關
+      （Phase 3 只跑 Phase 2 晉升的 203 個 F 組合，而不是全部 630 個再事後丟棄）。
+      過濾發生在 C 迴圈之前，故被排除的組合完全不會產生任何遮罩運算。
     """
-    v_mask = md.get_v_mask()
+    allowed = set(allowed_f_pairs) if allowed_f_pairs is not None else None
+    v_modes = tuple(v_modes)
+    bad = [v for v in v_modes if v not in ("v0", "v1")]
+    if bad:
+        raise ValueError(f"v_modes 只接受 'v0'/'v1'，收到 {bad}")
+    v_mask = md.get_v_mask() if "v1" in v_modes else None
     P1_masks = {c["name"]: md.get_mask(c) for c in P1}
     P3_masks = {c["name"]: md.get_mask(c) for c in P3}
     P3_items = [("None", None)] + [(k, v) for k, v in P3_masks.items() if v is not None]
@@ -239,11 +262,15 @@ def stream_strategy_masks(P1, P3, md, dedup=True):
                 if m2 is None:
                     continue
                 base, p2name = (m1 & m2), p2["name"]
+            if allowed is not None and f"{p1['name']}__{p2name}" not in allowed:
+                continue                                # 不在白名單 → 連 C 都不展開
             for p3name, m3 in P3_items:
                 cmask = base if m3 is None else (base & m3)
                 key = f"{p1['name']}__{p2name}__{p3name}"
-                yield f"{key}__v0", cmask
-                yield f"{key}__v1", cmask & v_mask
+                if "v0" in v_modes:
+                    yield f"{key}__v0", cmask
+                if "v1" in v_modes:
+                    yield f"{key}__v1", cmask & v_mask
 
 
 # ==================== return_table / sharpe_ann（取代壞掉的 daily_sharpe）====================
@@ -325,7 +352,8 @@ def is_done(label, art_dir=ART_DIR):
 
 
 def run_spec(md, spec, label, rebalance="M", batch_size=150, art_dir=ART_DIR,
-             min_trades=MIN_TRADES, smoke_limit=None, dedup=True, verbose=True):
+             min_trades=MIN_TRADES, smoke_limit=None, dedup=True, verbose=True,
+             v_modes=("v0", "v1"), allowed_f_pairs=None):
     """跑一份 spec：串流展開 → 分批回測 → 逐批落地 → 合併 stats → 寫 _DONE。
 
     回傳 dict(label, n_expanded, n_kept, n_backtested, seconds)。
@@ -357,7 +385,8 @@ def run_spec(md, spec, label, rebalance="M", batch_size=150, art_dir=ART_DIR,
         batch = {}
         del rc
 
-    for name, mask in stream_strategy_masks(P1, P3, md, dedup=dedup):
+    for name, mask in stream_strategy_masks(P1, P3, md, dedup=dedup, v_modes=v_modes,
+                                            allowed_f_pairs=allowed_f_pairs):
         n_seen += 1
         if quick_stats_trades(mask) < min_trades:
             continue
