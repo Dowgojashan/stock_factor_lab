@@ -42,11 +42,48 @@ def log(m):
     print(f"[{datetime.now():%H:%M:%S}] {m}", flush=True)
 
 
+# 市場 → 報酬指數（含息）資料表。collector 於 2026-08-11 匯入（任務 C）。
+# ⚠️ 不改 database.py 的 BENCHMARK_TABLE（那是共用 pipeline 程式），只在本檔查表。
+TR_TABLE = {"TW": "taiex_tr", "US": "sp500_tr"}
+
+
+def _index_cagr(market, table, start="2000-01-01"):
+    """任一指數表的年化。回傳 (cagr, 起日, 訖日)；表不存在或空表回 (nan, None, None)。"""
+    import fcv_core  # noqa: F401  bootstrap sys.path
+    from database import Database
+    from phase1_linearity import IN_SAMPLE_END as _END
+    conn = Database(market).create_connection()
+    try:
+        s = pd.read_sql(f"SELECT date, close FROM `{table}`", conn)
+    except Exception:
+        return float("nan"), None, None
+    finally:
+        conn.close()
+    if s.empty:
+        return float("nan"), None, None
+    s["date"] = pd.to_datetime(s["date"])
+    s = s.set_index("date").sort_index()["close"].astype(float).dropna()
+    s = s[(s.index >= start) & (s.index <= _END)]
+    if len(s) < 2:
+        return float("nan"), None, None
+    yrs = (s.index[-1] - s.index[0]).days / 365.25
+    return float((s.iloc[-1] / s.iloc[0]) ** (1 / yrs) - 1), s.index[0].date(), s.index[-1].date()
+
+
 def get_bench(market, kind="universe"):
     """統一的基準取得介面，供 phase1/3/4_analyze 共用。
 
-      index    ：外部指數（taiex/sp500）——經查證是**價格指數、不含股利**
-      universe ：自建宇宙基準（本檔算出來的）——**含股利、同宇宙、同成本**
+      index    ：外部**價格**指數（taiex/sp500）——不含股利
+      index_tr ：外部**報酬**指數（taiex_tr/sp500_tr）——含股利
+      universe ：自建宇宙基準（本檔算出來的）——含股利、同宇宙、同成本
+
+    ⚠️ **index_tr 與另外兩者的期間不同，不可直接比大小**：
+       台灣報酬指數 2003 才發布，跳過了 2000-2002 那段崩盤
+       （加權指數 8,756 → 4,500），起算點差異足以造成數個百分點的假差距。
+       要對照請用 bench_table() 取同期間的三方數字。
+
+    主基準維持 universe：它問的是「因子篩選有沒有比不篩選更好」，
+    才是本研究要證明的事；報酬指數留給論文做對外的傳統基準對照。
 
     回傳 (年化報酬, 說明字串)。
     """
@@ -54,12 +91,43 @@ def get_bench(market, kind="universe"):
         from phase1_analyze import bench_cagr
         v, b0, b1 = bench_cagr(market)
         return v, f"外部價格指數 {b0}~{b1}（不含股利）"
+    if kind == "index_tr":
+        v, b0, b1 = _index_cagr(market, TR_TABLE[market])
+        if b0 is None:
+            raise FileNotFoundError(
+                f"{TR_TABLE[market]} 不存在或為空表；請先請 collector 匯入該市場的報酬指數")
+        return v, f"外部報酬指數 {b0}~{b1}（含股利）"
     p = Path(ART_DIR) / f"{market}_UNIVERSE_M" / "stats.parquet"
     if not p.exists():
         raise FileNotFoundError(
             f"找不到自建宇宙基準 {p}；請先執行：python universe_benchmark.py --market {market}")
     v = float(pd.read_parquet(p).iloc[0]["CAGR"])
     return v, "自建宇宙基準（全買、含股利、同宇宙同成本）"
+
+
+def bench_table(market):
+    """三方基準對照，**每一列都標明起算年**——期間不同就不能比大小。
+
+    論文的基準章節直接用這張表：它同時說明了
+    (a) 價格指數 vs 報酬指數的差＝股利貢獻
+    (b) 報酬指數 vs 自建基準的差＝宇宙與權重方式（市值加權 vs 等權）
+    """
+    tr_start = "2003-01-01" if market == "TW" else "2000-01-01"
+    rows = []
+    v, d0, d1 = _index_cagr(market, __import__("database").Database.BENCHMARK_TABLE[market])
+    rows.append(("外部價格指數（不含股利）", v, d0, d1))
+    v, d0, d1 = _index_cagr(market, TR_TABLE[market])
+    rows.append(("外部報酬指數（含股利）", v, d0, d1))
+    # 價格指數同樣截到報酬指數的起點，才能單獨看出股利貢獻
+    v, d0, d1 = _index_cagr(market, __import__("database").Database.BENCHMARK_TABLE[market],
+                            start=tr_start)
+    rows.append(("外部價格指數（同報酬指數期間）", v, d0, d1))
+    try:
+        v, _ = get_bench(market, "universe")
+        rows.append(("自建宇宙基準（含股利、等權）", v, "2000-01-01", IN_SAMPLE_END))
+    except FileNotFoundError:
+        pass
+    return pd.DataFrame(rows, columns=["基準", "年化", "起", "訖"])
 
 
 def main():
