@@ -19,7 +19,7 @@ Phase 1：9桶單因子線性檢定（依 2026-08-05 指導教授 meeting 的方
 ⚠️ in-sample = 2000-01-01 ~ 2025-12-31（2026 保留為樣本外），
    透過 MarketData(end=IN_SAMPLE_END) 強制切斷。
 
-因子池 16 個（DB 實有 17 個，扣掉老師已排除的 PE）。
+因子池 20 個（DB 實有 21 個，扣掉老師已排除的 PE；見下方 FACTORS）。
 PE 不進 F 構面，僅保留作為 V 估值濾網的依據（fcv_core.get_v_mask）。
 
 用法（cwd 任意）：
@@ -66,6 +66,20 @@ FACTORS = [
     "VOL",                                               # 波動
     "NETDEBT_EBITDA",                                    # 財務結構（償債能力）
 ]
+
+# 📌 **刻意不納入因子池**（2026-08-12 使用者決定：先維持現有規模）
+#    collector 已於 2026-08-12 交付 4 個新因子（Task D），資料庫裡有值：
+#      GP_A / CURRENT_RATIO / RD_S / INV_G
+#    不納入的理由（要恢復時把它們加回上面的 FACTORS 即可）：
+#    1. 台股這 4 個的原始科目在 TEJ Pro 只到 **2005-06** 起，2000-2004 全空。
+#       9 個桶同樣都少前 5 年 → Spearman ρ 不受影響，但**絕對 CAGR 系統性低估**，
+#       在 Phase 2「贏基準 2pp」的門檻上會吃虧，與其他 20 個因子不對等。
+#    2. 加了要整批重跑 Phase 2~4（無逐策略續傳），台美合計約 15-20 小時。
+#    3. 多重檢定風險：20 → 24 等於多開 4 次檢定。
+#    ⚠️ 恢復時：Phase 2 的舊目錄（{market}_L2_all_M 等）必須先封存，
+#       否則標籤相同會被 is_done() 判定已完成而靜默沿用舊的 19 因子回測
+#       （phase_variants.assert_pool_unchanged 會擋下並報錯）。
+NOT_IN_POOL = ["GP_A", "CURRENT_RATIO", "RD_S", "INV_G"]
 
 CATALOG_DIR = Path("_catalog")
 RUN_LOG = CATALOG_DIR / "phase1_run_log.txt"

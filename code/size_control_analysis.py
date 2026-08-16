@@ -51,9 +51,19 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 OUT = HERE.parent / "_analysis_outputs_sizecontrol"
-SIZE_FACTOR = "REVENUE"          # 規模代理：營收（資料庫沒有市值欄位可直接當因子）
-SIZE_LABEL = {f"{SIZE_FACTOR}_qb0": "小型", f"{SIZE_FACTOR}_qb1": "中型",
-              f"{SIZE_FACTOR}_qb2": "大型"}
+ART = HERE / "results_artifacts"
+
+# 規模代理有兩種來源：
+#   MKTCAP （建議）：真市值。collector 2026-08-13 新增，但**沒進過 Phase 2 的因子池**，
+#                    所以要另外跑 `size_control_backtest.py`（174 個策略、約 10 分鐘）。
+#   REVENUE（備援）：營收。Phase 2 的因子池裡就有、配對現成，不需額外回測，
+#                    但營收 ≠ 市值（低毛利高營收的通路/代工會被歸到偏大的桶）。
+SIZE_SOURCE = {
+    "MKTCAP": {"desc": "季底普通股市值 / marketCap（真市值）",
+               "from": "sizectrl"},
+    "REVENUE": {"desc": "營業收入（市值的代理，有產業偏誤）",
+                "from": "phase2"},
+}
 
 
 def log(m):
@@ -75,7 +85,28 @@ def load(market, variant):
     return d
 
 
-def build(market, variant, bench):
+def load_size_pairs(market, size_factor):
+    """讀「規模桶 × 因子桶」的配對 CAGR（MKTCAP 專用回測）。
+
+    `{market}_SIZECTRL_M` 由 `size_control_backtest.py` 產生，
+    策略名一律是 `MKTCAP_qbIof3__X_qbJof3__None__v0`（MKTCAP 固定在第一段）。
+    """
+    p = ART / f"{market}_SIZECTRL_M" / "stats.parquet"
+    if not p.exists():
+        raise FileNotFoundError(
+            f"找不到 {p}\n請先執行：python size_control_backtest.py --market {market}"
+            f"（174 個策略，約 10 分鐘）")
+    d = pd.read_parquet(p)
+    parts = d["strategy"].str.split("__", expand=True)
+    d = d.assign(f1=parts[0].str.replace(r"of3$", "", regex=True),
+                 f2=parts[1].str.replace(r"of3$", "", regex=True))
+    d = d[d["f2"] != "None"]
+    if not d["f1"].str.startswith(size_factor + "_").all():
+        raise AssertionError(f"{p} 的第一段應該全是 {size_factor} 的桶")
+    return {(f2, f1): c for f1, f2, c in zip(d["f1"], d["f2"], d["CAGR"])}
+
+
+def build(market, variant, bench, size_factor):
     d = load(market, variant)
     solo = d[d["f2"] == "None"].set_index("f1")["CAGR"].to_dict()
     hold = d[d["f2"] == "None"].set_index("f1")["平均持股數"].to_dict()
@@ -89,12 +120,17 @@ def build(market, variant, bench):
         pair[(f1, f2)] = pair[(f2, f1)] = cagr
         phold[(f1, f2)] = phold[(f2, f1)] = h
 
+    if SIZE_SOURCE[size_factor]["from"] == "sizectrl":
+        pair.update(load_size_pairs(market, size_factor))   # 專用回測的配對覆蓋進來
+
+    size_label = {f"{size_factor}_qb0": "小型", f"{size_factor}_qb1": "中型",
+                  f"{size_factor}_qb2": "大型"}
     rows = []
     for x in sorted(solo):
-        if x.startswith(SIZE_FACTOR + "_"):
+        if x.startswith(size_factor + "_"):
             continue                                  # 規模因子自己不當被檢驗對象
         rec = {"因子桶": x, "單獨": solo[x], "單獨持股": hold.get(x, np.nan)}
-        for sb, lab in SIZE_LABEL.items():
+        for sb, lab in size_label.items():
             rec[lab] = pair.get((x, sb), np.nan)
             rec[lab + "持股"] = phold.get((x, sb), np.nan)
         rows.append(rec)
@@ -122,12 +158,12 @@ def build(market, variant, bench):
     return t.sort_values("中大型超額", ascending=False)
 
 
-def plot(t, market, bench, path):
+def plot(t, market, bench, path, size_factor):
     d = t[np.isfinite(t["小型"]) & np.isfinite(t["中大型最佳"])].copy()
     d = d.sort_values("中大型超額", ascending=True).tail(24)
     fig, ax = plt.subplots(figsize=(11, max(5, 0.34 * len(d))))
     y = np.arange(len(d))
-    for col, c, m, lab in [("小型", "#d62728", "o", "× 小型（REVENUE_qb0）"),
+    for col, c, m, lab in [("小型", "#d62728", "o", f"× 小型（{size_factor}_qb0）"),
                            ("中型", "#ff7f0e", "s", "× 中型（qb1）"),
                            ("大型", "#1f77b4", "^", "× 大型（qb2）"),
                            ("單獨", "#555555", "x", "不控制規模")]:
@@ -154,7 +190,10 @@ def main():
     ap = argparse.ArgumentParser(description="規模控制分析（不需重跑回測）")
     ap.add_argument("--market", default="US", choices=["TW", "US"])
     ap.add_argument("--variant", default="all",
-                    help="用哪個變體的 Phase 2 組合表；需含 REVENUE，故預設 all")
+                    help="用哪個變體的 Phase 2 組合表取單因子基準；預設 all（涵蓋最廣）")
+    ap.add_argument("--size-factor", default="MKTCAP", choices=list(SIZE_SOURCE),
+                    help="規模代理。MKTCAP＝真市值（需先跑 size_control_backtest.py）；"
+                         "REVENUE＝營收（Phase 2 現成，有產業偏誤）")
     ap.add_argument("--bench", default="universe", choices=["universe", "index", "index_tr"])
     args = ap.parse_args()
 
@@ -162,10 +201,12 @@ def main():
     bench, bdesc = get_bench(args.market, args.bench)
     OUT.mkdir(parents=True, exist_ok=True)
 
+    sf = args.size_factor
     log(f"=== 規模控制分析｜{args.market}｜變體 {args.variant} ===")
-    log(f"基準 = {bench:.2%}（{bdesc}）｜規模代理 = {SIZE_FACTOR} 三分位\n")
+    log(f"基準 = {bench:.2%}（{bdesc}）")
+    log(f"規模代理 = {sf} 三分位（{SIZE_SOURCE[sf]['desc']}）\n")
 
-    t = build(args.market, args.variant, bench)
+    t = build(args.market, args.variant, bench, sf)
 
     show = t[["因子桶", "單獨", "小型", "中型", "大型", "中大型超額", "規模落差", "判定"]].copy()
     for c in ["單獨", "小型", "中型", "大型", "中大型超額", "規模落差"]:
@@ -176,10 +217,11 @@ def main():
     log("\n===== 判定彙總 =====")
     log(t["判定"].value_counts().to_string())
 
-    csv = OUT / f"{args.market}_{args.variant}_size_control.csv"
-    png = OUT / f"{args.market}_{args.variant}_size_control.png"
+    tag = "" if sf == "MKTCAP" else f"_{sf.lower()}"
+    csv = OUT / f"{args.market}_{args.variant}{tag}_size_control.csv"
+    png = OUT / f"{args.market}_{args.variant}{tag}_size_control.png"
     t.to_csv(csv, index=False, encoding="utf-8-sig")
-    plot(t, args.market, bench, png)
+    plot(t, args.market, bench, png, sf)
     log(f"\n輸出：{csv}\n      {png}")
 
 

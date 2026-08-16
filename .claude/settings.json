@@ -90,7 +90,22 @@
       "Bash(python phase4_valuation.py --market US --variant openSec)",
       "Bash(python phase4_analyze.py --market US --variant openSec)",
       "PowerShell(& 'C:\\\\Users\\\\iplab\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--git-stock-factor-lab\\\\08456117-ebbf-4f99-833f-a85c3747cf1e\\\\scratchpad\\\\sizes.ps1')",
-      "PowerShell(& 'C:\\\\Users\\\\iplab\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--git-stock-factor-lab\\\\08456117-ebbf-4f99-833f-a85c3747cf1e\\\\scratchpad\\\\sizes_code.ps1')"
+      "PowerShell(& 'C:\\\\Users\\\\iplab\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--git-stock-factor-lab\\\\08456117-ebbf-4f99-833f-a85c3747cf1e\\\\scratchpad\\\\sizes_code.ps1')",
+      "Bash(python -W ignore variant_compare.py --market TW)",
+      "Bash(python -W ignore phase2_analyze.py --market US --variant openSec)",
+      "Bash(python -W ignore phase3_analyze.py --market US --variant openSec)",
+      "Bash(python -W ignore phase4_analyze.py --market US --variant openSec)",
+      "Bash(python -W ignore size_control_analysis.py --market US --variant all)",
+      "Bash(echo \"=== 輸出檔最後修改時間 ===\")",
+      "Bash(ls -l --time-style=full-iso C:/Users/iplab/AppData/Local/Temp/claude/d--git-stock-factor-lab/08456117-ebbf-4f99-833f-a85c3747cf1e/tasks/byf3ibmns.output)",
+      "Bash(cd d:/git/stock_factor_lab/code/results_artifacts && echo \"=== 清掉中斷的 US_L3_all_M（3,600 個殘留子目錄，無 stats 無 _DONE） ===\" && du -sh US_L3_all_M 2>/dev/null; rm -rf US_L3_all_M && echo \"已刪除\" && ls | grep -c \"^US_\")",
+      "Bash(python phase3_conditions.py --market US --variant all)",
+      "Bash(python -W ignore phase3_analyze.py --market US --variant all)",
+      "Bash(python phase4_valuation.py --market US --variant all)",
+      "Bash(python -W ignore phase4_analyze.py --market US --variant all)",
+      "Bash(python -W ignore variant_compare.py --market US)",
+      "Bash(python \"C:/Users/iplab/AppData/Local/Temp/claude/d--git-stock-factor-lab/08456117-ebbf-4f99-833f-a85c3747cf1e/scratchpad/tw_final.py\")",
+      "Bash(python C:/Users/iplab/AppData/Local/Temp/claude/d--git-stock-factor-lab/08456117-ebbf-4f99-833f-a85c3747cf1e/scratchpad/tw_final.py)"
     ]
   }
 }

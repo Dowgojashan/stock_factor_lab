@@ -66,8 +66,10 @@ def bench_cagr(market):
         yrs = (bm.index[-1] - bm.index[0]).days / 365.25
         return float((bm.iloc[-1] / bm.iloc[0]) ** (1 / yrs) - 1), bm.index[0].date(), bm.index[-1].date()
     except Exception as e:
-        log(f"⚠️ 大盤基準計算失敗（{e}），改用 0")
-        return 0.0, None, None
+        # ⚠️ 不可 fallback 回 0：基準是所有判定的門檻，bench=0 會讓每個因子都「贏大盤」，
+        #    把資料庫連不上偽裝成「全部過關」。這正是我們要求 collector 不要做的事
+        #    （算不出來一律回 None，絕不回 0），自己更不能犯。
+        raise RuntimeError(f"大盤基準計算失敗，無法判定：{e}") from e
 
 
 def load_curve(market, factor):
@@ -91,7 +93,7 @@ def size_overlap(market, factor, k, ref_pos=None):
     就會把「小公司溢酬」誤認成「這個因子有效」。
 
     重疊率高（>40%）＝該桶的表現要打折看；低（<20%）＝是獨立訊號。
-    這只是**診斷**（揭露干擾程度），不是控制；真正的控制見 size_controlled.py
+    這只是**診斷**（揭露干擾程度），不是控制；真正的控制見 size_control_analysis.py
     （用 F1×F2 把 REVENUE 當其中一腳，等於在固定規模的條件下看該因子）。
     """
     if ref_pos is None:

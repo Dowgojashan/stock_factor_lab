@@ -129,11 +129,14 @@ def main():
     log(f"    P1 條件數={n_cond}｜單因子={n_single}｜跨因子配對={n_pair}｜預期共 {n_expect} 策略")
     log(f"    {'done' if is_done(label) else 'pending'}  {label}")
 
+    # 標籤不含因子數，因子池變大時 is_done 會誤判「已完成」而靜默沿用舊回測 → 先擋下
+    already = phase_variants.assert_pool_unchanged(label, FACTORS)
+
     if args.dry_run:
         log("dry-run：不執行。")
         return 0
-    if is_done(label):
-        log("已完成，無待跑。")
+    if already and is_done(label):
+        log("已完成（且因子池相同），無待跑。")
         return 0
 
     log(f"[{args.market}] 載入資料…")

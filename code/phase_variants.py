@@ -113,6 +113,45 @@ def l2_label(market, variant):
                 f"\n  {variant}: {a}\n  {owner}: {b}")
     return f"{market}_L2_M" if owner == "strict" else f"{market}_L2_{owner}_M"
 
+def assert_pool_unchanged(label, factors, art_dir=None):
+    """比對既有 `_DONE` 裡記錄的因子池與現在要跑的是否相同，不同就拒絕沿用。
+
+    為什麼需要（2026-08-12）：l2_label() 的標籤**不含因子數**，所以因子池從
+    19 個變成 23 個時標籤不變，`is_done()` 會直接判定「已完成」而跳過，
+    **靜默拿舊的 19 因子回測當新結果用**。這與本專案已發生過兩次的
+    「靜默重用／讀錯來源」是同一類錯誤，故在此主動擋下。
+
+    回傳 True＝可安全沿用；False＝目錄不存在或沒有可比的紀錄（照跑即可）。
+    因子池不同則 raise。
+    """
+    import json
+    from pathlib import Path as _P
+    if art_dir is None:
+        from fcv_core import ART_DIR as art_dir
+    p = _P(art_dir) / label / "_DONE"
+    if not p.exists():
+        return False
+    try:
+        meta = json.loads(p.read_text(encoding="utf-8")).get("meta", {})
+    except Exception:
+        return False
+    old = list(meta.get("primary", [])) + list(meta.get("secondary", []))
+    seen, old_pool = set(), []
+    for f in old:
+        if f not in seen:
+            old_pool.append(f)
+            seen.add(f)
+    if not old_pool:
+        return False
+    if old_pool != list(factors):
+        raise AssertionError(
+            f"[{label}] 既有回測的因子池與現在要跑的不同，**不可沿用**：\n"
+            f"  既有（{len(old_pool)}）：{old_pool}\n"
+            f"  現在（{len(factors)}）：{list(factors)}\n"
+            f"→ 請先把 {art_dir}/{label} 封存或改名，再重跑。")
+    return True
+
+
 N_BUCKETS = 3
 
 

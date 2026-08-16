@@ -98,7 +98,10 @@ def main():
                     help="universe＝自建宇宙基準(含股利，預設)；index＝外部價格指數(不含股利)")
     args = ap.parse_args()
     mkt = args.market
-    V = phase_variants.get(args.variant)
+    # ⚠️ 必須帶 market：phase_variants.get() 的 market 預設是 "TW"，漏傳會拿台股的
+    #    Phase 1 判定去篩美股（2026-08-12 code review 抓到，美股 openSec 曾因此用錯
+    #    primary 池——台股過關 5 個 vs 美股過關 8 個，且台股的 MOM 在美股只是「只取極端桶」）。
+    V = phase_variants.get(args.variant, mkt)
     PRIMARY, SECONDARY = V["primary"], V["secondary"]
     PRIMARY_MARGIN, SECONDARY_TOL = V["primary_margin"], V["secondary_tol"]
     # 因子池相同的變體共用同一份 Phase 2 回測（差別只在分析層的角色指派）：

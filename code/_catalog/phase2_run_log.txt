@@ -40,3 +40,53 @@
 [2026-08-11 14:25:21] [US] 載入資料…
 [2026-08-11 16:40:48] ✅ US_L2_all_M｜展開 1596｜回測 1596｜7903.9s
 [2026-08-11 16:40:49] === Phase 2 結束｜耗時 131.7 分鐘 ===
+[2026-08-12 23:42:46] === Phase 2 配對｜市場=US｜因子=19（primary 8 / secondary 19）｜分桶 N=3｜V=('v0',)（C 關閉）｜in-sample 至 2025-12-31 ===
+[2026-08-12 23:42:46]     primary  ：['REVENUE', 'P_IC', 'VOL', 'PS', 'EV_EBITDA', 'EV_S', 'PB', 'EPS']
+[2026-08-12 23:42:46]     secondary：['REVENUE', 'P_IC', 'VOL', 'PS', 'EV_EBITDA', 'EV_S', 'PB', 'EPS', 'ACCRUAL', 'OCF_E', 'CROIC', 'FCF_P', 'ROIC', 'MOM', 'REV_G', 'ROE', 'DEBTRATIO', 'NETDEBT_EBITDA', 'FCF_OI']
+[2026-08-12 23:42:46]     P1 條件數=57｜單因子=57｜跨因子配對=1539｜預期共 1596 策略
+[2026-08-12 23:42:46]     pending  US_L2_all_M
+[2026-08-12 23:42:46] [US] 載入資料…
+[2026-08-13 01:53:28] ✅ US_L2_all_M｜展開 1596｜回測 1596｜7651.2s
+[2026-08-13 01:53:28] === Phase 2 結束｜耗時 127.5 分鐘 ===
+[2026-08-13 11:33:51] === Phase 2 配對｜市場=US｜因子=18（primary 8 / secondary 10）｜分桶 N=3｜V=('v0',)（C 關閉）｜in-sample 至 2025-12-31 ===
+[2026-08-13 11:33:51]     primary  ：['REVENUE', 'P_IC', 'VOL', 'PS', 'EV_EBITDA', 'EV_S', 'PB', 'EPS']
+[2026-08-13 11:33:51]     secondary：['NETDEBT_EBITDA', 'ACCRUAL', 'OCF_E', 'CROIC', 'FCF_P', 'ROIC', 'MOM', 'REV_G', 'ROE', 'DEBTRATIO']
+[2026-08-13 11:33:51]     P1 條件數=54｜單因子=54｜跨因子配對=1377｜預期共 1431 策略
+[2026-08-13 11:33:51]     pending  US_L2_M
+[2026-08-13 11:33:51] dry-run：不執行。
+[2026-08-13 11:44:24] === Phase 2 配對｜市場=US｜因子=18（primary 8 / secondary 10）｜分桶 N=3｜V=('v0',)（C 關閉）｜in-sample 至 2025-12-31 ===
+[2026-08-13 11:44:24]     primary  ：['REVENUE', 'P_IC', 'VOL', 'PS', 'EV_EBITDA', 'EV_S', 'PB', 'EPS']
+[2026-08-13 11:44:24]     secondary：['NETDEBT_EBITDA', 'ACCRUAL', 'OCF_E', 'CROIC', 'FCF_P', 'ROIC', 'MOM', 'REV_G', 'ROE', 'DEBTRATIO']
+[2026-08-13 11:44:24]     P1 條件數=54｜單因子=54｜跨因子配對=1377｜預期共 1431 策略
+[2026-08-13 11:44:24]     pending  US_L2_M
+[2026-08-13 11:44:24] [US] 載入資料…
+[2026-08-13 13:25:56] ✅ US_L2_M｜展開 1431｜回測 1431｜5854.0s
+[2026-08-13 13:25:56] === Phase 2 結束｜耗時 97.6 分鐘 ===
+[2026-08-14 23:24:20] === Phase 2 配對｜市場=TW｜因子=19（primary 6 / secondary 19）｜分桶 N=3｜V=('v0',)（C 關閉）｜in-sample 至 2025-12-31 ===
+[2026-08-14 23:24:20]     primary  ：['P_IC', 'PB', 'PS', 'EV_S', 'MOM', 'ROE']
+[2026-08-14 23:24:20]     secondary：['P_IC', 'PB', 'PS', 'EV_S', 'MOM', 'ROE', 'FCF_P', 'EV_EBITDA', 'OCF_E', 'ACCRUAL', 'ROIC', 'DEBTRATIO', 'FCF_OI', 'NETDEBT_EBITDA', 'CROIC', 'VOL', 'EPS', 'REVENUE', 'REV_G']
+[2026-08-14 23:24:20]     P1 條件數=57｜單因子=57｜跨因子配對=1539｜預期共 1596 策略
+[2026-08-14 23:24:20]     pending  TW_L2_all_M
+[2026-08-14 23:24:20] dry-run：不執行。
+[2026-08-14 23:24:20] === Phase 2 配對｜市場=TW｜因子=14（primary 6 / secondary 8）｜分桶 N=3｜V=('v0',)（C 關閉）｜in-sample 至 2025-12-31 ===
+[2026-08-14 23:24:20]     primary  ：['P_IC', 'PB', 'PS', 'EV_S', 'MOM', 'ROE']
+[2026-08-14 23:24:20]     secondary：['EV_EBITDA', 'OCF_E', 'ACCRUAL', 'ROIC', 'DEBTRATIO', 'FCF_OI', 'NETDEBT_EBITDA', 'FCF_P']
+[2026-08-14 23:24:20]     P1 條件數=42｜單因子=42｜跨因子配對=819｜預期共 861 策略
+[2026-08-14 23:24:20]     pending  TW_L2_M
+[2026-08-14 23:24:20] dry-run：不執行。
+[2026-08-15 00:40:31] === Phase 2 配對｜市場=TW｜因子=19（primary 6 / secondary 19）｜分桶 N=3｜V=('v0',)（C 關閉）｜in-sample 至 2025-12-31 ===
+[2026-08-15 00:40:31]     primary  ：['P_IC', 'PB', 'PS', 'EV_S', 'MOM', 'ROE']
+[2026-08-15 00:40:31]     secondary：['P_IC', 'PB', 'PS', 'EV_S', 'MOM', 'ROE', 'FCF_P', 'EV_EBITDA', 'OCF_E', 'ACCRUAL', 'ROIC', 'DEBTRATIO', 'FCF_OI', 'NETDEBT_EBITDA', 'CROIC', 'VOL', 'EPS', 'REVENUE', 'REV_G']
+[2026-08-15 00:40:31]     P1 條件數=57｜單因子=57｜跨因子配對=1539｜預期共 1596 策略
+[2026-08-15 00:40:31]     pending  TW_L2_all_M
+[2026-08-15 00:40:31] [TW] 載入資料…
+[2026-08-15 01:59:37] ✅ TW_L2_all_M｜展開 1596｜回測 1596｜4612.6s
+[2026-08-15 01:59:37] === Phase 2 結束｜耗時 76.9 分鐘 ===
+[2026-08-15 09:31:15] === Phase 2 配對｜市場=TW｜因子=14（primary 6 / secondary 8）｜分桶 N=3｜V=('v0',)（C 關閉）｜in-sample 至 2025-12-31 ===
+[2026-08-15 09:31:15]     primary  ：['P_IC', 'PB', 'PS', 'EV_S', 'MOM', 'ROE']
+[2026-08-15 09:31:15]     secondary：['EV_EBITDA', 'OCF_E', 'ACCRUAL', 'ROIC', 'DEBTRATIO', 'FCF_OI', 'NETDEBT_EBITDA', 'FCF_P']
+[2026-08-15 09:31:15]     P1 條件數=42｜單因子=42｜跨因子配對=819｜預期共 861 策略
+[2026-08-15 09:31:15]     pending  TW_L2_M
+[2026-08-15 09:31:15] [TW] 載入資料…
+[2026-08-15 10:15:26] ✅ TW_L2_M｜展開 861｜回測 861｜2549.0s
+[2026-08-15 10:15:26] === Phase 2 結束｜耗時 42.5 分鐘 ===

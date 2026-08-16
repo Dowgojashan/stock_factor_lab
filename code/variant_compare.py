@@ -64,10 +64,12 @@ def main():
     bench, bdesc = get_bench(mkt, "universe")
     log(f"基準 = {bench:.2%}（{bdesc}）\n")
 
-    elim = set(pv.ELIMINATED)
+    # pv.ELIMINATED 這個模組層常數在「改為依市場讀取 Phase 1 判定」的重構中移除了，
+    # 必須改用 pv.groups(市場)；同理 pv.get() 也要帶 market，否則美股會拿台股的判定。
+    elim = set(pv.groups(mkt)["ELIMINATED"])
     rows, finals = [], {}
     for v in VARIANTS:
-        V = pv.get(v)
+        V = pv.get(v, mkt)
         solo = pd.read_csv(P2 / f"{mkt}_L2{sfx(v)}_solo_buckets.csv", encoding="utf-8-sig")
         comb = pd.read_csv(P2 / f"{mkt}_L2{sfx(v)}_all_combos.csv", encoding="utf-8-sig")
         fin_p = P4 / f"{mkt}_L4{sfx(v)}_final_candidates.csv"
