@@ -105,7 +105,9 @@
       "Bash(python -W ignore phase4_analyze.py --market US --variant all)",
       "Bash(python -W ignore variant_compare.py --market US)",
       "Bash(python \"C:/Users/iplab/AppData/Local/Temp/claude/d--git-stock-factor-lab/08456117-ebbf-4f99-833f-a85c3747cf1e/scratchpad/tw_final.py\")",
-      "Bash(python C:/Users/iplab/AppData/Local/Temp/claude/d--git-stock-factor-lab/08456117-ebbf-4f99-833f-a85c3747cf1e/scratchpad/tw_final.py)"
+      "Bash(python C:/Users/iplab/AppData/Local/Temp/claude/d--git-stock-factor-lab/08456117-ebbf-4f99-833f-a85c3747cf1e/scratchpad/tw_final.py)",
+      "Bash(sed -i 's/^3\\\\. \\\\*\\\\*樣本外驗證\\\\*\\\\*/4. **樣本外驗證**/; s/^4\\\\. \\\\*\\\\*`PE` 資料清理\\\\*\\\\*/5. **`PE` 資料清理**/' 週進度報告_2026-08-17.md)",
+      "Bash(sed -n '/^## 7\\\\./,$p' 週進度報告_2026-08-17.md)"
     ]
   }
 }

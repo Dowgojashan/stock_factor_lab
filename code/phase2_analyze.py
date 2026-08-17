@@ -76,18 +76,43 @@ def parse_name(s):
     return f1, k1, f2, k2
 
 
-def avg_holdings(label, strategy):
-    """從 position.parquet 算平均每月持股數（只算有持股的月份）。"""
+def holdings_stats(label, strategy):
+    """持股數的三個指標。回傳 (平均持股數, 持股月份覆蓋率, 持股數p10)。
+
+    ⚠️ 2026-08-16 第三方審查指出既有 `平均持股數` 有兩個缺陷，故補兩個欄位：
+
+    1. **排除空手月份**：`nz = nz[nz > 0]` 讓「前十年完全空手、後十六年正常」的策略
+       平均持股看起來完全正常。而「空手期間不虧錢」正是 Phase 1 §7 診斷出的
+       「什麼都贏大盤」的成因機制——同一個機制在 MIN_HOLDINGS 這關仍沒被擋。
+       → 加 `持股月份覆蓋率`。
+    2. **用平均而非低分位**：平均 12 檔可能是「一半月份 22 檔、一半月份 2 檔」。
+       老師的原話是「被選出來的股票不能太少，那就是策略**不穩定**」——講的正是穩定性，
+       而平均恰好把不穩定藏起來。
+       → 加 `持股數p10`（有持股月份的第 10 百分位）。
+
+    **目前只輸出欄位、不改門檻**（門檻仍是 `平均持股數 >= MIN_HOLDINGS`），
+    先看分布再決定，避免一次改動兩件事、讓結果無法歸因。
+    """
     p = ART / label / strategy / "position.parquet"
     if not p.exists():
-        return np.nan
+        return np.nan, np.nan, np.nan
     try:
         pos = pd.read_parquet(p)
         nz = (pos != 0).sum(axis=1)
-        nz = nz[nz > 0]
-        return float(nz.mean()) if len(nz) else 0.0
+        n_total = len(nz)
+        held = nz[nz > 0]
+        if not len(held):
+            return 0.0, 0.0, 0.0
+        return (float(held.mean()),
+                float(len(held) / n_total) if n_total else np.nan,
+                float(held.quantile(0.10)))
     except Exception:
-        return np.nan
+        return np.nan, np.nan, np.nan
+
+
+def avg_holdings(label, strategy):
+    """僅平均持股數（維持既有介面與數值，供 phase3/phase4_analyze 沿用）。"""
+    return holdings_stats(label, strategy)[0]
 
 
 def main():
@@ -127,8 +152,12 @@ def main():
     log(f"讀入 {len(df)} 個策略（單因子 {int((~df['is_pair']).sum())}／配對 {int(df['is_pair'].sum())}）")
 
     # ---------- 平均持股數（老師的第二個約束） ----------
-    log("計算平均每月持股數 …")
-    df["平均持股數"] = [avg_holdings(label, s) for s in df["strategy"]]
+    log("計算持股數三項指標（平均／覆蓋率／p10）…")
+    hs = [holdings_stats(label, s) for s in df["strategy"]]
+    df["平均持股數"] = [h[0] for h in hs]
+    df["持股月份覆蓋率"] = [h[1] for h in hs]      # 有持股的月份 ÷ 總月份
+    df["持股數p10"] = [h[2] for h in hs]           # 有持股月份的第 10 百分位
+    # ⚠️ 門檻維持只看平均（見 holdings_stats 說明）：先產出分布再決定要不要收緊
     df["持股數足夠"] = df["平均持股數"] >= MIN_HOLDINGS
 
     # ---------- 單因子基準表：每個 (因子,桶) 自己有多強 ----------
@@ -196,7 +225,8 @@ def main():
 
     res = pd.DataFrame(rows)
     cols = ["strategy", "primary", "secondary", "CAGR", "primary_solo_CAGR", "配對增益",
-            "max_drawdown", "win_ratio", "平均持股數", "晉升", "未過原因"]
+            "max_drawdown", "win_ratio", "平均持股數", "持股月份覆蓋率", "持股數p10",
+            "晉升", "未過原因"]
     res[cols].sort_values(["晉升", "CAGR"], ascending=[False, False]).to_csv(
         OUT / f"{mkt}_L2{sfx}_all_combos.csv", index=False, encoding="utf-8-sig")
 

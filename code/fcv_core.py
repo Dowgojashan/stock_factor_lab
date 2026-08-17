@@ -133,6 +133,7 @@ class MarketData:
         self.price_index = idx if isinstance(idx, pd.DatetimeIndex) else pd.to_datetime(idx)
 
         self._field_cache = {}
+        self._ann_cache = {}   # get_field_ann 的快取（公告點稀疏 frame）
         self._mask_cache = {}
         self._v_mask = None
         if verbose:
@@ -161,6 +162,45 @@ class MarketData:
         self._field_cache[field] = f
         return f
 
+    def get_field_ann(self, field):
+        """**公告點稀疏** frame：每個非 NaN 就是該股的一次財報公告，NaN＝當天沒有新財報。
+
+        為什麼需要它（2026-08-17）：
+          `get_data.Data.get()` 在回傳財報前做了一次 `fillna(ffill)`（get_data.py:136），
+          讓每個交易日都有值。這對**橫斷面**條件（q_band）是必要的——每列要有完整的
+          同期同儕才排得了名。但對**時序**條件是災難：ffill 之後看不出「這天有沒有新財報」，
+          只能用「值有沒有變」去猜，而那個猜測在各公司公告日分散的美股完全失效
+          （riseq1 通過率 0.8%、qmax4 97.5%，應各約 50% 與 25%）。
+
+        作法：重用 `format_report_data` / `adjust_index_of_report`，只是**跳過那次 ffill**。
+        不修改 get_data.py / format_data.py（共用 pipeline），把差異收斂在這裡。
+
+        ⚠️ 回傳的 frame **不對齊交易日**（索引是財報日／公告日）。
+           條件算完後由 `get_mask` 統一 reindex 回 price_index。
+        """
+        if field in self._ann_cache:
+            return self._ann_cache[field]
+        f = None
+        try:
+            from format_data import format_report_data, adjust_index_of_report
+            item = field.split(":", 1)[1].upper().replace(" ", "")
+            d = format_report_data(self.data.raw_report_data, item, market=self.market)
+            if self.market != "US":
+                d = adjust_index_of_report(d)      # 台股套法定期限；美股已用 filing_date
+            f = next(iter(d.values()))
+            f.index = pd.to_datetime(f.index)
+            f = f.sort_index().reindex(columns=self.common)   # ★ 同 get_field 的 filter-before-rank
+            f = f[(f.index >= self.price_index.min()) & (f.index <= self.price_index.max())]
+        except Exception as e:
+            # ⚠️ **不可退回密集 frame**：那會靜默地把時序條件變回出事的版本。
+            #    回 None 讓 get_mask 跳過該條件——展開數會少、log 對不上，是「看得見的失敗」。
+            #    本專案已經因為「靜默降級」付出過代價（面板壓縮在美股失效數週未察覺）。
+            warnings.warn(f"[get_field_ann] {field} 取不到公告點 frame：{e}；"
+                          f"該條件將被跳過（不退回密集 frame，避免靜默失準）")
+            f = None
+        self._ann_cache[field] = f
+        return f
+
     def get_mask(self, cond):
         """建某條件的遮罩，跨 spec 快取（同名條件不重算）。
 
@@ -173,7 +213,10 @@ class MarketData:
         key = (cond["field"], cond["name"])
         if key in self._mask_cache:
             return self._mask_cache[key]
-        df = self.get_field(cond["field"])
+        # 「季」語意的時序條件要吃公告點稀疏 frame；橫斷面條件（q_band）要吃密集 frame。
+        # 分派依據是 condition_factory.ANNOUNCEMENT_TYPES，由 build_conditions 標在 needs_ann。
+        df = (self.get_field_ann(cond["field"]) if cond.get("needs_ann")
+              else self.get_field(cond["field"]))
         if df is None:
             return None
         try:
