@@ -27,6 +27,7 @@ from scipy import stats as st
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 
 warnings.filterwarnings("ignore")
 
@@ -225,16 +226,24 @@ def main():
     vmap = dict(zip(out["因子"], out["判定"]))
     cmap = {"✅ 過關": OI[2], "⚠️ 只取極端桶": OI[4], "⚠️ 邊際": OI[0],
             "❌ 淘汰": OI[1], "🚫 前瞻偏誤": OI[3]}
+    # 2026-08-18 第三方審查指出 emoji 在 matplotlib 預設中文字型下會顯示成 □（缺字），
+    # 顏色已經在區分判定，標題改用純文字，不依賴字型是否有 emoji 字形。
+    vtext = {"✅ 過關": "過關", "⚠️ 只取極端桶": "只取極端桶", "⚠️ 邊際": "邊際",
+             "❌ 淘汰": "淘汰", "🚫 前瞻偏誤": "前瞻偏誤"}
     for ax, (f, (ks, ys)) in zip(np.atleast_1d(axes).ravel(), curves.items()):
         v = vmap.get(f, "")
         ax.plot(ks, ys, marker="o", color=cmap.get(v, OI[7]), linewidth=1.6, markersize=4)
         ax.axhline(bench, color="#888888", linestyle="--", linewidth=1.0)
+        ax.yaxis.set_major_formatter(mticker.PercentFormatter(xmax=1, decimals=1))
         rho = out.loc[out["因子"] == f, "Spearman_rho"].iloc[0]
-        ax.set_title(f"{f}  ρ={rho:+.2f}  {v}", fontsize=9)
+        rng = (float(np.max(ys)) - float(np.min(ys))) * 100
+        ax.set_title(f"{f}  ρ={rho:+.2f}  {vtext.get(v, v)}  全距{rng:.1f}pp", fontsize=9)
     for ax in np.atleast_1d(axes).ravel()[n:]:
         ax.axis("off")
     fig.suptitle(f"Phase 1  9桶單因子 CAGR 曲線（{mkt}，in-sample 至 {IN_SAMPLE_END}）\n"
-                 f"虛線＝基準 {bench:.2%}（{bdesc}）；X軸＝分位桶 0(最低)→8(最高)", fontsize=12)
+                 f"虛線＝基準 {bench:.2%}（{bdesc}）；X軸＝分位桶 0(最低)→8(最高)；"
+                 f"全距＝該因子9桶CAGR的最大−最小（Y軸各自獨立縮放，全距愈小代表曲線愈平緩）",
+                 fontsize=12)
     fig.tight_layout(rect=[0, 0, 1, 0.94])
     fig.savefig(OUT / f"{mkt}_phase1{sfx}_curves.png", bbox_inches="tight")
     plt.close(fig)
