@@ -268,16 +268,24 @@ code/timing_logs/
 /_archive/
 
 # 封存的舊回測，合計約 270 GB（各目錄自帶 README 說明封存原因）
-#   code/_ARCHIVE_results_artifacts_thru2026-07/  257.7 GB
-#   code/_ARCHIVE_L3L4_strict_oldbench203/         11.9 GB
-#   code/_ARCHIVE_phase1_run1_16factors/            0.4 GB
-#   code/_ARCHIVE_phase1_run2_withV/                0.6 GB
+# 2026-08-20 整理：code/_ARCHIVE_*/ 各資料夾已合併搬進 code/_archive/ 底下
+# （去掉 _ARCHIVE_ 前綴），舊的 _ARCHIVE_*/ 規則已對不上，改為以下規則：
+#   code/_archive/results_artifacts_thru2026-07/  257.7 GB
+#   code/_archive/L3L4_strict_oldbench203/         11.9 GB
+#   code/_archive/phase1_run1_16factors/            0.4 GB
+#   code/_archive/phase1_run2_withV/                0.6 GB
 _ARCHIVE_*/
+code/_archive/
+
+# 巨大的逐行 log（純 tqdm 進度條輸出，跑完即無用，重跑會重新產生）
+code/_catalog/_archive_detail_logs/
 
 # 舊版逐批 20 張圖圖鑑（56 MB / 413 檔）
 #   結論已被 2026-08 的 SOP 重跑取代，且含已知無效的台股 MOM 結果。
+#   2026-08-20：本體已搬進 /_archive/（root 的 /_archive/ 規則已涵蓋，這行留著防止改名後漏網）。
 #   若要一併上傳，把下面這行註解掉即可。
 _analysis_outputs/
+_analysis_outputs_*舊版*/
 
 # Cython 編譯產物（原始碼 core/backtest_core.pyx / .cpp / setup.py 有版控，
 # 編譯結果與平台綁定，各自 `python core/setup.py build_ext --inplace` 產生）
