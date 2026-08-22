@@ -242,6 +242,97 @@ def t_hrp_ari_sanity():
     assert abs(ari) < 0.05, f"兩個獨立隨機分群的 ARI 應接近 0，實際 {ari:.3f}"
 
 
+# --------------------------------------------------------- 階段2a regime
+
+@test
+def t_regime_zigzag_basic_shape():
+    """合成一段明確的漲跌走勢，驗證 zigzag 抓到正確數量與方向的轉折"""
+    from . import stage2a_regime as r2a
+    dates = pd.date_range("2020-01-01", periods=400, freq="D")
+    # 100 -> 50（跌50%）-> 100（漲100%）-> 60（跌40%），每段線性、明確超過門檻
+    seg = np.concatenate([
+        np.linspace(100, 50, 100), np.linspace(50, 100, 100),
+        np.linspace(100, 60, 100), np.full(100, 60.0),
+    ])
+    price = pd.Series(seg, index=dates)
+    pivots = r2a.zigzag_pivots(price, bear_thresh=0.15, bull_thresh=0.15)
+    kinds = [p["kind"] for p in pivots]
+    assert kinds[0] == "start"
+    assert "peak" in kinds and "trough" in kinds
+    # 應該偵測到至少 3 個轉折（跌段底、漲段頂、再跌段底附近）
+    assert len(pivots) >= 4, f"轉折點數量過少：{len(pivots)}"
+
+
+@test
+def t_regime_classify_crisis_vs_bear():
+    """跌幅超過 crisis_thresh 才判危機，介於 bear_thresh~crisis_thresh 之間判熊"""
+    from . import stage2a_regime as r2a
+    pivots = [
+        {"date": pd.Timestamp("2020-01-01"), "price": 100.0, "kind": "start"},
+        {"date": pd.Timestamp("2020-06-01"), "price": 82.0, "kind": "trough"},   # -18%，快速=熊
+        {"date": pd.Timestamp("2020-12-01"), "price": 100.0, "kind": "peak"},    # +22%，牛
+        {"date": pd.Timestamp("2021-03-01"), "price": 65.0, "kind": "trough"},   # -35%，快速=危機
+    ]
+    segs = r2a.classify_segments(pivots, r2a.DEFAULT_PARAMS)
+    assert segs.iloc[0]["label"] == "熊", f"-18% 快速下跌應判熊，實際 {segs.iloc[0]['label']}"
+    assert segs.iloc[1]["label"] == "牛"
+    assert segs.iloc[2]["label"] == "危機", f"-35% 快速下跌應判危機，實際 {segs.iloc[2]['label']}"
+
+
+@test
+def t_regime_slow_grind_becomes_consolidation():
+    """同樣的跌幅，若耗時極長（年化速度低於門檻），應被重分類為盤整而非熊"""
+    from . import stage2a_regime as r2a
+    pivots = [
+        {"date": pd.Timestamp("2000-01-01"), "price": 100.0, "kind": "start"},
+        # -18%，耗時 10 年 → 年化速度 ≈1.8%，遠低於 consolidation_speed(15%) → 應變盤整
+        {"date": pd.Timestamp("2010-01-01"), "price": 82.0, "kind": "trough"},
+    ]
+    segs = r2a.classify_segments(pivots, r2a.DEFAULT_PARAMS)
+    assert segs.iloc[0]["label"] == "盤整", \
+        f"耗時10年的緩慢-18%應判盤整（非熊），實際 {segs.iloc[0]['label']}"
+
+
+@test
+def t_regime_crisis_not_overridden_by_slow_grind():
+    """危機段不受盤整覆寫規則影響，即使耗時很長也維持危機標籤"""
+    from . import stage2a_regime as r2a
+    pivots = [
+        {"date": pd.Timestamp("2000-01-01"), "price": 100.0, "kind": "start"},
+        # -35%，耗時 5 年，速度依然偏低，但危機不該被覆寫成盤整
+        {"date": pd.Timestamp("2005-01-01"), "price": 65.0, "kind": "trough"},
+    ]
+    segs = r2a.classify_segments(pivots, r2a.DEFAULT_PARAMS)
+    assert segs.iloc[0]["label"] == "危機", \
+        f"危機段不該被盤整規則覆寫，實際 {segs.iloc[0]['label']}"
+
+
+@test
+def t_regime_table_no_gaps_no_overlap():
+    """真實資料：regime_table 的區間必須連續、無重疊、無空隙（cut_clusters 前提）"""
+    p = paths.STAGE2 / "regime" / "regime_table_TW.parquet"
+    if not p.exists():
+        raise AssertionError("尚未執行 stage2a_regime，請先 python -m research.stage2a_regime")
+    t = pd.read_parquet(p).sort_values("start").reset_index(drop=True)
+    gap_or_overlap = (t["start"].iloc[1:].to_numpy() != t["end"].iloc[:-1].to_numpy())
+    assert not gap_or_overlap.any(), \
+        f"{int(gap_or_overlap.sum())} 處銜接不連續（有空隙或重疊）"
+
+
+@test
+def t_regime_known_events_all_hit():
+    """五個已知事件（依市場適用性）在真實資料上必須全數命中"""
+    from . import stage2a_regime as r2a
+    for m in ("TW", "US"):
+        p = paths.STAGE2 / "regime" / f"regime_table_{m}.parquet"
+        if not p.exists():
+            raise AssertionError(f"尚未執行 stage2a_regime（缺 {p}）")
+        t = pd.read_parquet(p)
+        ver = r2a.verify_known_events(t, m, log=lambda *a, **k: None)
+        assert ver.matched.all(), \
+            f"[{m}] 已知事件未全數命中：\n{ver[~ver.matched].to_string(index=False)}"
+
+
 # ------------------------------------------------------------ 階段0 驗收
 
 def _load_stage0() -> pd.DataFrame:

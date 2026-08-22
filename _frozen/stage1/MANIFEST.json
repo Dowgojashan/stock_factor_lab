@@ -1,11 +1,15 @@
 {
-  "stage": "stage1_scan",
-  "produced_at": "2026-08-22T19:07:53",
-  "git_sha": "6336fbc",
+  "stage": "stage1_marks",
+  "produced_at": "2026-08-23T00:04:31",
+  "git_sha": "78d8bc7",
   "params": {
-    "skip_position_parquet": true,
-    "trading_days": 252,
-    "smallcap_pct_max": 33.333333333333336
+    "rotation_high_pct": 0.95,
+    "effn_low_pct": 0.1,
+    "empty_high_pct": 0.95,
+    "tertile": [
+      0.3333333333333333,
+      0.6666666666666666
+    ]
   },
   "inputs": [
     {
@@ -15,43 +19,19 @@
       "rows": 15810
     },
     {
-      "path": "_frozen\\stage1\\mktcap_pct_TW.parquet",
-      "sha256": "37b3c056619156a7be0191adc0b61f0eed3fe2c4c4fa851fae9b166fef0a46b3",
-      "bytes": 1957542,
-      "rows": 312
-    },
-    {
-      "path": "_frozen\\stage1\\mktcap_pct_US.parquet",
-      "sha256": "115f3f020cfb0d53568eca1049354bf321f3e013f969dfa50b91da115d15c11d",
-      "bytes": 4126398,
-      "rows": 312
-    }
-  ],
-  "outputs": [
-    {
       "path": "_frozen\\stage1\\strategy_scan.parquet",
       "sha256": "a8f49e7f10c3abcd28da93d1c0b8a7bda0a3e604ed301fea9f343aa3cdfc959a",
       "bytes": 2125574,
       "rows": 15810
-    },
+    }
+  ],
+  "outputs": [
     {
-      "path": "_frozen\\stage1\\returns_monthly.parquet",
-      "sha256": "efa1a3179dbe44bbb51c6b0cd6d2c3c1284e2265161cbf729e8bba71e17059eb",
-      "bytes": 35729026,
-      "rows": 4547404
-    },
-    {
-      "path": "_frozen\\stage1\\annual_returns.parquet",
-      "sha256": "7702227d571c96cfb338a87c02088db046cc1623732c7ae1af16b05681faa069",
-      "bytes": 3374480,
-      "rows": 384485
-    },
-    {
-      "path": "_frozen\\stage1\\returns_meta.parquet",
-      "sha256": "bd0342308ecfc3e8fe501bbc7bc41d54877040d556cf326c510d4136efb1646a",
-      "bytes": 181841,
+      "path": "_frozen\\stage1\\strategy_marks.parquet",
+      "sha256": "f192caaf40d1ae9d70a2f1c78c728cdc22bc357246016b17c2e538c4dc47f992",
+      "bytes": 543315,
       "rows": 15810
     }
   ],
-  "notes": "DD-04 跳過 position.parquet；DD-05 單趟掃描；不含任何 regime 相關欄位（斷循環）"
+  "notes": "兩把刀方向：低effective_n+高rotation_score（不輪動）；empty_ratio過高。stability_grade 公式為本階段解讀，見 module docstring"
 }

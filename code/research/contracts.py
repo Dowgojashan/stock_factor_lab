@@ -282,6 +282,33 @@ RETURNS_MONTHLY = Schema(
 )
 
 
+#: 三段式等級（C-3 report_shape/risk_shape 共用：市場內分位切三段，取兩端 + 中間）
+SHAPE_GRADES = ("低", "中", "高")
+CREDIBILITY_GRADES = ("低", "中", "高")
+STABILITY_GRADES = ("陡峰", "中", "高原")
+
+STRATEGY_MARKS = Schema(
+    name="strategy_marks",
+    columns=[
+        Column(PK, "str"),
+        Column("market", "cat", allowed=MARKETS),
+        # C-3：市場內分位（0-100），CAGR 越高分位越高；MDD 用絕對值，越淺分位越高
+        Column("cagr_pct", "float", ge=0, le=100),
+        Column("mdd_pct", "float", ge=0, le=100),
+        Column("return_shape", "cat", allowed=("大起大落", "中等", "穩定爬升")),
+        Column("risk_shape", "cat", allowed=("深回撤", "中等", "淺回撤")),
+        # 關卡A：可信度（分位數複合評級，見 stage1_marks.py 的組成說明）
+        Column("credibility_grade", "cat", allowed=CREDIBILITY_GRADES),
+        Column("credibility_score_pct", "float", ge=0, le=100),
+        # 關卡B：穩健度（唯一保留的程式指標）
+        Column("stability_grade", "cat", allowed=STABILITY_GRADES, nullable=True),
+        # 尾端寬鬆硬篩
+        Column("is_usable", "bool"),
+        Column("drop_reason", "str", nullable=True),
+    ],
+)
+
+
 RETURNS_META = Schema(
     name="returns_meta",
     # ⚠️ 刻意不設 expected_rows：階段1 的設計是「單策略失敗不中止全局」
@@ -401,4 +428,5 @@ CLUSTER_META = Schema(
 
 
 ALL_SCHEMAS = {s.name: s for s in (CANDIDATE_INDEX, RETURNS_MONTHLY, RETURNS_META,
-                                   MACRO_RAW, MACRO_HISTORY, CLUSTER_ASSIGN, CLUSTER_META)}
+                                   MACRO_RAW, MACRO_HISTORY, CLUSTER_ASSIGN, CLUSTER_META,
+                                   STRATEGY_MARKS)}

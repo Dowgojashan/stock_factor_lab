@@ -1,0 +1,47 @@
+{
+  "stage": "stage2a_regime",
+  "produced_at": "2026-08-23T00:49:58",
+  "git_sha": "78d8bc7",
+  "params": {
+    "params": {
+      "bear_thresh": 0.15,
+      "bull_thresh": 0.15,
+      "crisis_thresh": 0.3,
+      "consolidation_speed": 0.15
+    },
+    "in_sample_end": "2025-12",
+    "known_events_checked": [
+      "2008 金融海嘯",
+      "2015 中國股災/8月股災",
+      "2018 Q4 全球股災",
+      "2020 COVID崩盤",
+      "2022 熊市"
+    ]
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "_frozen\\stage2\\regime\\regime_table_TW.parquet",
+      "sha256": "c8b736811ad8b6cbcf70ea1b3df9b44a2fb188e7267507fbf1b7f511e2e7cd7c",
+      "bytes": 8773,
+      "rows": 43
+    },
+    {
+      "path": "_frozen\\stage2\\regime\\regime_rule_TW.json",
+      "sha256": "5c35464237bb89c8c988c8488713caec773ce7586bfc8766ac2ad8f15d26f80d",
+      "bytes": 283
+    },
+    {
+      "path": "_frozen\\stage2\\regime\\regime_table_US.parquet",
+      "sha256": "f592786973d2274a04d84959f89765d2f73d2bf3d342b0537d9533756b6d6e35",
+      "bytes": 7982,
+      "rows": 29
+    },
+    {
+      "path": "_frozen\\stage2\\regime\\regime_rule_US.json",
+      "sha256": "5b49290c641df32403bd348e48d19f77251ba1df9b6ea3c391768d886a81401a",
+      "bytes": 283
+    }
+  ],
+  "notes": "純價格 zigzag 判定，不摻總經（做法甲）；LLM點②(貼人話標籤)本階段未做，regime_table 只有機器可讀的 牛/熊/危機/盤整 標籤與起訖日"
+}
