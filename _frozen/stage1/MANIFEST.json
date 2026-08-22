@@ -1,0 +1,57 @@
+{
+  "stage": "stage1_scan",
+  "produced_at": "2026-08-20T12:39:20",
+  "git_sha": "89598e2",
+  "params": {
+    "skip_position_parquet": true,
+    "trading_days": 252,
+    "smallcap_pct_max": 33.333333333333336
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage0\\candidate_index.parquet",
+      "sha256": "92bf0e4028e2c3581147f5cd400f5e78ae17ad84147a3c0e738cacafea86ae08",
+      "bytes": 1295346,
+      "rows": 14078
+    },
+    {
+      "path": "_frozen\\stage1\\mktcap_pct_TW.parquet",
+      "sha256": "37b3c056619156a7be0191adc0b61f0eed3fe2c4c4fa851fae9b166fef0a46b3",
+      "bytes": 1957542,
+      "rows": 312
+    },
+    {
+      "path": "_frozen\\stage1\\mktcap_pct_US.parquet",
+      "sha256": "115f3f020cfb0d53568eca1049354bf321f3e013f969dfa50b91da115d15c11d",
+      "bytes": 4126398,
+      "rows": 312
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_frozen\\stage1\\strategy_scan.parquet",
+      "sha256": "f2a92645c6658359b9e10d80c55c5dfbe4adaf8ec1746b4bc0fe4ef92bf9c36b",
+      "bytes": 1899959,
+      "rows": 14078
+    },
+    {
+      "path": "_frozen\\stage1\\returns_monthly.parquet",
+      "sha256": "f942e54de8593b0cdbea83cf77dab98e7b67d1b1d371c2bb0fb1ab0fd56e18a1",
+      "bytes": 31477734,
+      "rows": 4022749
+    },
+    {
+      "path": "_frozen\\stage1\\annual_returns.parquet",
+      "sha256": "3196d588361dde894c3dc3a20ebf402806926b0991e9d36b3d16085d2f53ddb8",
+      "bytes": 3017142,
+      "rows": 340134
+    },
+    {
+      "path": "_frozen\\stage1\\returns_meta.parquet",
+      "sha256": "f5653705425e9c1581bb1f512ec0862681e08b05c28fc4212a2e6658120ffcb6",
+      "bytes": 160759,
+      "rows": 14078
+    }
+  ],
+  "notes": "DD-04 跳過 position.parquet；DD-05 單趟掃描；不含任何 regime 相關欄位（斷循環）"
+}

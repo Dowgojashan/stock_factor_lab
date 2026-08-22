@@ -90,3 +90,27 @@
 [2026-08-15 09:31:15] [TW] 載入資料…
 [2026-08-15 10:15:26] ✅ TW_L2_M｜展開 861｜回測 861｜2549.0s
 [2026-08-15 10:15:26] === Phase 2 結束｜耗時 42.5 分鐘 ===
+[2026-08-20 22:02:43] === Phase 2 配對｜市場=TW｜因子=19（primary 6 / secondary 19）｜分桶 N=3｜V=('v0',)（C 關閉）｜in-sample 至 2025-12-31 ===
+[2026-08-20 22:02:43]     primary  ：['P_IC', 'PB', 'PS', 'EV_S', 'MOM', 'ROE']
+[2026-08-20 22:02:43]     secondary：['P_IC', 'PB', 'PS', 'EV_S', 'MOM', 'ROE', 'FCF_P', 'EV_EBITDA', 'OCF_E', 'ACCRUAL', 'ROIC', 'DEBTRATIO', 'FCF_OI', 'NETDEBT_EBITDA', 'CROIC', 'VOL', 'EPS', 'REVENUE', 'REV_G']
+[2026-08-20 22:02:43]     P1 條件數=57｜單因子=57｜跨因子配對=1539｜預期共 1596 策略
+[2026-08-20 22:02:43]     pending  TW_L2_all_M
+[2026-08-20 22:02:43] [TW] 載入資料…
+[2026-08-20 23:19:59] ✅ TW_L2_all_M｜展開 1596｜回測 1596｜4475.3s
+[2026-08-20 23:19:59] === Phase 2 結束｜耗時 74.6 分鐘 ===
+[2026-08-21 02:30:30] === Phase 2 配對｜市場=US｜因子=19（primary 8 / secondary 19）｜分桶 N=3｜V=('v0',)（C 關閉）｜in-sample 至 2025-12-31 ===
+[2026-08-21 02:30:30]     primary  ：['REVENUE', 'EV_S', 'PB', 'PS', 'P_IC', 'EV_EBITDA', 'VOL', 'EPS']
+[2026-08-21 02:30:30]     secondary：['REVENUE', 'EV_S', 'PB', 'PS', 'P_IC', 'EV_EBITDA', 'VOL', 'EPS', 'OCF_E', 'FCF_P', 'REV_G', 'ROE', 'CROIC', 'DEBTRATIO', 'MOM', 'ROIC', 'FCF_OI', 'NETDEBT_EBITDA', 'ACCRUAL']
+[2026-08-21 02:30:30]     P1 條件數=57｜單因子=57｜跨因子配對=1539｜預期共 1596 策略
+[2026-08-21 02:30:30]     pending  US_L2_all_M
+[2026-08-21 02:30:30] [US] 載入資料…
+[2026-08-21 04:27:46] ✅ US_L2_all_M｜展開 1596｜回測 1596｜6793.9s
+[2026-08-21 04:27:47] === Phase 2 結束｜耗時 113.2 分鐘 ===
+[2026-08-22 01:23:41] === Phase 2 配對｜市場=TW｜因子=19（primary 6 / secondary 19）｜分桶 N=3｜V=('v0',)（C 關閉）｜in-sample 至 2025-12-31 ===
+[2026-08-22 01:23:41]     primary  ：['P_IC', 'PB', 'PS', 'EV_S', 'MOM', 'OCF_E']
+[2026-08-22 01:23:41]     secondary：['P_IC', 'PB', 'PS', 'EV_S', 'MOM', 'OCF_E', 'FCF_P', 'ROE', 'EV_EBITDA', 'ROIC', 'ACCRUAL', 'FCF_OI', 'DEBTRATIO', 'NETDEBT_EBITDA', 'VOL', 'REVENUE', 'CROIC', 'REV_G', 'EPS']
+[2026-08-22 01:23:41]     P1 條件數=57｜單因子=57｜跨因子配對=1539｜預期共 1596 策略
+[2026-08-22 01:23:41]     pending  TW_L2_all_M
+[2026-08-22 01:23:41] [TW] 載入資料…
+[2026-08-22 04:55:26] ✅ TW_L2_all_M｜展開 1596｜回測 1596｜12446.7s
+[2026-08-22 04:55:26] === Phase 2 結束｜耗時 207.4 分鐘 ===

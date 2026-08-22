@@ -95,6 +95,56 @@ def t_hrp_windows_declared():
         "美股窗應比台股早（per-tree 窗的重點：美股不必陪葬）"
 
 
+# --------------------------------------------------- 階段2b 總經滯後（W-01）
+
+@test
+def t_macro_lag_monthly():
+    """月頻指標：月底只能用到上個月的資料"""
+    from .macro_spec import SPEC, available_period
+    import pandas as pd
+    cpi = SPEC["US"]["inflation"]
+    assert available_period(cpi, "2026-03") == pd.Period("2026-02", "M"), \
+        "3 月底時 3 月的 CPI 還沒發布（要 4 月第二週），只能用 2 月"
+
+
+@test
+def t_macro_lag_quarterly_boundary():
+    """季頻指標的邊界：GDP 在季末後約 1 個月發布，保守處理不搶當月"""
+    from .macro_spec import SPEC, available_period
+    import pandas as pd
+    gdp = SPEC["US"]["growth"]
+    # Q1(3/31 結束) 約 4/30 發布 → 4 月底判定為「還不可用」
+    assert available_period(gdp, "2026-04") == pd.Period("2025Q4", "Q")
+    # 5 月底才可用
+    assert available_period(gdp, "2026-05") == pd.Period("2026Q1", "Q")
+
+
+@test
+def t_macro_lag_no_lookahead():
+    """鐵則：任何指標回傳的資料期間都不得晚於決策月"""
+    from .macro_spec import SPEC, available_period
+    import pandas as pd
+    for mkt, inds in SPEC.items():
+        for key, ind in inds.items():
+            for m in ("2000-01", "2013-07", "2026-03", "2025-12"):
+                got = available_period(ind, m)
+                end = got.asfreq("M", how="end") if got.freqstr.startswith("Q") else got
+                assert end <= pd.Period(m, "M"), \
+                    f"{mkt}.{key} 在 {m} 回傳 {got}，晚於決策月＝前視偏誤"
+
+
+@test
+def t_macro_spec_complete():
+    """四個概念軸台美都要有指標，且每個都有官方來源"""
+    from .macro_spec import SPEC, AXES
+    for mkt, inds in SPEC.items():
+        axes = {i.axis for i in inds.values()}
+        missing = set(AXES) - axes
+        assert not missing, f"{mkt} 缺少概念軸: {missing}"
+        for key, i in inds.items():
+            assert i.source_url.startswith("http"), f"{mkt}.{key} 缺官方來源連結"
+
+
 # ------------------------------------------------------------ 階段0 驗收
 
 def _load_stage0() -> pd.DataFrame:

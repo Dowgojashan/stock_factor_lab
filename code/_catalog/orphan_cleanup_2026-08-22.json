@@ -1,0 +1,44 @@
+{
+  "date": "2026-08-22T14:03:06.481332",
+  "reason": "因子順序/池變動導致的孤兒策略目錄清理",
+  "jobs": [
+    {
+      "job": "TW_L2_all_M",
+      "deleted": 90,
+      "bytes": 174893094,
+      "kept": 1596
+    },
+    {
+      "job": "TW_L3_openSec_M",
+      "deleted": 609,
+      "bytes": 1008230319,
+      "kept": 4578
+    },
+    {
+      "job": "TW_L4_openSec_M",
+      "deleted": 609,
+      "bytes": 844656918,
+      "kept": 4577
+    },
+    {
+      "job": "US_L2_all_M",
+      "deleted": 288,
+      "bytes": 922949006,
+      "kept": 1596
+    },
+    {
+      "job": "US_L3_openSec_M",
+      "deleted": 525,
+      "bytes": 1341896744,
+      "kept": 4935
+    },
+    {
+      "job": "US_L4_openSec_M",
+      "deleted": 525,
+      "bytes": 1184505144,
+      "kept": 4935
+    }
+  ],
+  "total_deleted": 2646,
+  "total_bytes": 5477131225
+}

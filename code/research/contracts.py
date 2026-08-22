@@ -284,4 +284,65 @@ RETURNS_META = Schema(
 )
 
 
-ALL_SCHEMAS = {s.name: s for s in (CANDIDATE_INDEX, RETURNS_MONTHLY, RETURNS_META)}
+# ============================================================================
+# 階段 2b · 總經（W-02）
+# ============================================================================
+
+#: 投資時鐘四格（成長 × 通膨，各以歷史中位數切）
+CLOCK_CELLS = ("復甦", "過熱", "停滯性通膨", "衰退")
+#: 信心等級（樣本數不足時標低信心但仍可查，不留白）
+CONFIDENCE = ("高", "中", "低")
+
+#: collector 需交付的原始總經表 —— 這是研究部對資料端的**輸入契約**。
+#: 刻意用 long 格式：指標數少、頻率不一（月/季/日），寬表會有大量 NaN 且難擴充。
+MACRO_RAW = Schema(
+    name="macro_raw",
+    primary_key=["market", "indicator_key", "period"],
+    columns=[
+        Column("market", "cat", allowed=MARKETS),
+        # 對應 macro_spec.SPEC 的鍵（growth / growth_alt / inflation / rate_level / rate_direction）
+        Column("indicator_key", "str"),
+        Column("period", "str"),          # 資料所描述的期間：YYYY-MM 或 YYYYQn
+        Column("value", "float"),
+        # 單位必須明寫。z-score 對尺度不敏感，單位搞錯**不會在標準化後顯現**，
+        # 是典型的靜默錯誤來源，故列為必填而非選填。
+        Column("unit", "cat",
+               allowed=("index", "percent", "percent_yoy", "percent_annualized", "score")),
+        # ⭐ 若資料源提供（如 FRED/ALFRED），填入該筆的**實際發布日**。
+        #    有這欄就能做真正的 point-in-time 對齊，不必倚賴 macro_spec 的推估滯後量。
+        Column("release_date", "str", nullable=True),
+    ],
+)
+
+#: 階段2b 產出的月頻特徵表（已套用發布滯後、已標準化、已分格）
+MACRO_HISTORY = Schema(
+    name="macro_history",
+    primary_key=["market", "month"],
+    columns=[
+        Column("market", "cat", allowed=MARKETS),
+        Column("month", "period"),
+        # 原始值（已對齊到「該月底可得」的期間）
+        Column("growth", "float", nullable=True),
+        Column("inflation", "float", nullable=True),
+        Column("rate_level", "float", nullable=True),
+        Column("rate_direction", "float", nullable=True),
+        # z-score（參數只用 in-sample 算並凍結）
+        Column("growth_z", "float", nullable=True),
+        Column("inflation_z", "float", nullable=True),
+        Column("rate_level_z", "float", nullable=True),
+        Column("rate_direction_z", "float", nullable=True),
+        # 近 3 月平滑版（P4：歷史同步存平滑版，實戰查詢時平滑對平滑）
+        Column("growth_z_s3", "float", nullable=True),
+        Column("inflation_z_s3", "float", nullable=True),
+        Column("rate_level_z_s3", "float", nullable=True),
+        Column("rate_direction_z_s3", "float", nullable=True),
+        # 投資時鐘四格（方法二）
+        Column("clock_cell", "cat", allowed=CLOCK_CELLS, nullable=True),
+        # 該月每個特徵實際引用的資料期間，供稽核前視偏誤
+        Column("src_periods", "str", nullable=True),
+    ],
+)
+
+
+ALL_SCHEMAS = {s.name: s for s in (CANDIDATE_INDEX, RETURNS_MONTHLY, RETURNS_META,
+                                   MACRO_RAW, MACRO_HISTORY)}
