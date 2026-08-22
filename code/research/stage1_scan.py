@@ -39,6 +39,7 @@ from .stage1_mktcap import SMALLCAP_PCT_MAX
 
 TRADING_DAYS = 252
 SCAN_DIR = paths.STAGE1 / "scan"           # 分片 checkpoint
+SCAN_PROBE_DIR = paths.STAGE1 / "scan_probe"   # --limit 測速專用，與正式分片物理隔離
 _MKTCAP: pd.DataFrame | None = None        # 每個 worker process 一份
 
 
@@ -227,12 +228,19 @@ def _init_worker(market: str):
     _MKTCAP = pd.read_parquet(p) if p.exists() else None
 
 
-def _shard_path(job: str) -> Path:
-    return SCAN_DIR / f"{job}.parquet"
+def _shard_path(job: str, shard_dir: Path = SCAN_DIR) -> Path:
+    return shard_dir / f"{job}.parquet"
 
 
-def scan_job(job: str, rows: list[dict], market: str, workers: int, log) -> dict:
-    """掃一個 job 目錄（分片單位）。已完成的分片直接跳過。"""
+def scan_job(job: str, rows: list[dict], market: str, workers: int, log,
+            shard_dir: Path = SCAN_DIR) -> dict:
+    """掃一個 job 目錄（分片單位）。已完成的分片直接跳過。
+
+    ⚠️ `shard_dir` 預設是正式的 `SCAN_DIR`。`--limit` 測速模式**必須**傳入
+    `SCAN_PROBE_DIR`——否則測速時對某 job 只掃了一部分策略，寫出的分片檔案
+    卻跟正式分片同名同路徑；之後跑全量時 `resume` 邏輯看到檔案已存在就直接
+    跳過該 job，於是正式產物裡永久卡著測速時的殘缺結果，而且不會有任何報錯。
+    """
     t0 = time.time()
     recs, months, annuals, errs = [], [], [], []
 
@@ -254,21 +262,26 @@ def scan_job(job: str, rows: list[dict], market: str, workers: int, log) -> dict
             if i % 200 == 0:
                 log(f"      {i}/{len(rows)}  ({time.time()-t0:.0f}s)")
 
-    SCAN_DIR.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame(recs).to_parquet(_shard_path(job), compression="zstd", index=False)
+    shard_dir.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(recs).to_parquet(_shard_path(job, shard_dir), compression="zstd", index=False)
 
     mo_df = pd.concat(
         [s.rename("ret").to_frame().assign(strategy_uid=u).reset_index().rename(columns={"index": "month"})
          for u, s in months if s is not None], ignore_index=True) if months else pd.DataFrame()
-    mo_df.to_parquet(SCAN_DIR / f"{job}__months.parquet", compression="zstd", index=False)
+    mo_df.to_parquet(shard_dir / f"{job}__months.parquet", compression="zstd", index=False)
 
     an_df = pd.concat(
         [s.rename("ret").to_frame().assign(strategy_uid=u).rename_axis("year").reset_index()
          for u, s in annuals if s is not None], ignore_index=True) if annuals else pd.DataFrame()
-    an_df.to_parquet(SCAN_DIR / f"{job}__years.parquet", compression="zstd", index=False)
+    an_df.to_parquet(shard_dir / f"{job}__years.parquet", compression="zstd", index=False)
 
+    # 錯誤檔只在「這次真的有錯」時寫；若上次跑失敗留了殘檔、這次乾淨重跑通過，
+    # 要主動清掉舊檔，否則 _merge() 會把已經修好的舊錯誤又併回 scan_errors。
+    err_path = shard_dir / f"{job}__errors.parquet"
     if errs:
-        pd.DataFrame(errs).to_parquet(SCAN_DIR / f"{job}__errors.parquet", index=False)
+        pd.DataFrame(errs).to_parquet(err_path, index=False)
+    elif err_path.exists():
+        err_path.unlink()
 
     dt = time.time() - t0
     log(f"   [{job}] {len(recs)} 成功 / {len(errs)} 失敗，{dt:.0f}s "
@@ -287,9 +300,14 @@ def run(limit: int | None = None, workers: int | None = None,
             raise FileNotFoundError(
                 f"缺 mktcap_pct_{m}.parquet，請先跑 python -m research.stage1_mktcap")
 
-    if limit:
+    is_probe = limit is not None
+    shard_dir = SCAN_PROBE_DIR if is_probe else SCAN_DIR
+    if is_probe:
         idx = idx.groupby("market", observed=True).head(limit // 2)
-        log(f"⚠️ 測速模式：只掃 {len(idx)} 個策略")
+        log(f"⚠️ 測速模式：只掃 {len(idx)} 個策略（分片寫入 {shard_dir.name}/，與正式分片物理隔離）")
+        # 測速產物是拋棄式的：每次重新清空，避免累積成一堆過期分片
+        import shutil
+        shutil.rmtree(shard_dir, ignore_errors=True)
 
     workers = workers or max(1, (os.cpu_count() or 4) - 1)
     idx = idx.assign(_job=[Path(p).parent.name for p in idx["artifacts_dir"]])
@@ -298,24 +316,24 @@ def run(limit: int | None = None, workers: int | None = None,
     stats = []
     for market, mdf in idx.groupby("market", observed=True):
         for job, jdf in mdf.groupby("_job", observed=True):
-            if resume and not limit and _shard_path(job).exists():
+            if resume and not is_probe and _shard_path(job, shard_dir).exists():
                 log(f"   [{job}] 已完成，跳過（--no-resume 可強制重掃）")
                 continue
             log(f"   [{job}] {len(jdf)} 個策略 …")
             rows = jdf[["strategy_uid", "market", "artifacts_dir"]].to_dict("records")
-            stats.append(scan_job(job, rows, market, workers, log))
+            stats.append(scan_job(job, rows, market, workers, log, shard_dir=shard_dir))
 
-    return _merge(idx, limit is not None, log)
+    return _merge(idx, is_probe, log, shard_dir=shard_dir)
 
 
-def _merge(idx: pd.DataFrame, is_probe: bool, log) -> pd.DataFrame:
+def _merge(idx: pd.DataFrame, is_probe: bool, log, shard_dir: Path = SCAN_DIR) -> pd.DataFrame:
     """合併分片 → 落地四份產物。"""
     def _cat(suffix: str) -> pd.DataFrame:
-        fs = sorted(SCAN_DIR.glob(f"*{suffix}.parquet"))
+        fs = sorted(shard_dir.glob(f"*{suffix}.parquet"))
         return (pd.concat([pd.read_parquet(f) for f in fs], ignore_index=True)
                 if fs else pd.DataFrame())
 
-    shards = sorted(p for p in SCAN_DIR.glob("*.parquet")
+    shards = sorted(p for p in shard_dir.glob("*.parquet")
                     if not any(t in p.name for t in ("__months", "__years", "__errors")))
     scan = pd.concat([pd.read_parquet(p) for p in shards], ignore_index=True)
     months = _cat("__months")
@@ -328,6 +346,13 @@ def _merge(idx: pd.DataFrame, is_probe: bool, log) -> pd.DataFrame:
     if is_probe:
         log("（測速模式，不落地正式產物）")
         return scan
+
+    # 完整性檢查：**記警告、不中止**。少數策略讀檔失敗是預期中會發生的事
+    # （DD-05：單策略失敗不中止全局），不該讓整批產物因此一個都生不出來。
+    missing = len(idx) - len(scan)
+    if missing:
+        log(f"  ⚠️ 完整性缺口：candidate_index {len(idx):,} 筆，成功掃到 {len(scan):,} 筆，"
+            f"缺 {missing} 筆（詳見 scan_errors.parquet）")
 
     months["month"] = months["month"].astype("period[M]")
     meta = (scan[["strategy_uid", "market", "hist_start", "hist_end", "n_months"]]

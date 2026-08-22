@@ -1,7 +1,7 @@
 {
   "stage": "stage0_index",
-  "produced_at": "2026-08-20T17:57:59",
-  "git_sha": "89598e2",
+  "produced_at": "2026-08-22T19:08:28",
+  "git_sha": "6336fbc",
   "params": {
     "variant": "openSec",
     "pk_rule": "strategy_uid = market + '::' + strategy",
@@ -14,45 +14,45 @@
   "inputs": [
     {
       "path": "_analysis_outputs_phase4\\TW_L4_openSec_final_candidates.csv",
-      "sha256": "15f12ad1309ff596bee62efda4950a0bec6b91c41aaf1e4ab31d401108e02e26",
-      "bytes": 1264110
+      "sha256": "e86700be5de3fff09cb7dd5c8e2377b88515100389e09e1555e7006dc88757cd",
+      "bytes": 1259602
     },
     {
       "path": "_analysis_outputs_phase4\\US_L4_openSec_final_candidates.csv",
-      "sha256": "29a6cacaca350c81b73c529dca5df010233fbad9bc7b52e765ee0592c13d4f40",
-      "bytes": 1228584
+      "sha256": "a4f51c861a0972fd1d1aa77dc39c2d2d99331e9dda27e405f9b3bb6f2b8f3404",
+      "bytes": 1543903
     },
     {
       "path": "code\\results_artifacts\\TW_L3_openSec_M\\stats.parquet",
-      "sha256": "9b125df6cc90ba586ba6d92822f2272203c32e053b604bac4fdc4e24680ddf8a",
-      "bytes": 323837,
-      "rows": 4599
+      "sha256": "4ced2a348ffb285f1ee862614da86212df69e38369cb534c65b0c31aa14b838a",
+      "bytes": 323130,
+      "rows": 4578
     },
     {
       "path": "code\\results_artifacts\\TW_L4_openSec_M\\stats.parquet",
-      "sha256": "a93e207ca50360ee49c27b9809db28c32dc8fbd70e46b11c932ff9ff8402a76d",
-      "bytes": 323582,
-      "rows": 4599
+      "sha256": "a1aa5fe2a31c29830b6c8a7a79a26155c0a1ed9c7660baba96b68225869ffe2d",
+      "bytes": 322724,
+      "rows": 4577
     },
     {
       "path": "code\\results_artifacts\\US_L3_openSec_M\\stats.parquet",
-      "sha256": "1d7d89c004d31f82b5144226976c8b60e6feef7fb79b38b81169ba90fe7bf93c",
-      "bytes": 276628,
-      "rows": 3948
+      "sha256": "25ca2d090b22ab12d66e63e9159f5e98474d2a06c33b251dc085d6e3b60c4275",
+      "bytes": 346637,
+      "rows": 4935
     },
     {
       "path": "code\\results_artifacts\\US_L4_openSec_M\\stats.parquet",
-      "sha256": "fa30415f6e2c7ede8d3d4e711c2e947a205cceff5dd5ba1adf40da54076d57bc",
-      "bytes": 277087,
-      "rows": 3948
+      "sha256": "4af09fd800afcd469a9d5af077fa692d3f57f54bd4353fa45c6048ae4b9d581d",
+      "bytes": 347012,
+      "rows": 4935
     }
   ],
   "outputs": [
     {
       "path": "_frozen\\stage0\\candidate_index.parquet",
-      "sha256": "92bf0e4028e2c3581147f5cd400f5e78ae17ad84147a3c0e738cacafea86ae08",
-      "bytes": 1295346,
-      "rows": 14078
+      "sha256": "b308a282f48511117739a3d3215dd00601a03c8247a9693edaad1644de57a8e2",
+      "bytes": 1453737,
+      "rows": 15810
     }
   ],
   "notes": "修掉落差1(join stats)/落差2(artifacts_dir 規則解析)/落差5(複合主鍵)"

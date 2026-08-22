@@ -37,6 +37,9 @@ from . import contracts as C
 from . import freeze, paths
 from .macro_spec import AXES, SPEC, available_period
 
+#: 有效的 unit 值（selftest 用；必須是 contracts.MACRO_RAW 允許的其中一個）
+_SELFTEST_UNIT = "percent_yoy"
+
 MACRO_DIR = paths.STAGE2 / "macro"
 IN_SAMPLE_START = "2000-01"
 SMOOTH_WINDOW = 3
@@ -44,12 +47,31 @@ SMOOTH_WINDOW = 3
 
 # ---------------------------------------------------------------- ① 滯後對齊
 
+def _estimate_release_date(period_str: str, ind) -> pd.Timestamp:
+    """沒有實測 release_date 時，用 macro_spec 的推估滯後量反推一個發布日估計值。
+
+    定義：期間 P 的資料在「P 月底 + lag_months 個月」的月底前必定已發布
+    （與 `available_period` 反向對應：available_period(ind, m) 回傳的是
+    m 月底時最新可用的期間，故該期間的估計發布日 <= m 月底）。
+    只在 release_date 缺漏、需要與其他有真實發布日的期間混合比較時使用。
+    """
+    per = pd.Period(period_str)
+    end_month = per.asfreq("M", how="end")
+    return (end_month + ind.lag_months).asfreq("M", how="end").to_timestamp(how="end")
+
+
 def align_by_lag(raw: pd.DataFrame, market: str, months: pd.PeriodIndex) -> pd.DataFrame:
     """把長表依發布滯後攤平到月頻。
 
     對每個決策月 m，每個軸取「m 月底時最新可用的期間」對應的值。
     若原始表有 `release_date`（真 point-in-time），優先使用它；
     否則退回 macro_spec 的推估滯後量。
+
+    ⚠️ 混合覆蓋率（同一指標裡部分期間有 release_date、部分沒有）：
+       缺的那些期間**不會被排除**，改用推估滯後量補一個發布日估計值再一起比較，
+       否則會被靜默排除在候選之外，讓「最新可用期間」的判斷少算了選項。
+       （目前實際交付的資料是整個指標 0% 或 100%，不會混合；但程式邏輯不應該
+       假設輸入永遠是這種乾淨情況。）
     """
     spec = SPEC[market]
     out = pd.DataFrame(index=months)
@@ -68,15 +90,20 @@ def align_by_lag(raw: pd.DataFrame, market: str, months: pd.PeriodIndex) -> pd.D
 
         by_period = dict(zip(sub["period"].astype(str), sub["value"].astype(float)))
         has_release = "release_date" in sub.columns and sub["release_date"].notna().any()
-        rel = (dict(zip(sub["period"].astype(str), pd.to_datetime(sub["release_date"])))
-               if has_release else None)
+        if has_release:
+            raw_rel = dict(zip(sub["period"].astype(str), pd.to_datetime(sub["release_date"])))
+            # 缺 release_date 的個別期間：用推估滯後量補一個發布日，不排除
+            rel = {p: (d if pd.notna(d) else _estimate_release_date(p, ind))
+                   for p, d in raw_rel.items()}
+        else:
+            rel = None
 
         vals, srcs = [], []
         for m in months:
             if rel is not None:
-                # 真 point-in-time：只取「發布日 <= 該月最後一天」的期間中最新者
+                # point-in-time（實測 + 個別缺漏的推估補值）：取「發布日 <= 該月最後一天」中最新者
                 cutoff = m.to_timestamp(how="end")
-                ok = [(p, d) for p, d in rel.items() if pd.notna(d) and d <= cutoff]
+                ok = [(p, d) for p, d in rel.items() if d <= cutoff]
                 p = max(ok, key=lambda x: x[1])[0] if ok else None
             else:
                 per = available_period(ind, m)
@@ -86,8 +113,11 @@ def align_by_lag(raw: pd.DataFrame, market: str, months: pd.PeriodIndex) -> pd.D
         out[axis] = vals
         src[axis] = srcs
 
-    # 季頻指標在下一筆發布前維持前值（不是補未來，是「當時最新已知值」）
+    # 季頻指標在下一筆發布前維持前值（不是補未來，是「當時最新已知值」）。
+    # src 也要跟著 ffill，否則被延續值的月份會顯示「無來源期間」，
+    # 稽核者會誤以為那個月沒有引用任何資料——但它其實引用了更早那期的值。
     out = out.ffill()
+    src = src.ffill()
     out.index.name = "month"
     out["src_periods"] = [
         "|".join(f"{a}={src[a].iloc[i]}" for a in AXES if a in src.columns)
@@ -133,11 +163,19 @@ def fit_clock_bounds(df: pd.DataFrame) -> dict:
 
 
 def apply_clock(df: pd.DataFrame, bounds: dict) -> pd.DataFrame:
+    """成長×通膨 兩軸切四格。
+
+    ⚠️ `>=` 對 NaN 一律回傳 False，所以 `~(nan >= x)` 會變成 True——
+    NaN 月份原本該被排除，卻會被 `np.select` 的四個條件之一接住並貼上標籤
+    （`default` 因此永遠用不到，是死碼）。故先算 `valid` 遮罩，缺值月份強制留白。
+    """
     df = df.copy()
+    valid = df["growth_z"].notna() & df["inflation_z"].notna()
     g_hi = df["growth_z"] >= bounds["growth_median"]
     i_hi = df["inflation_z"] >= bounds["inflation_median"]
     cell = np.select(
-        [g_hi & ~i_hi, g_hi & i_hi, ~g_hi & i_hi, ~g_hi & ~i_hi],
+        [valid & g_hi & ~i_hi, valid & g_hi & i_hi,
+         valid & ~g_hi & i_hi, valid & ~g_hi & ~i_hi],
         ["復甦", "過熱", "停滯性通膨", "衰退"], default=None)
     df["clock_cell"] = pd.Categorical(cell, categories=list(C.CLOCK_CELLS))
     return df
@@ -211,7 +249,8 @@ def selftest(log=print) -> None:
                 periods = pd.period_range("1999-01", "2025-12", freq="M")
             for p in periods:
                 rows.append({"market": mkt, "indicator_key": key, "period": str(p),
-                             "value": float(rng.normal()), "release_date": None})
+                             "value": float(rng.normal()), "unit": _SELFTEST_UNIT,
+                             "release_date": None})
     raw = pd.DataFrame(rows)
     raw["market"] = raw["market"].astype("category")
     C.validate(raw, C.MACRO_RAW)

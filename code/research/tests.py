@@ -162,12 +162,17 @@ def t_stage0_contract():
 
 @test
 def t_stage0_collision_is_real():
-    """落差5 實證：裸 strategy 不唯一、複合主鍵唯一"""
+    """落差5 實證：裸 strategy 不唯一、複合主鍵唯一
+
+    ⚠️ 不釘死碰撞的確切數字（曾是 1381，openSec 重跑後變 1585）：候選池每次
+    重跑組成都會變，釘一個快照數字本身就是 B-01 教訓的同一類錯誤。這裡驗證
+    的是**現象存在**（台美用同一套命名規則，碰撞必然 > 0），不是某次的精確值。
+    """
     df = _load_stage0()
     assert df[C.PK].is_unique, "複合主鍵必須唯一"
     assert not df["strategy"].is_unique, "裸 strategy 應該不唯一（台美碰撞）"
     collisions = len(df) - df["strategy"].nunique()
-    assert collisions == 1381, f"碰撞數 {collisions} != 實測的 1381"
+    assert collisions > 0, "應該存在台美策略字串碰撞，實測卻是 0——命名規則是否變了？"
 
 
 @test

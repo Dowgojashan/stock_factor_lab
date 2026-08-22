@@ -22,23 +22,34 @@ import pandas as pd
 
 MARKETS = ("TW", "US")
 
-#: 候選池列數（階段 −1 產物，已向老師報告過的數字）
-EXPECTED_ROWS = {"TW": 7162, "US": 6916}
-EXPECTED_ROWS_TOTAL = sum(EXPECTED_ROWS.values())          # 14,078
+#: 候選池列數
+#: 🔄 2026-08-22 更新：價格資料異常修復（台股接縫186檔／美股確認26檔）後，
+#: openSec 全鏈在台美兩市場重跑；同時修正了 Phase2 因子順序競態 bug
+#: （白名單字串比對因子池順序不同，5個OCF_E配對曾被靜默跳過）。
+#: 舊值（污染資料，已作廢）：TW 7,162／US 6,916／合計 14,078。
+EXPECTED_ROWS = {"TW": 7128, "US": 8682}
+EXPECTED_ROWS_TOTAL = sum(EXPECTED_ROWS.values())          # 15,810
 
-#: v0/v1 拆分（實測）
-EXPECTED_V_SPLIT = {"TW": {"v0": 4495, "v1": 2667},
-                    "US": {"v0": 3860, "v1": 3056}}
+#: v0/v1 拆分（實測，2026-08-22 修復後重跑）
+EXPECTED_V_SPLIT = {"TW": {"v0": 4451, "v1": 2677},
+                    "US": {"v0": 4838, "v1": 3844}}
 
 #: F2 空集合策略數（老師「F1+C 就好」的分流依據）。
 #: 這個數字對得上，就證明策略字串拆解是正確的——是階段0 最有力的驗收。
-EXPECTED_F2_EMPTY = {"TW": 384, "US": 652}
+#: ⚠️ 美股從 652 變成 786——F2_empty 策略不涉及 F1×F2 配對，理論上不受
+#: primary清單改變影響；差異來自美股基準被污染灌水 1.29pp 導致原本門檻過嚴，
+#: 修復後大量 F1+C 策略重新贏過基準而納入候選池（與整體池暴增25.5%同一成因）。
+EXPECTED_F2_EMPTY = {"TW": 384, "US": 786}
 
 #: 獨立 F 組合數（快篩「多樣性假象」的根源；也是 HRP L3 群數的錨點）
-EXPECTED_F_COMBOS = {"TW": 219, "US": 188}
+#: 🔄 台股 primary 清單改變（ROE 出、OCF_E 進）導致組合數微降；
+#: 美股因基準修正、候選門檻放寬而組合數上升。
+EXPECTED_F_COMBOS = {"TW": 218, "US": 235}
 
 #: 自建宇宙基準年化報酬（研究部 v9 更正版：同宇宙、同成本、含股利、等權）
-BENCHMARK_CAGR = {"TW": 0.0867, "US": 0.1235}
+#: 🔄 2026-08-22 用修復後價格重算：TW 8.67%→8.43%、US 12.35%→11.06%
+#: （美股基準原本被污染股票灌水約 1.29pp，是候選池暴增的根本原因）。
+BENCHMARK_CAGR = {"TW": 0.084256, "US": 0.110556}
 
 #: HRP 每棵樹的共同窗（SDD DD-03 定案，落差3）
 #: 台股窗捨棄 2000–2006 是**排除已知不可信資料**（財報洞、90% 假 0），非損失資料。
@@ -273,7 +284,12 @@ RETURNS_MONTHLY = Schema(
 
 RETURNS_META = Schema(
     name="returns_meta",
-    expected_rows=EXPECTED_ROWS_TOTAL,
+    # ⚠️ 刻意不設 expected_rows：階段1 的設計是「單策略失敗不中止全局」
+    # （見 stage1_scan.py 的 DD-05）。若這裡卡死列數必須剛好等於候選總數，
+    # 任何一個策略讀檔失敗就會讓 validate() 在寫出任何產物前直接 raise，
+    # 連 scan_errors.parquet 都寫不出來，等於「一個失敗、全部陪葬」，
+    # 與設計目標矛盾。完整性改由 stage1_scan._merge() 對 candidate_index
+    # 做覆蓋率檢查（記警告，不中止）。
     columns=[
         Column(PK, "str"),
         Column("market", "cat", allowed=MARKETS),
@@ -303,6 +319,11 @@ MACRO_RAW = Schema(
         # 對應 macro_spec.SPEC 的鍵（growth / growth_alt / inflation / rate_level / rate_direction）
         Column("indicator_key", "str"),
         Column("period", "str"),          # 資料所描述的期間：YYYY-MM 或 YYYYQn
+        # ⚠️ 刻意 nullable=False：本表用「該期間不存在這一列」表達缺值，
+        # 不用 NaN 填值列表達（下游 align_by_lag 對查不到的 period 本來就會
+        # 回傳 NaN，不需要來源檔自己先填一個 NaN 值列）。
+        # 交付時「缺值請留 NaN」是指**不要用 0 頂替**，不是要求塞 NaN 值列進來——
+        # 兩者容易混淆，validate_macro_raw.py 的提示訊息已對齊此說法。
         Column("value", "float"),
         # 單位必須明寫。z-score 對尺度不敏感，單位搞錯**不會在標準化後顯現**，
         # 是典型的靜默錯誤來源，故列為必填而非選填。

@@ -78,14 +78,22 @@ def main(argv: list[str] | None = None) -> int:
         outs.append(out)
         print(f"  → {out.name}  {out.stat().st_size/1024/1024:.1f} MB")
 
-    if len(markets) == len(C.MARKETS):
+    # ⚠️ 原本只在「這一次呼叫剛好兩個市場都跑」才寫 manifest；分兩次
+    # `--market TW` 再 `--market US` 執行時，manifest 永遠不會被寫出，
+    # 下游的 verify_inputs() 對 _mktcap 這個階段就永遠查不到憑證。
+    # 改成：不管這次跑了幾個市場，都掃磁碟上**現存**的 mktcap_pct_*.parquet
+    # 檔案來組 manifest——只要兩個市場的檔案都已存在，就補上完整記錄。
+    all_present = [paths.STAGE1 / f"mktcap_pct_{m}.parquet" for m in C.MARKETS]
+    if all(p.exists() for p in all_present):
         freeze.write_manifest(
             "stage1_mktcap", paths.STAGE1 / "_mktcap",
-            inputs=[], outputs=outs,
+            inputs=[], outputs=all_present,
             params={"field": FIELD, "freq": "M", "smallcap_pct_max": SMALLCAP_PCT_MAX,
                     "in_sample_end": paths.IN_SAMPLE_END},
             notes="C-5 規模欄位的原料；抽出成獨立前置，讓主掃描不依賴 DB 連線",
         )
+    else:
+        print("  （尚未兩個市場都完成，manifest 待下次補齊時再寫）")
     return 0
 
 

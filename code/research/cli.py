@@ -42,7 +42,7 @@ def cmd_list() -> int:
     return 0
 
 
-def cmd_run(stage: str) -> int:
+def cmd_run(stage: str, extra: list[str] | None = None) -> int:
     if stage not in STAGES:
         print(f"未知階段 {stage}；可用：{', '.join(STAGES)}", file=sys.stderr)
         return 2
@@ -51,7 +51,11 @@ def cmd_run(stage: str) -> int:
         print(f"{stage} 尚未開發（{desc}）", file=sys.stderr)
         return 2
     import importlib
-    return importlib.import_module(mod).main()
+    # ⚠️ 子模組的 main(argv=None) 預設會自己讀 sys.argv[1:]——但那份 argv
+    # 是「research.cli stage1」這一整串，子模組的 argparse 看到多出來的
+    # "stage1" 會直接報 unrecognized arguments 而中止。必須明確傳入剩餘參數
+    # （沒有就傳空 list），子模組才不會誤讀 cli.py 自己已經解析掉的部分。
+    return importlib.import_module(mod).main(extra or [])
 
 
 def cmd_verify(stage: str) -> int:

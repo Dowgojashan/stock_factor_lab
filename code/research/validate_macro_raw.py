@@ -127,7 +127,9 @@ def check(path: str | Path, log=print) -> int:
             msg.append(f"**0 值 {n_zero} ({n_zero/len(g):.0%})**")
             warns.append(f"{mkt}.{key} 有 {n_zero} 個 0 值——請確認是真實 0 還是缺值填 0")
         log(f"  [{mkt}] {key:<15} " + ("｜".join(msg) if msg else "無缺值、無異常 0"))
-    log("  ⚠️ 提醒：**缺值請留 NaN，不要填 0**（台股早期財報假 0 已造成過實質錯誤）")
+    log("  ⚠️ 提醒：**沒有資料的期間請直接不要那一列，不要填 0 或 NaN 值列**"
+        "（`value` 欄位本身不接受 NaN——下游 align_by_lag 對查不到的 period"
+        "本來就會回傳 NaN；台股早期財報用 0 頂替缺值已造成過實質錯誤，勿重蹈覆轍）")
 
     # ---- 5. 值域合理性（抓單位錯誤）----
     log("\n【值域合理性（抓單位錯誤）】")

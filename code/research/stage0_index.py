@@ -193,7 +193,9 @@ def _report(df: pd.DataFrame, log=print) -> None:
     log(f"\nC 條件數      : {df.C_id.nunique()} 種 (含空 C: {int(df.C_id.isna().sum())} 列)")
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    # 階段0 目前無任何 CLI 參數；接受 argv 只是為了與其他階段模組介面一致，
+    # 讓 research.cli 能統一用 `main(extra or [])` 呼叫而不用特判。
     df = build()
     _report(df)
     return 0
