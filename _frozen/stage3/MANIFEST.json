@@ -1,0 +1,208 @@
+{
+  "stage": "stage3_hrp",
+  "produced_at": "2026-08-22T23:43:29",
+  "git_sha": "4a465b8",
+  "params": {
+    "trees_built": [
+      "TW",
+      "US",
+      "XM"
+    ],
+    "L1_target": 8,
+    "L2_target": 40,
+    "L3_target": {
+      "TW": 218,
+      "US": 235,
+      "XM": 453
+    },
+    "linkage_method_chosen": {
+      "TW": "ward",
+      "US": "ward",
+      "XM": "ward"
+    },
+    "linkage_selection_criterion": "L3切割時最大群佔比最低者勝出，非cophenetic（見程式註解：single linkage 實測出現鏈狀效應)",
+    "method_comparison": {
+      "TW": {
+        "single": {
+          "cophenetic": 0.7614199777352813,
+          "max_share": 0.9548070175438597,
+          "n_singleton": 163
+        },
+        "ward": {
+          "cophenetic": 0.49988867952307486,
+          "max_share": 0.02666666666666667,
+          "n_singleton": 0
+        }
+      },
+      "US": {
+        "single": {
+          "cophenetic": 0.7459807436421655,
+          "max_share": 0.9586453173597512,
+          "n_singleton": 181
+        },
+        "ward": {
+          "cophenetic": 0.31911067247847225,
+          "max_share": 0.026494643474254117,
+          "n_singleton": 0
+        }
+      },
+      "XM": {
+        "single": {
+          "cophenetic": 0.7823671253450545,
+          "max_share": 0.9565382425507687,
+          "n_singleton": 339
+        },
+        "ward": {
+          "cophenetic": 0.8832761053509034,
+          "max_share": 0.01897893338394382,
+          "n_singleton": 0
+        }
+      }
+    },
+    "level_diag": {
+      "TW": {
+        "L1": {
+          "n_clusters": 8,
+          "max_share": 0.34189473684210525,
+          "n_singleton": 0
+        },
+        "L2": {
+          "n_clusters": 40,
+          "max_share": 0.10989473684210527,
+          "n_singleton": 0
+        },
+        "L3": {
+          "n_clusters": 218,
+          "max_share": 0.02666666666666667,
+          "n_singleton": 0
+        }
+      },
+      "US": {
+        "L1": {
+          "n_clusters": 8,
+          "max_share": 0.22197903467342472,
+          "n_singleton": 0
+        },
+        "L2": {
+          "n_clusters": 40,
+          "max_share": 0.07441538993203548,
+          "n_singleton": 0
+        },
+        "L3": {
+          "n_clusters": 235,
+          "max_share": 0.026494643474254117,
+          "n_singleton": 0
+        }
+      },
+      "XM": {
+        "L1": {
+          "n_clusters": 8,
+          "max_share": 0.2929714683368128,
+          "n_singleton": 0
+        },
+        "L2": {
+          "n_clusters": 40,
+          "max_share": 0.07572594420193585,
+          "n_singleton": 0
+        },
+        "L3": {
+          "n_clusters": 453,
+          "max_share": 0.01897893338394382,
+          "n_singleton": 0
+        }
+      }
+    },
+    "cophenetic": {
+      "TW": 0.49988867952307486,
+      "US": 0.31911067247847225,
+      "XM": 0.8832761053509034
+    },
+    "ari_l3_vs_fcombo": {
+      "TW": 0.18616605858782823,
+      "US": 0.23725429219374977,
+      "XM": 0.20324090827218724
+    },
+    "windows": {
+      "TW": [
+        "2007-01",
+        "2025-12"
+      ],
+      "US": [
+        "2002-01",
+        "2025-12"
+      ],
+      "XM": [
+        "2007-01",
+        "2025-12"
+      ]
+    }
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage1\\returns_monthly.parquet",
+      "sha256": "efa1a3179dbe44bbb51c6b0cd6d2c3c1284e2265161cbf729e8bba71e17059eb",
+      "bytes": 35729026,
+      "rows": 4547404
+    },
+    {
+      "path": "_frozen\\stage1\\returns_meta.parquet",
+      "sha256": "bd0342308ecfc3e8fe501bbc7bc41d54877040d556cf326c510d4136efb1646a",
+      "bytes": 181841,
+      "rows": 15810
+    },
+    {
+      "path": "_frozen\\stage0\\candidate_index.parquet",
+      "sha256": "b308a282f48511117739a3d3215dd00601a03c8247a9693edaad1644de57a8e2",
+      "bytes": 1453737,
+      "rows": 15810
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_frozen\\stage3\\cluster_assign.parquet",
+      "sha256": "a535c5645b57a967a787932772549df19a9488812e7da27fd456a314f97c23c2",
+      "bytes": 259834,
+      "rows": 31613
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_meta.parquet",
+      "sha256": "bf8c3904054f75fc1a6247fef2a77dd7152bab352d9d4798e71f84242043ac23",
+      "bytes": 22831,
+      "rows": 1050
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_corr_matrix_TW_normal.parquet",
+      "sha256": "125524d63eaf1406b19d48a91547d0ccab037fcb587114e57ce291bfb66139d8",
+      "bytes": 6963,
+      "rows": 8
+    },
+    {
+      "path": "_frozen\\stage3\\linkage_TW_normal.npy",
+      "sha256": "981b96398d126619c08cbdeaf4616e2c40a22f8d81e9ce0f636f0cfe3b78ab0c",
+      "bytes": 228096
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_corr_matrix_US_normal.parquet",
+      "sha256": "13dc04561b1029b8dd20c75ec53018013fa1c4992b61904592106c3a4d4e0e3a",
+      "bytes": 6963,
+      "rows": 8
+    },
+    {
+      "path": "_frozen\\stage3\\linkage_US_normal.npy",
+      "sha256": "83d0dd6f5b04741d371a222ed687e453faef60b1707cdd73a8ff8643ffee8573",
+      "bytes": 277888
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_corr_matrix_XM_normal.parquet",
+      "sha256": "cfd52cc11fd3e6b5657a4f2bb6c076c6f6ef1880dd422327732923361e413eef",
+      "bytes": 6963,
+      "rows": 8
+    },
+    {
+      "path": "_frozen\\stage3\\linkage_XM_normal.npy",
+      "sha256": "6eabada37c92b93c45aa18a5884d335477c95a29f4c81230707407267174f7c2",
+      "bytes": 505920
+    }
+  ],
+  "notes": "⚠️ 只有 normal 樹；crisis 樹待階段2a regime 窗完成後補建"
+}

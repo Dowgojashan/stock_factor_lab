@@ -21,7 +21,7 @@ STAGES = {
     "stage0": ("階段0 · 格式整備 → candidate_index", paths.STAGE0, "research.stage0_index"),
     "stage1": ("階段1 · 標記關卡 A/B/C → strategy_marks", paths.STAGE1, "research.stage1_scan"),
     "stage2": ("階段2 · regime + 總經對應", paths.STAGE2, None),
-    "stage3": ("階段3 · HRP 階層聚類", paths.STAGE3, None),
+    "stage3": ("階段3 · HRP 階層聚類", paths.STAGE3, "research.stage3_hrp"),
     "stage4": ("階段4 · strategy_map 彙整凍結", paths.STAGE4, None),
 }
 

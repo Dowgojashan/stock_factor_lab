@@ -15,6 +15,7 @@ from __future__ import annotations
 import sys
 import traceback
 
+import numpy as np
 import pandas as pd
 
 from . import contracts as C
@@ -143,6 +144,102 @@ def t_macro_spec_complete():
         assert not missing, f"{mkt} 缺少概念軸: {missing}"
         for key, i in inds.items():
             assert i.source_url.startswith("http"), f"{mkt}.{key} 缺官方來源連結"
+
+
+# ---------------------------------------------------------------- HRP（W-03）
+
+@test
+def t_hrp_psd_detection():
+    """check_psd 要能分辨合法相關矩陣與非法（非PSD）矩陣"""
+    from . import hrp
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(200, 30))          # 200月 × 30策略，真實資料生成的相關矩陣必為PSD
+    corr = np.corrcoef(X.T)
+    ok, min_eig = hrp.check_psd(corr)
+    assert ok and min_eig > -1e-6, f"真實資料生成的相關矩陣應為PSD，min_eig={min_eig}"
+
+    bad = corr.copy()
+    bad[0, 1] = bad[1, 0] = 0.999           # 手動破壞：塞一個不一致的相關值
+    bad[0, 2] = bad[2, 0] = 0.999
+    bad[1, 2] = bad[2, 0] = -0.999          # 三顆兩兩幾乎完全正相關卻有一對幾乎完全負相關→矛盾
+    ok2, min_eig2 = hrp.check_psd(bad)
+    assert not ok2, "手動構造的矛盾相關矩陣應被判定為非PSD"
+
+
+@test
+def t_hrp_distance_is_metric():
+    """corr_to_distance 產生的距離矩陣需滿足三角不等式（在合法PSD相關矩陣上）"""
+    from . import hrp
+    rng = np.random.default_rng(1)
+    X = rng.normal(size=(200, 50))
+    corr = np.corrcoef(X.T)
+    dist = hrp.corr_to_distance(corr)
+    ok, violations, max_excess = hrp.check_triangle_inequality(dist, n_samples=3000, seed=1)
+    assert ok, f"合法相關矩陣算出的距離違反三角不等式 {violations} 次，最大超出 {max_excess:.2e}"
+    assert np.allclose(np.diag(dist), 0.0), "距離矩陣對角線必須是 0"
+    assert np.allclose(dist, dist.T), "距離矩陣必須對稱"
+
+
+@test
+def t_hrp_weights_valid():
+    """recursive_bisection_weights 權重需為正、加總為 1"""
+    from . import hrp
+    rng = np.random.default_rng(2)
+    n = 40
+    X = rng.normal(size=(150, n))
+    cov = np.cov(X.T)
+    order = list(range(n))
+    rng.shuffle(order)
+    w = hrp.recursive_bisection_weights(cov, order)
+    assert len(w) == n
+    assert (w > 0).all(), "HRP 權重不應出現負值或零"
+    assert abs(w.sum() - 1.0) < 1e-9, f"權重加總應為 1，實際 {w.sum()}"
+
+
+@test
+def t_hrp_build_tree_end_to_end():
+    """build_tree 端到端：合成資料跑完整鏈，權重與PSD檢查皆正常"""
+    from . import hrp
+    rng = np.random.default_rng(3)
+    n, t = 60, 120
+    # 造 3 個「真實群」：群內高相關、群間低相關，驗證分群結果非隨機
+    base = rng.normal(size=(3, t))
+    returns = np.vstack([base[i % 3] + rng.normal(scale=0.3, size=t) for i in range(n)])
+    res = hrp.build_tree(returns, method="ward")
+    assert res.psd_ok, f"合成資料的相關矩陣應為 PSD，min_eig={res.min_eig}"
+    assert abs(res.weights.sum() - 1.0) < 1e-9
+    assert len(res.leaf_order) == n and set(res.leaf_order) == set(range(n))
+    assert res.cophenetic > 0.3, f"cophenetic 相關過低（{res.cophenetic:.3f}），linkage 可能沒抓到群結構"
+
+    labels = hrp.cut_clusters(res.link, n_clusters=3)
+    true_group = np.array([i % 3 for i in range(n)])
+    ari = hrp.adjusted_rand_index(pd.Series(labels), pd.Series(true_group))
+    assert ari > 0.5, f"3群合成資料切3群，ARI 應明顯 > 0（實際 {ari:.3f}），linkage 未抓到真實群結構"
+
+
+@test
+def t_hrp_build_tree_rejects_nan():
+    """build_tree 對含 NaN 的輸入必須拒絕，不能靜默用 pairwise-complete"""
+    from . import hrp
+    rng = np.random.default_rng(4)
+    returns = rng.normal(size=(20, 50))
+    returns[3, 10] = np.nan
+    expect_raises(ValueError, hrp.build_tree, returns)
+
+
+@test
+def t_hrp_ari_sanity():
+    """ARI：相同分群=1，完全打散的隨機分群應接近 0"""
+    from . import hrp
+    a = pd.Series([0, 0, 0, 1, 1, 1, 2, 2, 2])
+    assert abs(hrp.adjusted_rand_index(a, a) - 1.0) < 1e-9, "自己對自己 ARI 應為 1"
+
+    rng = np.random.default_rng(5)
+    n = 3000
+    a2 = pd.Series(rng.integers(0, 10, size=n))
+    b2 = pd.Series(rng.integers(0, 10, size=n))
+    ari = hrp.adjusted_rand_index(a2, b2)
+    assert abs(ari) < 0.05, f"兩個獨立隨機分群的 ARI 應接近 0，實際 {ari:.3f}"
 
 
 # ------------------------------------------------------------ 階段0 驗收

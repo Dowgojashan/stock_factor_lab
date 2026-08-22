@@ -365,5 +365,40 @@ MACRO_HISTORY = Schema(
 )
 
 
+# ============================================================================
+# 階段 3 · HRP 分群（W-03）
+# ============================================================================
+
+#: 6 棵樹：3 組（TW/US/XM）× 2 種（normal/crisis）。crisis 需 regime 窗（階段2a
+#: 尚未建置），本階段先只產出 normal。
+TREE_IDS = ("TW_normal", "US_normal", "XM_normal",
+           "TW_crisis", "US_crisis", "XM_crisis")
+
+CLUSTER_ASSIGN = Schema(
+    name="cluster_assign",
+    primary_key=[PK, "tree_id"],
+    columns=[
+        Column(PK, "str"),
+        Column("tree_id", "cat", allowed=TREE_IDS),
+        Column("cluster_L1", "int"),
+        Column("cluster_L2", "int"),
+        Column("cluster_L3", "int"),
+    ],
+)
+
+CLUSTER_META = Schema(
+    name="cluster_meta",
+    primary_key=["tree_id", "level", "cluster_id"],
+    columns=[
+        Column("tree_id", "cat", allowed=TREE_IDS),
+        Column("level", "cat", allowed=("L1", "L2", "L3")),
+        Column("cluster_id", "int"),
+        Column("n_members", "int", ge=1),
+        Column("avg_intra_corr", "float", nullable=True),   # 單一成員的群無群內相關可算
+        Column("representative_uid", "str"),
+    ],
+)
+
+
 ALL_SCHEMAS = {s.name: s for s in (CANDIDATE_INDEX, RETURNS_MONTHLY, RETURNS_META,
-                                   MACRO_RAW, MACRO_HISTORY)}
+                                   MACRO_RAW, MACRO_HISTORY, CLUSTER_ASSIGN, CLUSTER_META)}
