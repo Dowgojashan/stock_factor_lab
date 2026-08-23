@@ -111,7 +111,16 @@
       "Bash(iconv -f utf-8 -t utf-8)",
       "Bash(timeout 60 python -c ' *)",
       "Read(//c/Users/iplab/**)",
-      "Bash(python -X utf8 -c ' *)"
+      "Bash(python -X utf8 -c ' *)",
+      "Bash(.venv/Scripts/python.exe --version)",
+      "Bash(.venv/Scripts/python.exe -m pip freeze)",
+      "Bash(.venv/Scripts/python.exe -X utf8 -c ' *)",
+      "Bash(find /c/Users/iplab/AppData/Local/Temp/claude/d--git-stock-factor-lab/3fd4a1f8-550a-4aaa-9ae6-af2477cf6702/scratchpad/teacher_delivery/參考結果（作者已執行版本） -iname *.md)",
+      "Bash(/d/git/stock_factor_lab/.venv/Scripts/python.exe -c ' *)",
+      "Bash(cd /d/git/stock_factor_lab *)"
+    ],
+    "additionalDirectories": [
+      "\\tmp"
     ]
   }
 }
