@@ -1,0 +1,33 @@
+{
+  "stage": "stage2b_macro",
+  "produced_at": "2026-08-23T15:26:24",
+  "git_sha": "51cb807",
+  "params": {
+    "in_sample": "2000-01..2025-12",
+    "smooth_window": 3,
+    "clock_split": "in-sample 中位數"
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage2\\macro\\macro_raw.parquet",
+      "sha256": "2281a2d4a1970be285214de62cc9b8d483eb2ccce0e202fbe8f611cfdd122a82",
+      "bytes": 29441,
+      "rows": 2968
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_frozen\\stage2\\macro\\macro_history_TW.parquet",
+      "sha256": "9e28aafe288abf76b03688283425e2e388636f1778cf6846ab68620e0b69b2bf",
+      "bytes": 28651,
+      "rows": 312
+    },
+    {
+      "path": "_frozen\\stage2\\macro\\macro_history_US.parquet",
+      "sha256": "cd6f5fb152407cdab5f44d1e1b10c17d82bff4dc4529c164c00b5b760bb57ea5",
+      "bytes": 36128,
+      "rows": 312
+    }
+  ],
+  "notes": "z-score 參數與四格邊界已凍結；out 期沿用不重算"
+}

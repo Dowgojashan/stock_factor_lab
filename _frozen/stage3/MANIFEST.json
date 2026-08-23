@@ -1,12 +1,15 @@
 {
   "stage": "stage3_hrp",
-  "produced_at": "2026-08-22T23:43:29",
-  "git_sha": "4a465b8",
+  "produced_at": "2026-08-23T16:42:13",
+  "git_sha": "51cb807",
   "params": {
     "trees_built": [
-      "TW",
-      "US",
-      "XM"
+      "TW_normal",
+      "US_normal",
+      "XM_normal",
+      "TW_crisis",
+      "US_crisis",
+      "XM_crisis"
     ],
     "L1_target": 8,
     "L2_target": 40,
@@ -16,111 +19,215 @@
       "XM": 453
     },
     "linkage_method_chosen": {
-      "TW": "ward",
-      "US": "ward",
-      "XM": "ward"
+      "TW_normal": "ward",
+      "US_normal": "ward",
+      "XM_normal": "ward",
+      "TW_crisis": "ward",
+      "US_crisis": "ward",
+      "XM_crisis": "ward"
     },
     "linkage_selection_criterion": "L3切割時最大群佔比最低者勝出，非cophenetic（見程式註解：single linkage 實測出現鏈狀效應)",
     "method_comparison": {
-      "TW": {
+      "TW_normal": {
         "single": {
-          "cophenetic": 0.7614199777352813,
-          "max_share": 0.9548070175438597,
-          "n_singleton": 163
+          "cophenetic": 0.7579208050855177,
+          "max_share": 0.95493337325947,
+          "n_singleton": 165
         },
         "ward": {
-          "cophenetic": 0.49988867952307486,
-          "max_share": 0.02666666666666667,
+          "cophenetic": 0.4584802985969461,
+          "max_share": 0.028297649348704896,
           "n_singleton": 0
         }
       },
-      "US": {
+      "US_normal": {
         "single": {
-          "cophenetic": 0.7459807436421655,
-          "max_share": 0.9586453173597512,
-          "n_singleton": 181
+          "cophenetic": 0.7242037236595505,
+          "max_share": 0.9572966507177033,
+          "n_singleton": 177
         },
         "ward": {
-          "cophenetic": 0.31911067247847225,
-          "max_share": 0.026494643474254117,
+          "cophenetic": 0.2991308524794546,
+          "max_share": 0.03409090909090909,
           "n_singleton": 0
         }
       },
-      "XM": {
+      "XM_normal": {
         "single": {
-          "cophenetic": 0.7823671253450545,
-          "max_share": 0.9565382425507687,
+          "cophenetic": 0.8146518767779951,
+          "max_share": 0.9565824468085107,
           "n_singleton": 339
         },
         "ward": {
-          "cophenetic": 0.8832761053509034,
-          "max_share": 0.01897893338394382,
+          "cophenetic": 0.8946613816258085,
+          "max_share": 0.013297872340425532,
+          "n_singleton": 0
+        }
+      },
+      "TW_crisis": {
+        "single": {
+          "cophenetic": 0.7329914589858842,
+          "max_share": 0.9588261715825722,
+          "n_singleton": 188
+        },
+        "ward": {
+          "cophenetic": 0.513640912667885,
+          "max_share": 0.025003743075310676,
+          "n_singleton": 0
+        }
+      },
+      "US_crisis": {
+        "single": {
+          "cophenetic": 0.7580846642055011,
+          "max_share": 0.9629186602870813,
+          "n_singleton": 195
+        },
+        "ward": {
+          "cophenetic": 0.37721695720416426,
+          "max_share": 0.02368421052631579,
+          "n_singleton": 0
+        }
+      },
+      "XM_crisis": {
+        "single": {
+          "cophenetic": 0.9315482306810875,
+          "max_share": 0.5294547872340426,
+          "n_singleton": 359
+        },
+        "ward": {
+          "cophenetic": 0.9030055696629045,
+          "max_share": 0.017220744680851063,
           "n_singleton": 0
         }
       }
     },
     "level_diag": {
-      "TW": {
+      "TW_normal": {
         "L1": {
           "n_clusters": 8,
-          "max_share": 0.34189473684210525,
+          "max_share": 0.2858212307231621,
           "n_singleton": 0
         },
         "L2": {
           "n_clusters": 40,
-          "max_share": 0.10989473684210527,
+          "max_share": 0.09776912711483755,
           "n_singleton": 0
         },
         "L3": {
           "n_clusters": 218,
-          "max_share": 0.02666666666666667,
+          "max_share": 0.028297649348704896,
           "n_singleton": 0
         }
       },
-      "US": {
+      "US_normal": {
         "L1": {
           "n_clusters": 8,
-          "max_share": 0.22197903467342472,
+          "max_share": 0.21650717703349281,
           "n_singleton": 0
         },
         "L2": {
           "n_clusters": 40,
-          "max_share": 0.07441538993203548,
+          "max_share": 0.09856459330143541,
           "n_singleton": 0
         },
         "L3": {
           "n_clusters": 235,
-          "max_share": 0.026494643474254117,
+          "max_share": 0.03409090909090909,
           "n_singleton": 0
         }
       },
-      "XM": {
+      "XM_normal": {
         "L1": {
           "n_clusters": 8,
-          "max_share": 0.2929714683368128,
+          "max_share": 0.3003989361702128,
           "n_singleton": 0
         },
         "L2": {
           "n_clusters": 40,
-          "max_share": 0.07572594420193585,
+          "max_share": 0.07533244680851064,
           "n_singleton": 0
         },
         "L3": {
           "n_clusters": 453,
-          "max_share": 0.01897893338394382,
+          "max_share": 0.013297872340425532,
+          "n_singleton": 0
+        }
+      },
+      "TW_crisis": {
+        "L1": {
+          "n_clusters": 8,
+          "max_share": 0.35439437041473276,
+          "n_singleton": 0
+        },
+        "L2": {
+          "n_clusters": 40,
+          "max_share": 0.09372660577930828,
+          "n_singleton": 0
+        },
+        "L3": {
+          "n_clusters": 218,
+          "max_share": 0.025003743075310676,
+          "n_singleton": 0
+        }
+      },
+      "US_crisis": {
+        "L1": {
+          "n_clusters": 8,
+          "max_share": 0.255622009569378,
+          "n_singleton": 0
+        },
+        "L2": {
+          "n_clusters": 40,
+          "max_share": 0.1020334928229665,
+          "n_singleton": 0
+        },
+        "L3": {
+          "n_clusters": 235,
+          "max_share": 0.02368421052631579,
+          "n_singleton": 0
+        }
+      },
+      "XM_crisis": {
+        "L1": {
+          "n_clusters": 8,
+          "max_share": 0.2569148936170213,
+          "n_singleton": 0
+        },
+        "L2": {
+          "n_clusters": 40,
+          "max_share": 0.08769946808510638,
+          "n_singleton": 0
+        },
+        "L3": {
+          "n_clusters": 453,
+          "max_share": 0.017220744680851063,
           "n_singleton": 0
         }
       }
     },
     "cophenetic": {
-      "TW": 0.49988867952307486,
-      "US": 0.31911067247847225,
-      "XM": 0.8832761053509034
+      "TW_normal": 0.4584802985969461,
+      "US_normal": 0.2991308524794546,
+      "XM_normal": 0.8946613816258085,
+      "TW_crisis": 0.513640912667885,
+      "US_crisis": 0.37721695720416426,
+      "XM_crisis": 0.9030055696629045
     },
     "ari_l3_vs_fcombo": {
-      "TW": 0.18616605858782823,
-      "US": 0.23725429219374977,
-      "XM": 0.20324090827218724
+      "TW_normal": 0.1999349007688118,
+      "US_normal": 0.23000623032798168,
+      "XM_normal": 0.21958398294254716,
+      "TW_crisis": 0.07718991462548792,
+      "US_crisis": 0.1539916131492742,
+      "XM_crisis": 0.15578318417529394
+    },
+    "n_dropped_zero_var": {
+      "TW_normal": 0,
+      "US_normal": 0,
+      "XM_normal": 0,
+      "TW_crisis": 0,
+      "US_crisis": 0,
+      "XM_crisis": 0
     },
     "windows": {
       "TW": [
@@ -135,6 +242,11 @@
         "2007-01",
         "2025-12"
       ]
+    },
+    "crisis_months_n": {
+      "TW": 17,
+      "US": 22,
+      "XM": 26
     }
   },
   "inputs": [
@@ -151,58 +263,115 @@
       "rows": 15810
     },
     {
+      "path": "_frozen\\stage1\\strategy_marks.parquet",
+      "sha256": "f192caaf40d1ae9d70a2f1c78c728cdc22bc357246016b17c2e538c4dc47f992",
+      "bytes": 543315,
+      "rows": 15810
+    },
+    {
       "path": "_frozen\\stage0\\candidate_index.parquet",
       "sha256": "b308a282f48511117739a3d3215dd00601a03c8247a9693edaad1644de57a8e2",
       "bytes": 1453737,
       "rows": 15810
+    },
+    {
+      "path": "_frozen\\stage2\\regime\\regime_table_TW.parquet",
+      "sha256": "c8b736811ad8b6cbcf70ea1b3df9b44a2fb188e7267507fbf1b7f511e2e7cd7c",
+      "bytes": 8773,
+      "rows": 43
+    },
+    {
+      "path": "_frozen\\stage2\\regime\\regime_table_US.parquet",
+      "sha256": "f592786973d2274a04d84959f89765d2f73d2bf3d342b0537d9533756b6d6e35",
+      "bytes": 7982,
+      "rows": 29
     }
   ],
   "outputs": [
     {
       "path": "_frozen\\stage3\\cluster_assign.parquet",
-      "sha256": "a535c5645b57a967a787932772549df19a9488812e7da27fd456a314f97c23c2",
-      "bytes": 259834,
-      "rows": 31613
+      "sha256": "79b79768f4e8d1c71afe03294dbc4599c9f50932a6f63d02d13d81b496641074",
+      "bytes": 344854,
+      "rows": 60158
     },
     {
       "path": "_frozen\\stage3\\cluster_meta.parquet",
-      "sha256": "bf8c3904054f75fc1a6247fef2a77dd7152bab352d9d4798e71f84242043ac23",
-      "bytes": 22831,
-      "rows": 1050
+      "sha256": "b6d5c521adf5282bbfbe3b8555d4854b20e5c8691550a0ce8866035c40d2b7f2",
+      "bytes": 43512,
+      "rows": 2100
     },
     {
       "path": "_frozen\\stage3\\cluster_corr_matrix_TW_normal.parquet",
-      "sha256": "125524d63eaf1406b19d48a91547d0ccab037fcb587114e57ce291bfb66139d8",
+      "sha256": "fc9f9f805bbd13693bf0f5f91fe22b2d0b332f39ef48a52dc54ac7a8cf171186",
       "bytes": 6963,
       "rows": 8
     },
     {
       "path": "_frozen\\stage3\\linkage_TW_normal.npy",
-      "sha256": "981b96398d126619c08cbdeaf4616e2c40a22f8d81e9ce0f636f0cfe3b78ab0c",
-      "bytes": 228096
+      "sha256": "782190091be3870ddc1e6b98222b87c25f387af8383a15cf8c4310a794c04f29",
+      "bytes": 213824
     },
     {
       "path": "_frozen\\stage3\\cluster_corr_matrix_US_normal.parquet",
-      "sha256": "13dc04561b1029b8dd20c75ec53018013fa1c4992b61904592106c3a4d4e0e3a",
+      "sha256": "2291b8d3231de832dbe1a9bb356732b1f4dfc9df39f4f41ff9f28cf4a0e3d368",
       "bytes": 6963,
       "rows": 8
     },
     {
       "path": "_frozen\\stage3\\linkage_US_normal.npy",
-      "sha256": "83d0dd6f5b04741d371a222ed687e453faef60b1707cdd73a8ff8643ffee8573",
-      "bytes": 277888
+      "sha256": "7e4079367a1bba26549c106f2f62c677a585ba13c34c23b1f2130a97a24413af",
+      "bytes": 267616
     },
     {
       "path": "_frozen\\stage3\\cluster_corr_matrix_XM_normal.parquet",
-      "sha256": "cfd52cc11fd3e6b5657a4f2bb6c076c6f6ef1880dd422327732923361e413eef",
+      "sha256": "d3a410c297e2ff83cd1334cb4d96b3b5ec24e590244fc73f3a46ea70969c98b2",
       "bytes": 6963,
       "rows": 8
     },
     {
       "path": "_frozen\\stage3\\linkage_XM_normal.npy",
-      "sha256": "6eabada37c92b93c45aa18a5884d335477c95a29f4c81230707407267174f7c2",
-      "bytes": 505920
+      "sha256": "538ccf8ec15fddd52c1f88838c1740adb20b938bc8de8dcd93ed4d4cd99c60f1",
+      "bytes": 481376
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_corr_matrix_TW_crisis.parquet",
+      "sha256": "29742d6e04dc58c5aa00885d00b5cae573c1e48d37d1f6a3f419979414c10cea",
+      "bytes": 6963,
+      "rows": 8
+    },
+    {
+      "path": "_frozen\\stage3\\linkage_TW_crisis.npy",
+      "sha256": "8f756fd834c9092fe5ab9fa10570a2a10f60ba46f0df7acebcfcd968274bab8b",
+      "bytes": 213824
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_corr_matrix_US_crisis.parquet",
+      "sha256": "ed7579b1a52ae95747b836d623bfc6e5aeab0aa3a6f5c44e58853b59d5b6460a",
+      "bytes": 6963,
+      "rows": 8
+    },
+    {
+      "path": "_frozen\\stage3\\linkage_US_crisis.npy",
+      "sha256": "6a780cde4d30b0bd0795c1f85e2bba330b715419d14a4da3a130e24acc2a162f",
+      "bytes": 267616
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_corr_matrix_XM_crisis.parquet",
+      "sha256": "8f99c69599153d9714d5522057070b5b29f57d0c7f12198cbc02754f9f4ffb6d",
+      "bytes": 6963,
+      "rows": 8
+    },
+    {
+      "path": "_frozen\\stage3\\linkage_XM_crisis.npy",
+      "sha256": "2fbf88f2e4f7228b3660c34be7b816e46c5ff42688335aacce2072db36c19d23",
+      "bytes": 481376
+    },
+    {
+      "path": "_frozen\\stage3\\co_fail_regimes.parquet",
+      "sha256": "983ceb854357b6bda769ba6049839db05d7f43b435046325db97b245d439e079",
+      "bytes": 6743,
+      "rows": 24
     }
   ],
-  "notes": "⚠️ 只有 normal 樹；crisis 樹待階段2a regime 窗完成後補建"
+  "notes": "normal+crisis 六棵樹"
 }

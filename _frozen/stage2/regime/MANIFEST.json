@@ -1,7 +1,7 @@
 {
   "stage": "stage2a_regime",
-  "produced_at": "2026-08-23T00:49:58",
-  "git_sha": "78d8bc7",
+  "produced_at": "2026-08-23T15:38:33",
+  "git_sha": "51cb807",
   "params": {
     "params": {
       "bear_thresh": 0.15,

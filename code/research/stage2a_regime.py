@@ -44,10 +44,11 @@ import sys
 
 import pandas as pd
 
+from . import contracts as C
 from . import freeze, paths
 
 REGIME_DIR = paths.STAGE2 / "regime"
-REGIME_LABELS = ("牛", "熊", "危機", "盤整")
+REGIME_LABELS = C.REGIME_LABELS   # 單一事實來源在 contracts.py（2c 也用同一份）
 
 #: 判定規則的預設參數（門檻＝待資料，此為合理起點並經五個已知事件驗證）
 #: ⚠️ 實測校準：20% 起始門檻讓 TW 2018Q4（實際跌 15.5%）、US 2018Q4（實際跌
@@ -184,6 +185,7 @@ def run(params: dict = DEFAULT_PARAMS, log=print) -> dict[str, pd.DataFrame]:
     results, outs = {}, []
     for m in ("TW", "US"):
         segs = build_regime_table(m, params, log)
+        C.validate(segs, C.REGIME_TABLE)
         p = REGIME_DIR / f"regime_table_{m}.parquet"
         segs.to_parquet(p, compression="zstd", index=False)
         outs.append(p)

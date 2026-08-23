@@ -126,6 +126,7 @@ _KIND_CHECK = {
     "bool":   lambda s: pd.api.types.is_bool_dtype(s),
     "cat":    lambda s: True,      # 允許 object/category，值域另外查 allowed
     "period": lambda s: isinstance(s.dtype, pd.PeriodDtype),
+    "date":   lambda s: pd.api.types.is_datetime64_any_dtype(s),
 }
 
 
@@ -393,11 +394,83 @@ MACRO_HISTORY = Schema(
 
 
 # ============================================================================
+# 階段 2a · Regime Dating（W-10）
+# ============================================================================
+
+#: 牛/熊/危機/盤整——zigzag 判定的連續區間標籤
+REGIME_LABELS = ("牛", "熊", "危機", "盤整")
+
+#: 階段2a 產出：純價格 zigzag 切割的連續區間（做法甲，不摻總經）
+REGIME_TABLE = Schema(
+    name="regime_table",
+    primary_key=["market", "start"],
+    columns=[
+        Column("market", "cat", allowed=MARKETS),
+        Column("start", "date"),
+        Column("end", "date"),
+        Column("label", "cat", allowed=REGIME_LABELS),
+        Column("start_price", "float", ge=0),
+        Column("end_price", "float", ge=0),
+        Column("pct_change", "float"),
+        Column("days", "int", ge=0),
+        Column("ann_speed", "float", ge=0),
+    ],
+)
+
+
+# ============================================================================
+# 階段 2c · 交叉佐證（2a × 2b 匯流，W-11）
+# ============================================================================
+
+#: 牛段預期落在「高成長」格；熊/危機段預期落在「低成長」格。
+#: 盤整無方向性預期，2c 刻意不檢查（做法甲精神：價格為主、總經僅對有方向性
+#: 的段佐證，勉強配一個「盤整該落在哪格」的預期只是自欺）。
+REGIME_EXPECTED_CELLS = {
+    "牛": ("復甦", "過熱"),
+    "熊": ("停滯性通膨", "衰退"),
+    "危機": ("停滯性通膨", "衰退"),
+}
+
+
+def _check_consistency_nullability(df: pd.DataFrame) -> None:
+    """checked=False 不該有 consistent 判定；checked=True 且有資料則必須有判定。"""
+    bad_unchecked = df[~df["checked"] & df["consistent"].notna()]
+    if len(bad_unchecked):
+        _fail("regime_consistency", f"{len(bad_unchecked)} 筆 checked=False 卻仍有 consistent 判定")
+    bad_checked = df[df["checked"] & (df["n_months_valid"] > 0) & df["consistent"].isna()]
+    if len(bad_checked):
+        _fail("regime_consistency", f"{len(bad_checked)} 筆 checked=True 且有資料卻缺 consistent 判定")
+
+
+#: 階段2c 產出：regime 段 × 總經四格 一致性標記。
+#: 「背離時段清單」= consistent==False 的子集，不另立 schema（同一張表過濾即得）。
+REGIME_CONSISTENCY = Schema(
+    name="regime_consistency",
+    primary_key=["market", "seg_start"],
+    columns=[
+        Column("market", "cat", allowed=MARKETS),
+        Column("seg_start", "date"),
+        Column("seg_end", "date"),
+        Column("label", "cat", allowed=REGIME_LABELS),
+        Column("checked", "bool"),                                  # 盤整=False，不檢查
+        Column("expected_group", "str", nullable=True),              # 未檢查段為 None
+        Column("n_months_valid", "int", ge=0),                       # 段內非空月數（含盤整，供參考）
+        Column("n_months_matched", "float", nullable=True, ge=0),    # 落入預期格的月數；未檢查/無資料為 None
+        Column("pct_match", "float", nullable=True, ge=0, le=100),
+        Column("majority_cell", "cat", allowed=CLOCK_CELLS, nullable=True),
+        Column("consistent", "bool", nullable=True),                 # pct_match > 50% ；None=未檢查或無總經資料
+    ],
+    checks=(_check_consistency_nullability,),
+)
+
+
+# ============================================================================
 # 階段 3 · HRP 分群（W-03）
 # ============================================================================
 
-#: 6 棵樹：3 組（TW/US/XM）× 2 種（normal/crisis）。crisis 需 regime 窗（階段2a
-#: 尚未建置），本階段先只產出 normal。
+#: 6 棵樹：3 組（TW/US/XM）× 2 種（normal/crisis）。crisis 需 regime 窗（階段2a／2c
+#: 已完成，crisis 樹隨之補建）。
+TREE_KEYS = ("TW", "US", "XM")
 TREE_IDS = ("TW_normal", "US_normal", "XM_normal",
            "TW_crisis", "US_crisis", "XM_crisis")
 
@@ -426,7 +499,170 @@ CLUSTER_META = Schema(
     ],
 )
 
+#: 危機期「共跌」的操作型定義（v9）：常態樹的兩個群，若在危機樹裡的成員多數被分
+#: 進同一個危機群，代表它們在危機時塌在一起——即使常態時期看起來是不同的一群。
+#: 只在 L1（粗層級，給 LLM 讀）算，跟 cluster_corr_matrix 的粒度一致。
+CO_FAIL_REGIMES = Schema(
+    name="co_fail_regimes",
+    primary_key=["tree_key", "level", "cluster_normal"],
+    columns=[
+        Column("tree_key", "cat", allowed=TREE_KEYS),
+        Column("level", "cat", allowed=("L1", "L2", "L3")),
+        Column("cluster_normal", "int"),                     # 常態樹的群 id
+        Column("n_members", "int", ge=1),
+        Column("crisis_dest_cluster", "int"),                # 危機期多數成員的去向（危機樹群id）
+        Column("crisis_dest_share", "float", ge=0, le=1),     # 去向集中度
+        Column("co_fail_peers", "str"),                       # 同去向的其他常態群，"|" 分隔（可能為空字串）
+        Column("n_co_fail_peers", "int", ge=0),
+    ],
+)
+
+
+# ============================================================================
+# 階段 4 · strategy_map 彙整（W-13）
+# ============================================================================
+
+#: regime_fit 標籤門檻（GateC「regime_fit 含『熊市抗跌』等」，未給精確公式，
+#: 本階段的解讀，見 stage4_strategy_map.py docstring）：該regime標籤月份的
+#: 平均報酬 >= 0 且樣本數達門檻，才貼對應標籤。
+REGIME_FIT_MIN_MONTHS = 3
+
+#: 四格信心分級門檻（GateC「信心門檻n：待資料看分布定」，本階段的解讀）
+MACRO_CONFIDENCE_CUTS = {"高": 12, "中": 6}   # >=12月=高、>=6月=中、其餘=低
+
+#: 階段4 產出：每策略×regime標籤 的表現統計（regime_fit 標籤的計算原料，
+#: 也是給 Agent2 查「這個策略在熊市/危機到底表現如何」的完整數字）
+REGIME_PERFORMANCE = Schema(
+    name="regime_performance",
+    primary_key=[PK, "label"],
+    columns=[
+        Column(PK, "str"),
+        Column("market", "cat", allowed=MARKETS),
+        Column("label", "cat", allowed=REGIME_LABELS),
+        Column("n_months", "int", ge=0),
+        Column("avg_ret", "float", nullable=True),     # n_months=0 時無值可算
+        Column("win_ratio", "float", nullable=True, ge=0, le=1),
+    ],
+)
+
+#: 階段4 產出：每策略×投資時鐘四格 的表現統計（v9「四格×該策略 平均報酬/
+#: 勝率/樣本數/信心」，見研究部完整流程_v9.md 第五部分欄位表）
+MACRO_PERFORMANCE = Schema(
+    name="macro_performance",
+    primary_key=[PK, "clock_cell"],
+    columns=[
+        Column(PK, "str"),
+        Column("market", "cat", allowed=MARKETS),
+        Column("clock_cell", "cat", allowed=CLOCK_CELLS),
+        Column("n_months", "int", ge=0),
+        Column("avg_ret", "float", nullable=True),
+        Column("win_ratio", "float", nullable=True, ge=0, le=1),
+        Column("confidence", "cat", allowed=CONFIDENCE, nullable=True),   # n_months=0 時留白
+    ],
+)
+
+#: 階段4 主表：candidate_index(階段0) + strategy_scan原始指標(階段1) +
+#: strategy_marks等級(階段1) + regime_fit(2a彙整) + macro摘要(2b彙整) +
+#: cluster投影(階段3) + v1_beneficial(本階段新算)。
+#: ⚠️ cluster_L1/L2/L3/co_fail_peers 是「該策略自己市場的常態樹」投影（單一
+#: 便利欄位，供快速查詢），完整的六棵樹（含XM、crisis）仍以 cluster_assign/
+#: co_fail_regimes 附屬表為準——不是每個策略都在 DD-03 窗內，故這三欄可能是
+#: NaN（用 float 裝，不用 int，見 CANDIDATE_INDEX 的 F2_band 同類前例）。
+STRATEGY_MAP = Schema(
+    name="strategy_map",
+    primary_key=[PK],
+    columns=[
+        # --- 身份與結構（階段0，= CANDIDATE_INDEX 的結構欄位）---
+        Column(PK, "str"),
+        Column("strategy", "str"),
+        Column("market", "cat", allowed=MARKETS),
+        Column("f_combo", "str"),
+        Column("F1_factor", "str"),
+        Column("F1_band", "int"),
+        Column("F1_nbands", "int"),
+        Column("F2_factor", "str", nullable=True),
+        Column("F2_band", "float", nullable=True),
+        Column("F2_nbands", "float", nullable=True),
+        Column("F2_empty", "bool"),
+        Column("C_id", "str", nullable=True),
+        Column("C_source", "str", nullable=True),
+        Column("C_rule", "str", nullable=True),
+        Column("V", "cat", allowed=("v0", "v1")),
+        Column("factor_type", "cat",
+               allowed=("估值型", "體質型", "動能型", "規模型", "結構型", "混合型")),
+        Column("factor_type_basis", "str"),
+        # --- 整段績效（階段−1候選CSV / stats.parquet） ---
+        Column("CAGR", "float"),
+        Column("max_drawdown", "float", le=0.0),
+        Column("win_ratio", "float", ge=0.0, le=1.0),
+        Column("avg_holdings", "float", ge=0.0),
+        Column("sharpe_ann", "float"),
+        Column("daily_sharpe", "float"),
+        Column("avg_drawdown", "float", le=0.0),
+        Column("artifacts_dir", "str"),
+        # --- 覆蓋期間（階段1 scan）---
+        Column("hist_start", "str"),
+        Column("hist_end", "str"),
+        Column("n_months", "int", ge=1),
+        Column("n_years", "int", ge=1),
+        # --- C-3 報酬/風險形態（階段1）---
+        Column("cagr_pct", "float", ge=0, le=100),
+        Column("mdd_pct", "float", ge=0, le=100),
+        Column("return_shape", "cat", allowed=("大起大落", "中等", "穩定爬升")),
+        Column("risk_shape", "cat", allowed=("深回撤", "中等", "淺回撤")),
+        Column("ann_vol", "float", ge=0),
+        Column("ann_vol_monthly", "float", ge=0),
+        Column("worst_year", "float"),
+        Column("neg_year_count", "int", ge=0),
+        Column("annual_ret_std", "float", ge=0),
+        Column("max_consec_loss_months", "int", ge=0),
+        Column("max_daily_ret", "float"),
+        Column("min_daily_ret", "float"),
+        # --- 關卡A：可信度（階段1）---
+        Column("credibility_grade", "cat", allowed=CREDIBILITY_GRADES),
+        Column("credibility_score_pct", "float", ge=0, le=100),
+        Column("effective_n", "float", ge=0),
+        Column("top1_share", "float", ge=0, le=1),
+        Column("top20_cum_share", "float", ge=0, le=1),
+        Column("top1_stock", "str"),
+        Column("rotation_score", "float", ge=0),
+        Column("rotation_n_years", "int", ge=0),
+        # --- 關卡B：穩健度（階段1）---
+        Column("stability_grade", "cat", allowed=STABILITY_GRADES, nullable=True),
+        # --- C-4 可執行性（階段1）---
+        Column("holdings_median", "float", ge=0),
+        Column("holdings_p10", "float", ge=0),
+        Column("empty_ratio", "float", ge=0, le=1),
+        Column("n_eval_months", "int", ge=0),
+        Column("eval_month_ratio", "float", ge=0, le=1),
+        Column("n_holding_months", "int", ge=0),
+        Column("turnover_ann", "float", ge=0),
+        Column("entries_per_year", "float", ge=0),
+        Column("n_trades", "int", ge=0),
+        # --- C-5 規模依賴（階段1）---
+        Column("size_tilt_pct", "float", ge=0, le=100),
+        Column("smallcap_share", "float", ge=0, le=1),
+        Column("size_n_obs", "int", ge=0),
+        # --- 尾端寬鬆硬篩（階段1）---
+        Column("is_usable", "bool"),
+        Column("drop_reason", "str", nullable=True),
+        # --- regime_fit（本階段彙整 2a×階段1報酬；完整數字見 regime_performance 附屬表）---
+        Column("regime_fit", "str", nullable=True),          # pipe-joined 標籤，見 stage4 docstring
+        # --- macro_fit 摘要（本階段彙整 2b×階段1報酬；完整4格數字見 macro_performance 附屬表）---
+        Column("macro_best_cell", "cat", allowed=CLOCK_CELLS, nullable=True),
+        Column("macro_best_cell_avg_ret", "float", nullable=True),
+        # --- HRP 投影（階段3；完整見 cluster_assign/co_fail_regimes 附屬表）---
+        Column("cluster_L1", "float", nullable=True),
+        Column("cluster_L2", "float", nullable=True),
+        Column("cluster_L3", "float", nullable=True),
+        Column("co_fail_peers", "str", nullable=True),
+        # --- v1_beneficial（本階段新算：同一 market×f_combo×C_id 下 v1 CAGR 是否優於 v0）---
+        Column("v1_beneficial", "bool", nullable=True),
+    ],
+)
+
 
 ALL_SCHEMAS = {s.name: s for s in (CANDIDATE_INDEX, RETURNS_MONTHLY, RETURNS_META,
-                                   MACRO_RAW, MACRO_HISTORY, CLUSTER_ASSIGN, CLUSTER_META,
-                                   STRATEGY_MARKS)}
+                                   MACRO_RAW, MACRO_HISTORY, REGIME_TABLE, REGIME_CONSISTENCY,
+                                   CLUSTER_ASSIGN, CLUSTER_META, CO_FAIL_REGIMES, STRATEGY_MARKS,
+                                   REGIME_PERFORMANCE, MACRO_PERFORMANCE, STRATEGY_MAP)}

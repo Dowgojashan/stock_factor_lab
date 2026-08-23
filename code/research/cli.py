@@ -20,9 +20,11 @@ from . import freeze, paths
 STAGES = {
     "stage0": ("階段0 · 格式整備 → candidate_index", paths.STAGE0, "research.stage0_index"),
     "stage1": ("階段1 · 標記關卡 A/B/C → strategy_marks", paths.STAGE1, "research.stage1_scan"),
-    "stage2": ("階段2 · regime + 總經對應", paths.STAGE2, None),
+    "stage2a": ("階段2a · Regime Dating（牛熊切割）", paths.STAGE2 / "regime", "research.stage2a_regime"),
+    "stage2b": ("階段2b · 總經 → 月頻特徵表", paths.STAGE2 / "macro", "research.stage2b_macro"),
+    "stage2c": ("階段2c · 交叉佐證（2a×2b 匯流）", paths.STAGE2 / "consistency", "research.stage2c_consistency"),
     "stage3": ("階段3 · HRP 階層聚類", paths.STAGE3, "research.stage3_hrp"),
-    "stage4": ("階段4 · strategy_map 彙整凍結", paths.STAGE4, None),
+    "stage4": ("階段4 · strategy_map 彙整凍結", paths.STAGE4, "research.stage4_strategy_map"),
 }
 
 

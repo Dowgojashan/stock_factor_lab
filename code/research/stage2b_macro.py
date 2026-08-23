@@ -92,19 +92,38 @@ def align_by_lag(raw: pd.DataFrame, market: str, months: pd.PeriodIndex) -> pd.D
         has_release = "release_date" in sub.columns and sub["release_date"].notna().any()
         if has_release:
             raw_rel = dict(zip(sub["period"].astype(str), pd.to_datetime(sub["release_date"])))
-            # 缺 release_date 的個別期間：用推估滯後量補一個發布日，不排除
-            rel = {p: (d if pd.notna(d) else _estimate_release_date(p, ind))
-                   for p, d in raw_rel.items()}
+            # ⚠️ **不可無條件信任 release_date**——實測 US GDP 的 ALFRED 資料
+            # 1998Q1~2014Q2（64 季、16 年）全部標記同一天 2014-09-26，那不是
+            # BEA 當年真正的發布日，是 ALFRED 資料庫本身開始追蹤 vintage 的
+            # 起點（vintage-tracking 起點偽裝成發布日）。若照單全收，會讓
+            # 2014-09 之前的所有決策月都判定「這個指標還沒發布過任何值」，
+            # 產生大片不該存在的 NaN（實測 US growth 176/312 個月缺值，
+            # 且 2014-09 那個月一次冒出一堆同天「可得」的期間，`max()` 又
+            # 沒有 tie-break，還會選到最舊的 1998Q1 而非最新一期）。
+            # 合理性判準：與 macro_spec 推估的正常滯後相比，若實際落差超過
+            # 180 天（半年緩衝，涵蓋各指標正常的季節性延遲），視為不可信、
+            # 退回用推估值——這正是 vintage 追蹤起點的訊號，不是真發布延遲。
+            plausible_slack = pd.Timedelta(days=180)
+            rel = {}
+            for p, d in raw_rel.items():
+                est = _estimate_release_date(p, ind)
+                if pd.isna(d) or d > est + plausible_slack:
+                    rel[p] = est          # 缺值，或不合理地晚 → 退回推估
+                else:
+                    rel[p] = d            # 合理範圍內 → 相信實測值
         else:
             rel = None
 
         vals, srcs = [], []
         for m in months:
             if rel is not None:
-                # point-in-time（實測 + 個別缺漏的推估補值）：取「發布日 <= 該月最後一天」中最新者
+                # point-in-time（實測 + 個別缺漏的推估補值）：取「發布日 <= 該月最後一天」中最新者。
+                # ⚠️ tie-break：若多筆並列同一個最晚發布日（前述 vintage 起點問題的殘餘可能性、
+                # 或資料源本來就對一批期間標同一天），優先取**期間本身較新**的那筆——
+                # 「最近一次公布的是最新一期數字」在經濟上才合理，不能讓 dict 疊代順序決定答案。
                 cutoff = m.to_timestamp(how="end")
                 ok = [(p, d) for p, d in rel.items() if d <= cutoff]
-                p = max(ok, key=lambda x: x[1])[0] if ok else None
+                p = max(ok, key=lambda x: (x[1], pd.Period(x[0])))[0] if ok else None
             else:
                 per = available_period(ind, m)
                 p = None if per is None else str(per)

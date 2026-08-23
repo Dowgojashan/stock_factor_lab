@@ -96,14 +96,18 @@ US = {
 # ============================================================================
 TW = {
     "growth": Indicator(
-        axis="growth", name="實質 GDP 年增率（概估統計）",
+        axis="growth", name="實質 GDP 年增率",
         agency="行政院主計總處", freq="Q",
         publish_rule="季末後約 1 個月發布『概估統計』；『初步統計』約季末後 2 個月由國民所得統計評審會審議發布",
-        lag_months=1,
+        lag_months=2,
         source_url="https://www.stat.gov.tw/Point.aspx?sid=t.1&n=3580&sms=11480",
         vintage_available=False,
-        note="⚠️ **待 collector 確認**：TEJ 存的是概估數還是評審會修正後的初步統計數？"
-             "若為後者，實際可得時點應為 lag_months=2。",
+        note="🔴 2026-08-22 collector 查證後採用保守值：主計總處只提供最新修正版，"
+             "不區分概估／初步。collector 能實測的只有『2026Q2 在季末後第53天已存在』，"
+             "介於概估(~30天)與初步統計(~60天)之間、無法判定是哪一階段。"
+             "已依 collector 建議改採 lag_months=2（保守）：這個選擇不對稱——"
+             "高估滯後只是少用一點資訊，低估滯後直接產生前視偏誤，故寧可保守。"
+             "原值 lag_months=1 已作廢，見 開發待辦追蹤.md N-05。",
     ),
     "growth_alt": Indicator(
         axis="growth", name="工業生產指數年增率",

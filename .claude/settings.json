@@ -110,7 +110,8 @@
       "Bash(sed -n '/^## 7\\\\./,$p' 週進度報告_2026-08-17.md)",
       "Bash(iconv -f utf-8 -t utf-8)",
       "Bash(timeout 60 python -c ' *)",
-      "Read(//c/Users/iplab/**)"
+      "Read(//c/Users/iplab/**)",
+      "Bash(python -X utf8 -c ' *)"
     ]
   }
 }
