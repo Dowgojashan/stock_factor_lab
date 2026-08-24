@@ -7,7 +7,10 @@ FCV 核心（市場泛化）：載入一次 → 跑多個 spec。供 sweep_drive
   condition_factory 的 q_band rank 快取（以 frame id 為 key）跨 spec 自動重用，每因子只排名一次。
 - **宇宙篩選在讀取層**：database.py 的 market-gated `_universe_clause`（US→russell3000、TW→不篩），
   故本檔天然市場泛化；這裡只做 `univ ∩ price` 並在建遮罩前限縮財報 frame（filter-before-rank）。
-- **串流分批**：不同時 materialize 全部遮罩/報告，峰值 O(1 batch)（全量會 OOM，見 A4 §10）。
+- **串流分批**：串流的是**組合**（F1×F2×C×V）與回測報告，不是基礎遮罩——
+  `stream_strategy_masks` 進迴圈前會先把全部 P1／P3 基礎遮罩建好常駐
+  （19因子×3桶＝57 個 P1 ＋ 20 個 P3，各為全宇宙逐日布林 frame，這才是峰值記憶體的主要來源）；
+  組合遮罩與 Report 則維持 O(1 batch)（全量 materialize 會 OOM，見 A4 §10）。
 - **對稱去重**：F1×F2 只產無序對（EPS__ROE 與 ROE__EPS 交集相同）→ 省 45%。
 - **sharpe_ann**：落地時就從 return_table 月報酬重算正確年化 Sharpe（daily_sharpe 是壞值，見 A4 §10）。
 """
@@ -217,12 +220,16 @@ class MarketData:
         # 分派依據是 condition_factory.ANNOUNCEMENT_TYPES，由 build_conditions 標在 needs_ann。
         df = (self.get_field_ann(cond["field"]) if cond.get("needs_ann")
               else self.get_field(cond["field"]))
+        # 失敗也要進快取（值為 None）：否則同一個壞條件會在每個 spec 重算一次，
+        # 並重複發出同樣的 warning 洗版。None 是「已知算不出來」，不是「還沒算」。
         if df is None:
+            self._mask_cache[key] = None
             return None
         try:
             m = cond["cond"](df)
         except Exception as e:
             warnings.warn(f"[get_mask] {cond['name']}: {e}")
+            self._mask_cache[key] = None
             return None
         if not m.index.equals(self.price_index):
             m = m.reindex(self.price_index, method="ffill").fillna(False)
@@ -254,6 +261,7 @@ class MarketData:
 
     def release(self):
         self._field_cache.clear()
+        self._ann_cache.clear()      # 公告點稀疏 frame 也要清，否則 release() 只釋放一半
         self._mask_cache.clear()
         self._v_mask = None
 
@@ -261,7 +269,10 @@ class MarketData:
 # ==================== 串流展開（F/C/V，含對稱去重）====================
 def stream_strategy_masks(P1, P3, md, dedup=True, v_modes=("v0", "v1"),
                           allowed_f_pairs=None):
-    """串流 yield (name, daily_mask)，不同時 materialize 全部。
+    """串流 yield (name, daily_mask)：組合遮罩逐一產生，不同時 materialize 全部組合。
+
+    ⚠️ 但**基礎遮罩是一次全建**（下方 P1_masks / P3_masks），迴圈期間全程常駐。
+       峰值記憶體 ≈ 全部 P1+P3 基礎遮罩 ＋ 當前 batch，不是只有當前 batch。
 
     dedup=True：F1×F2 只產**無序對**（j>i）→ EPS__ROE 與 ROE__EPS 不重複，省 45%。
 

@@ -161,7 +161,19 @@ def main():
     df["持股數足夠"] = df["平均持股數"] >= MIN_HOLDINGS
 
     # ---------- 單因子基準表：每個 (因子,桶) 自己有多強 ----------
-    solo = df[~df["is_pair"]].set_index(["F1", "k1"])["CAGR"].to_dict()
+    # ⚠️ parse_name 只解析 F1/F2，**不看 v0/v1 後綴**。若這批回測同時含 v0 與 v1，
+    #    同一個 (因子,桶) 會有兩列，to_dict() 會靜默只留最後一列——而 solo 正是
+    #    primary 強度門檻與配對增益的分母，等於整張體質檢查表建立在混用的基準上。
+    #    目前 phase2_pairing.V_MODES=("v0",) 故安全，但這正是本專案踩過兩次的
+    #    「靜默重用」型錯誤，寧可在這裡炸掉也不要靜默算錯。
+    _solo_rows = df[~df["is_pair"]]
+    _dup = _solo_rows.duplicated(subset=["F1", "k1"]).sum()
+    if _dup:
+        raise AssertionError(
+            f"[{label}] 單因子列有 {_dup} 組 (因子,桶) 重複——這批回測可能同時含 v0/v1。\n"
+            f"solo 基準會被靜默覆蓋，導致 primary 門檻與配對增益全部失準。\n"
+            f"→ 請確認 phase2_pairing.V_MODES 只有一個 V 模式，或先分開 v0/v1 再分析。")
+    solo = _solo_rows.set_index(["F1", "k1"])["CAGR"].to_dict()
     solo_tbl = df[~df["is_pair"]][["F1", "k1", "CAGR", "max_drawdown", "win_ratio",
                                     "平均持股數"]].copy()
     solo_tbl["角色池"] = solo_tbl["F1"].map(

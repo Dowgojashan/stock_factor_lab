@@ -111,7 +111,18 @@
       "Bash(iconv -f utf-8 -t utf-8)",
       "Bash(timeout 60 python -c ' *)",
       "Read(//c/Users/iplab/**)",
-      "Bash(python -X utf8 -c ' *)"
+      "Bash(python -X utf8 -c ' *)",
+      "Read(//d/git/stock_factor_lab/code/**)",
+      "Bash(powershell -Command \"Get-Process python -ErrorAction SilentlyContinue | Select-Object Id,StartTime,CPU\")",
+      "Bash(powershell -Command \"Get-CimInstance Win32_Process -Filter \\\\\"Name='python.exe'\\\\\" | Select-Object ProcessId,CreationDate,CommandLine | Format-List\")",
+      "Bash(mkdir -p /tmp/rerun_check)",
+      "Bash(../.venv/Scripts/python.exe phase1_linearity.py --market TW)",
+      "Bash(echo \"TW phase1 rerun exit: $?\")",
+      "Bash(../.venv/Scripts/python.exe phase3_conditions.py --market TW)",
+      "Bash(echo \"TW phase3 strict exit: $?\")",
+      "Bash(chmod +x \"C:\\\\Users\\\\iplab\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--git-stock-factor-lab\\\\3fd4a1f8-550a-4aaa-9ae6-af2477cf6702\\\\scratchpad\\\\tw_overnight_chain.sh\")",
+      "Bash(bash \"C:\\\\Users\\\\iplab\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--git-stock-factor-lab\\\\3fd4a1f8-550a-4aaa-9ae6-af2477cf6702\\\\scratchpad\\\\tw_overnight_chain.sh\")",
+      "Bash(echo \"chain script exited: $?\")"
     ]
   }
 }
