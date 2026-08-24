@@ -128,10 +128,18 @@
       "Bash(.venv/Scripts/python.exe -c ' *)",
       "Bash(../.venv/Scripts/python.exe -m py_compile universe_benchmark.py phase1_analyze.py phase2_analyze.py)",
       "Bash(../.venv/Scripts/python.exe -m py_compile phase1_analyze.py phase2_analyze.py phase3_analyze.py phase4_analyze.py)",
-      "Bash(/d/git/stock_factor_lab/.venv/Scripts/python.exe -X utf8 add_market_switch.py)"
+      "Bash(/d/git/stock_factor_lab/.venv/Scripts/python.exe -X utf8 add_market_switch.py)",
+      "Bash(ls -la \"D:\\\\git\\\\devlivery_code\" 2>&1 | head -50)",
+      "Read(//d/git/**)",
+      "Bash(rm -f /d/git/delivery_code/_analysis_outputs_phase1/Phase1_結果分析.md /d/git/delivery_code/_analysis_outputs_phase2/Phase2_結果分析.md /d/git/delivery_code/_analysis_outputs_phase3/Phase3_結果分析.md /d/git/delivery_code/_analysis_outputs_phase4/Phase4_結果分析與變體對照.md /d/git/delivery_code/_analysis_outputs_phase4/基準三方對照.md /d/git/delivery_code/_analysis_outputs_phase4/美股結果總覽.md /d/git/delivery_code/_analysis_outputs_dataquality/價格異常診斷報告.md /d/git/delivery_code/_analysis_outputs_dataquality/重跑必要性評估.md)",
+      "Bash(rmdir /d/git/delivery_code/_analysis_outputs)",
+      "Bash(rm -f /d/git/delivery_code/TA-LIB/TA_Lib-0.4.19-cp37-cp37m-win_amd64.whl /d/git/delivery_code/TA-LIB/TA_Lib-0.4.24-cp38-cp38-win_amd64.whl /d/git/delivery_code/TA-LIB/ta_lib-0.6.4-cp311-cp311-win_amd64.whl)",
+      "Bash(rm -rf /d/git/delivery_code/core/build /d/git/delivery_code/utils/__pycache__)",
+      "Bash(D=\"/d/git/delivery_code\" *)"
     ],
     "additionalDirectories": [
-      "\\tmp"
+      "\\tmp",
+      "D:\\git\\delivery_code\\_analysis_outputs_atlas"
     ]
   }
 }

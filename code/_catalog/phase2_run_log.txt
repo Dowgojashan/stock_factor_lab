@@ -134,3 +134,27 @@
 [2026-08-24 16:18:36]     P1 條件數=57｜單因子=57｜跨因子配對=1539｜預期共 1596 策略
 [2026-08-24 16:18:36]     done  TW_L2_all_M
 [2026-08-24 16:18:36] 已完成（且因子池相同），無待跑。
+[2026-08-24 20:48:31] === Phase 2 配對｜市場=TW｜因子=19（primary 6 / secondary 19）｜分桶 N=3｜V=('v0',)（C 關閉）｜in-sample 至 2025-12-31 ===
+[2026-08-24 20:48:31]     primary  ：['P_IC', 'PB', 'PS', 'EV_S', 'MOM', 'OCF_E']
+[2026-08-24 20:48:31]     secondary：['P_IC', 'PB', 'PS', 'EV_S', 'MOM', 'OCF_E', 'FCF_P', 'ROE', 'EV_EBITDA', 'ROIC', 'ACCRUAL', 'FCF_OI', 'DEBTRATIO', 'NETDEBT_EBITDA', 'VOL', 'REVENUE', 'CROIC', 'REV_G', 'EPS']
+[2026-08-24 20:48:31]     P1 條件數=57｜單因子=57｜跨因子配對=1539｜預期共 1596 策略
+[2026-08-24 20:48:31]     done  TW_L2_all_M
+[2026-08-24 20:48:31] dry-run：不執行。
+[2026-08-24 20:48:31] === Phase 2 配對｜市場=TW｜因子=19（primary 6 / secondary 19）｜分桶 N=3｜V=('v0',)（C 關閉）｜in-sample 至 2025-12-31 ===
+[2026-08-24 20:48:31]     primary  ：['P_IC', 'PB', 'PS', 'EV_S', 'MOM', 'OCF_E']
+[2026-08-24 20:48:31]     secondary：['P_IC', 'PB', 'PS', 'EV_S', 'MOM', 'OCF_E', 'FCF_P', 'ROE', 'EV_EBITDA', 'ROIC', 'ACCRUAL', 'FCF_OI', 'DEBTRATIO', 'NETDEBT_EBITDA', 'VOL', 'REVENUE', 'CROIC', 'REV_G', 'EPS']
+[2026-08-24 20:48:31]     P1 條件數=57｜單因子=57｜跨因子配對=1539｜預期共 1596 策略
+[2026-08-24 20:48:31]     done  TW_L2_all_M
+[2026-08-24 20:48:31] 已完成（且因子池相同），無待跑。
+[2026-08-24 21:53:00] === Phase 2 配對｜市場=US｜因子=19（primary 8 / secondary 19）｜分桶 N=3｜V=('v0',)（C 關閉）｜in-sample 至 2025-12-31 ===
+[2026-08-24 21:53:00]     primary  ：['REVENUE', 'EV_S', 'PB', 'PS', 'P_IC', 'EV_EBITDA', 'VOL', 'EPS']
+[2026-08-24 21:53:00]     secondary：['REVENUE', 'EV_S', 'PB', 'PS', 'P_IC', 'EV_EBITDA', 'VOL', 'EPS', 'OCF_E', 'FCF_P', 'REV_G', 'ROE', 'CROIC', 'DEBTRATIO', 'MOM', 'ROIC', 'FCF_OI', 'NETDEBT_EBITDA', 'ACCRUAL']
+[2026-08-24 21:53:00]     P1 條件數=57｜單因子=57｜跨因子配對=1539｜預期共 1596 策略
+[2026-08-24 21:53:00]     done  US_L2_all_M
+[2026-08-24 21:53:00] dry-run：不執行。
+[2026-08-24 21:53:00] === Phase 2 配對｜市場=US｜因子=19（primary 8 / secondary 19）｜分桶 N=3｜V=('v0',)（C 關閉）｜in-sample 至 2025-12-31 ===
+[2026-08-24 21:53:00]     primary  ：['REVENUE', 'EV_S', 'PB', 'PS', 'P_IC', 'EV_EBITDA', 'VOL', 'EPS']
+[2026-08-24 21:53:00]     secondary：['REVENUE', 'EV_S', 'PB', 'PS', 'P_IC', 'EV_EBITDA', 'VOL', 'EPS', 'OCF_E', 'FCF_P', 'REV_G', 'ROE', 'CROIC', 'DEBTRATIO', 'MOM', 'ROIC', 'FCF_OI', 'NETDEBT_EBITDA', 'ACCRUAL']
+[2026-08-24 21:53:00]     P1 條件數=57｜單因子=57｜跨因子配對=1539｜預期共 1596 策略
+[2026-08-24 21:53:00]     done  US_L2_all_M
+[2026-08-24 21:53:00] 已完成（且因子池相同），無待跑。
