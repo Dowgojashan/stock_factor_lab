@@ -158,15 +158,15 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--market", default="TW", choices=["TW", "US"])
     ap.add_argument("--bench", default="universe", choices=["universe", "index"],
-                    help="universe＝自建宇宙基準(含股利，預設)；index＝外部價格指數(不含股利)")
+                    help="universe＝基準(含股利，預設)；index＝外部價格指數(不含股利)")
     args = ap.parse_args()
     mkt = args.market
     sfx = "_idxbench" if args.bench == "index" else ""
     OUT.mkdir(parents=True, exist_ok=True)
 
     from universe_benchmark import get_bench
-    bench, bdesc = get_bench(mkt, args.bench)
-    log(f"基準 = {bench:.2%}（{bdesc}）\n")
+    bench, _ = get_bench(mkt, args.bench)
+    log(f"基準 = {bench:.2%}\n")
 
     log("載入規模參照（REVENUE_qb0）以計算重疊診斷 …")
     ref = load_size_ref(mkt)
@@ -240,10 +240,7 @@ def main():
         ax.set_title(f"{f}  ρ={rho:+.2f}  {vtext.get(v, v)}  全距{rng:.1f}pp", fontsize=9)
     for ax in np.atleast_1d(axes).ravel()[n:]:
         ax.axis("off")
-    fig.suptitle(f"Phase 1  9桶單因子 CAGR 曲線（{mkt}，in-sample 至 {IN_SAMPLE_END}）\n"
-                 f"虛線＝基準 {bench:.2%}（{bdesc}）；X軸＝分位桶 0(最低)→8(最高)；"
-                 f"全距＝該因子9桶CAGR的最大−最小（Y軸各自獨立縮放，全距愈小代表曲線愈平緩）",
-                 fontsize=12)
+    fig.suptitle(f"Phase 1  9桶單因子 CAGR 曲線 — {mkt}", fontsize=12)
     fig.tight_layout(rect=[0, 0, 1, 0.94])
     fig.savefig(OUT / f"{mkt}_phase1{sfx}_curves.png", bbox_inches="tight")
     plt.close(fig)

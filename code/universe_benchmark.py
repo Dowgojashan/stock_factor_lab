@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-自建宇宙基準：「什麼都不篩，把宇宙裡的股票全部等權買下來」的績效。
+基準：「什麼都不篩，把宇宙裡的股票全部等權買下來」的績效。
 
 為什麼需要這個（見對話 2026-08-08）：
   現用的大盤基準 `taiex` 表經查證是**台灣加權股價指數（價格指數）**，
@@ -75,7 +75,7 @@ def get_bench(market, kind="universe"):
 
       index    ：外部**價格**指數（taiex/sp500）——不含股利
       index_tr ：外部**報酬**指數（taiex_tr/sp500_tr）——含股利
-      universe ：自建宇宙基準（本檔算出來的）——含股利、同宇宙、同成本
+      universe ：基準（本檔算出來的）——含股利、同宇宙、同成本
 
     ⚠️ **index_tr 與另外兩者的期間不同，不可直接比大小**：
        台灣報酬指數 2003 才發布，跳過了 2000-2002 那段崩盤
@@ -100,9 +100,9 @@ def get_bench(market, kind="universe"):
     p = Path(ART_DIR) / f"{market}_UNIVERSE_M" / "stats.parquet"
     if not p.exists():
         raise FileNotFoundError(
-            f"找不到自建宇宙基準 {p}；請先執行：python universe_benchmark.py --market {market}")
+            f"找不到基準 {p}；請先執行：python universe_benchmark.py --market {market}")
     v = float(pd.read_parquet(p).iloc[0]["CAGR"])
-    return v, "自建宇宙基準（全買、含股利、同宇宙同成本）"
+    return v, "基準（全買、含股利、同宇宙同成本）"
 
 
 def bench_table(market):
@@ -124,7 +124,7 @@ def bench_table(market):
     rows.append(("外部價格指數（同報酬指數期間）", v, d0, d1))
     try:
         v, _ = get_bench(market, "universe")
-        rows.append(("自建宇宙基準（含股利、等權）", v, "2000-01-01", IN_SAMPLE_END))
+        rows.append(("基準（含股利、等權）", v, "2000-01-01", IN_SAMPLE_END))
     except FileNotFoundError:
         pass
     return pd.DataFrame(rows, columns=["基準", "年化", "起", "訖"])
@@ -137,7 +137,7 @@ def main():
     market = args.market
     label = f"{market}_UNIVERSE_M"
 
-    log(f"=== 自建宇宙基準｜{market}｜in-sample 至 {IN_SAMPLE_END} ===")
+    log(f"=== 基準｜{market}｜in-sample 至 {IN_SAMPLE_END} ===")
     md = MarketData(market, start=MARKET_START[market], end=IN_SAMPLE_END)
 
     # 「全選」遮罩：宇宙內所有公司、每個交易日都為 True。
@@ -173,7 +173,7 @@ def main():
         from phase1_analyze import bench_cagr
         ext, b0, b1 = bench_cagr(market)
         log(f"\n  外部指數（價格指數，不含股利）= {ext:.2%}  [{b0}~{b1}]")
-        log(f"  自建宇宙基準（含股利、同宇宙、同成本）= {float(r['CAGR']):.2%}")
+        log(f"  基準（含股利、同宇宙、同成本）= {float(r['CAGR']):.2%}")
         log(f"  → 差距 {float(r['CAGR'])-ext:+.2%}"
             f"（就是先前被高估的幅度）")
     except Exception as e:

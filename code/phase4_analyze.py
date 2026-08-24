@@ -35,7 +35,6 @@ warnings.filterwarnings("ignore")
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from phase1_linearity import IN_SAMPLE_END              # noqa: E402
 from universe_benchmark import get_bench                 # noqa: E402
 from phase2_analyze import MIN_HOLDINGS, avg_holdings    # noqa: E402
 from phase3_analyze import parse                         # noqa: E402
@@ -77,8 +76,8 @@ def main():
     sfx += "_idxbench" if args.bench == "index" else ""
     OUT.mkdir(parents=True, exist_ok=True)
 
-    bench, bdesc = get_bench(mkt, args.bench)
-    log(f"基準 = {bench:.2%}（{bdesc}）｜變體 = {args.variant}\n")
+    bench, _ = get_bench(mkt, args.bench)
+    log(f"基準 = {bench:.2%}｜變體 = {args.variant}\n")
 
     v0 = load(mkt, "L3", args.variant)
     v1 = load(mkt, "L4", args.variant)
@@ -199,8 +198,7 @@ def main():
     a.tick_params(axis="x", labelrotation=70, labelsize=7)
     a.set_ylabel("ΔCAGR"); a.set_title("4-23  依 C 分組的 ΔCAGR")
 
-    fig.suptitle(f"Phase 4  V 估值濾網該不該加？— {mkt}／{args.variant}"
-                 f"（in-sample 至 {IN_SAMPLE_END}，基準 {bench:.2%}）", fontsize=13)
+    fig.suptitle(f"Phase 4  V 估值濾網該不該加？— {mkt}／{args.variant}", fontsize=13)
     fig.tight_layout(rect=[0, 0, 1, 0.93])
     fig.savefig(OUT / f"{mkt}_L4{sfx}_V_effect.png", bbox_inches="tight")
     plt.close(fig)

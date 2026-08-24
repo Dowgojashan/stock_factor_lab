@@ -38,7 +38,6 @@ warnings.filterwarnings("ignore")
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from phase2_pairing import N_BUCKETS, IN_SAMPLE_END   # noqa: E402
 from universe_benchmark import get_bench               # noqa: E402
 import phase_variants                                  # noqa: E402
 
@@ -120,7 +119,7 @@ def main():
     ap.add_argument("--market", default="TW", choices=["TW", "US"])
     ap.add_argument("--variant", default="strict", choices=list(phase_variants.VARIANTS))
     ap.add_argument("--bench", default="universe", choices=["universe", "index"],
-                    help="universe＝自建宇宙基準(含股利，預設)；index＝外部價格指數(不含股利)")
+                    help="universe＝基準(含股利，預設)；index＝外部價格指數(不含股利)")
     args = ap.parse_args()
     mkt = args.market
     # ⚠️ 必須帶 market：phase_variants.get() 的 market 預設是 "TW"，漏傳會拿台股的
@@ -138,11 +137,11 @@ def main():
     sfx += "_idxbench" if args.bench == "index" else ""
     OUT.mkdir(parents=True, exist_ok=True)
 
-    bench, bdesc = get_bench(mkt, args.bench)
+    bench, _ = get_bench(mkt, args.bench)
     log(f"變體＝{args.variant}：{V['desc']}")
     log(f"  primary  ({len(PRIMARY)})：{PRIMARY}")
     log(f"  secondary({len(SECONDARY)})：{SECONDARY}")
-    log(f"基準＝{bench:.2%}（{bdesc}）")
+    log(f"基準＝{bench:.2%}")
     log(f"門檻：primary 需 > 基準+{PRIMARY_MARGIN:.0%}｜secondary 需 > 基準−{SECONDARY_TOL:.0%}｜"
         f"配對退步容忍 {COMBO_DEGRADE_TOL:.1%}｜平均持股數 ≥ {MIN_HOLDINGS}\n")
 
@@ -266,8 +265,7 @@ def main():
         axes[1].axhline(0, color=OI[1], linestyle="--", linewidth=1.2)
         axes[1].tick_params(axis="x", labelrotation=60, labelsize=8)
         axes[1].set_title("各 secondary 因子的配對增益（依中位數排序）")
-        fig.suptitle(f"Phase 2  F2 有沒有幫助？— {mkt}／{args.variant}（in-sample 至 {IN_SAMPLE_END}，"
-                     f"{N_BUCKETS} 桶、C/V 關閉）", fontsize=12)
+        fig.suptitle(f"Phase 2  F2 有沒有幫助？— {mkt}／{args.variant}", fontsize=12)
         fig.tight_layout(rect=[0, 0, 1, 0.94])
         fig.savefig(OUT / f"{mkt}_L2{sfx}_pairing_gain.png", bbox_inches="tight")
         plt.close(fig)

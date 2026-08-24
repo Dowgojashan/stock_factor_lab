@@ -117,7 +117,18 @@
       "Bash(.venv/Scripts/python.exe -X utf8 -c ' *)",
       "Bash(find /c/Users/iplab/AppData/Local/Temp/claude/d--git-stock-factor-lab/3fd4a1f8-550a-4aaa-9ae6-af2477cf6702/scratchpad/teacher_delivery/參考結果（作者已執行版本） -iname *.md)",
       "Bash(/d/git/stock_factor_lab/.venv/Scripts/python.exe -c ' *)",
-      "Bash(cd /d/git/stock_factor_lab *)"
+      "Bash(cd /d/git/stock_factor_lab *)",
+      "Bash(echo \"exit code: $?\")",
+      "Bash(../.venv/Scripts/python.exe -m py_compile build_atlas.py)",
+      "Bash(../.venv/Scripts/python.exe build_atlas.py --help)",
+      "Bash(../.venv/Scripts/python.exe -m py_compile phase3_fig416.py)",
+      "Bash(grep \"^US_L3_M$\")",
+      "Read(//d/git/stock_factor_lab/**)",
+      "Bash(../.venv/Scripts/python.exe -X utf8 phase3_fig416.py --market US)",
+      "Bash(.venv/Scripts/python.exe -c ' *)",
+      "Bash(../.venv/Scripts/python.exe -m py_compile universe_benchmark.py phase1_analyze.py phase2_analyze.py)",
+      "Bash(../.venv/Scripts/python.exe -m py_compile phase1_analyze.py phase2_analyze.py phase3_analyze.py phase4_analyze.py)",
+      "Bash(/d/git/stock_factor_lab/.venv/Scripts/python.exe -X utf8 add_market_switch.py)"
     ],
     "additionalDirectories": [
       "\\tmp"

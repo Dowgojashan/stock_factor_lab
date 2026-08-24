@@ -227,7 +227,7 @@ def fig_4_2_top10(df, out_dir, label):
     for i in range(M.shape[0]):
         for j in range(M.shape[1]):
             ax.text(j, i, f"{M[i,j]:.2f}", ha="center", va="center", fontsize=7.5, color=INK)
-    _style(ax, f"4-2  Top10 策略績效熱力圖 — {label}\n(色階=組內z-score，數字=原始值)")
+    _style(ax, f"4-2  Top10 策略績效熱力圖 — {label}")
     fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
     fig.tight_layout()
     fig.savefig(out_dir / "4-2_top10_heatmap.png", bbox_inches="tight")
@@ -313,7 +313,7 @@ def fig_4_4_annual_contribution(df, out_dir, label, rep_name, top_n=10):
     ax.axhline(0, color=INK, linewidth=0.8)
     disp = display_strategy_name(rep_name)
     short = disp if len(disp) <= 80 else disp[:77] + "…"
-    _style(ax, f"4-4  年度個股貢獻分布（逐股累積正報酬）— {label}\n{short}", "year", "cumulative contribution")
+    _style(ax, f"4-4  年度個股貢獻分布 — {label}\n{short}", "year", "cumulative contribution")
     fig.tight_layout()
     fig.savefig(out_dir / "4-4_annual_contribution.png", bbox_inches="tight")
     plt.close(fig)
@@ -425,8 +425,8 @@ def fig_4_13(df, out_dir, label, f1_order):
     im = _heatmap_grid(ax, M, center, fontsize=5.5)
     ax.set_xticks(range(len(f2_order))); ax.set_xticklabels([display_bucket(x) for x in f2_order], rotation=75, fontsize=6)
     ax.set_yticks(range(len(f1_order))); ax.set_yticklabels([display_bucket(x) for x in f1_order], fontsize=6)
-    _style(ax, f"4-13  F[1]×F[2] 雙層體質因子平均CAGR熱力圖（C=None, V=v0）— {label}\n"
-               "白格＝同因子自配(展開規則排除)", "F[2] 區間（含None）", "F[1] 區間")
+    _style(ax, f"4-13  F[1]×F[2] 雙層體質因子平均CAGR熱力圖（C=None, V=v0）— {label}",
+           "F[2] 區間（含None）", "F[1] 區間")
     fig.colorbar(im, ax=ax, fraction=0.02, pad=0.02)
     fig.tight_layout()
     fig.savefig(out_dir / "4-13_F1xF2_heatmap.png", bbox_inches="tight")
@@ -460,19 +460,22 @@ def fig_4_15(df, out_dir, label):
 def fig_4_16(df, out_dir, label, f1_order):
     single = df[~df["is_pair"]]
     c_order = ordered_c_kinds(single)
-    cmap = plt.get_cmap("tab20")
+    # 色相環上均勻取樣，避免同色系分深淺、相近色難以區分（跟 phase3_fig416.py 同樣的做法）
+    n_c = max(1, len(c_order) - (1 if "None" in c_order else 0))
+    cmap = plt.get_cmap("gist_rainbow")
     fig, ax = plt.subplots(figsize=(max(12, 0.32 * len(f1_order)), 6))
     x = np.arange(len(f1_order))
-    for ci, c in enumerate(c_order):
+    ci = 0
+    for c in c_order:
         ys = [single.loc[(single["F1"] == f1) & (single["C_kind"] == c), "CAGR"].mean() for f1 in f1_order]
         if c == "None":
             ax.plot(x, ys, color="black", linewidth=2.4, linestyle="--", label="None(baseline)", zorder=5)
         else:
-            ax.plot(x, ys, color=cmap(ci % 20), linewidth=1.1, alpha=0.85, label=c)
+            ax.plot(x, ys, color=cmap(ci / n_c), linewidth=1.1, alpha=0.85, label=c)
+            ci += 1
     ax.set_xticks(x); ax.set_xticklabels([display_bucket(f) for f in f1_order], rotation=75, fontsize=6.5)
     ax.legend(fontsize=6, ncol=2, loc="upper left", bbox_to_anchor=(1.01, 1.0), frameon=False)
-    _style(ax, f"4-16  單層體質因子固定後各動態因子C平均CAGR折線（主入口）— {label}\n"
-               "X軸＝全部F1單層條件(依中位數排序，跨因子混排)；直看找強F，橫看(追一條C線)找穩C",
+    _style(ax, f"4-16  單層體質因子固定後各動態因子C平均CAGR折線（主入口）— {label}",
            "F1 區間（依CAGR中位數排序）", "mean CAGR")
     fig.tight_layout(rect=[0, 0, 0.85, 1])
     fig.savefig(out_dir / "4-16_controlled_C_lines.png", bbox_inches="tight")
@@ -504,8 +507,7 @@ def fig_4_17(df, out_dir, label, f1_order):
         ax.set_title(c, fontsize=8)
     for idx in range(len(c_order), nrows * ncols):
         axes[idx // ncols][idx % ncols].axis("off")
-    fig.suptitle(f"4-17  F[1]×F[2]雙層體質組合於各動態因子C下之平均CAGR熱力圖 — {label}\n"
-                 "(各小圖同4-13座標軸：縱=F1、橫=F2含None；僅標題文字，軸標籤省略以節省空間)", fontsize=11)
+    fig.suptitle(f"4-17  F[1]×F[2]雙層體質組合於各動態因子C下之平均CAGR熱力圖 — {label}", fontsize=11)
     fig.tight_layout(rect=[0, 0, 1, 0.94])
     fig.savefig(out_dir / "4-17_F1xF2_by_C_grid.png", bbox_inches="tight")
     plt.close(fig)

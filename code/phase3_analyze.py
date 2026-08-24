@@ -33,7 +33,6 @@ warnings.filterwarnings("ignore")
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from phase1_linearity import IN_SAMPLE_END          # noqa: E402
 from universe_benchmark import get_bench             # noqa: E402
 from phase2_analyze import MIN_HOLDINGS, avg_holdings  # noqa: E402
 
@@ -78,8 +77,8 @@ def main():
     sfx += "_idxbench" if args.bench == "index" else ""
     OUT.mkdir(parents=True, exist_ok=True)
 
-    bench, bdesc = get_bench(mkt, args.bench)
-    log(f"基準 = {bench:.2%}（{bdesc}）｜變體 = {args.variant}｜持股數門檻 ≥ {MIN_HOLDINGS}\n")
+    bench, _ = get_bench(mkt, args.bench)
+    log(f"基準 = {bench:.2%}｜變體 = {args.variant}｜持股數門檻 ≥ {MIN_HOLDINGS}\n")
 
     df = pd.read_parquet(ART / label / "stats.parquet")
     df[["F組合", "C", "C編號", "C來源"]] = df["strategy"].apply(lambda s: pd.Series(parse(s)))
@@ -180,8 +179,7 @@ def main():
     axes[1].legend(frameon=False)
     axes[1].set_xlabel("C 增益")
     axes[1].set_title("依 C 的來源因子分組")
-    fig.suptitle(f"Phase 3  C 有沒有加分？— {mkt}（in-sample 至 {IN_SAMPLE_END}，V 仍關閉）",
-                 fontsize=13)
+    fig.suptitle(f"Phase 3  C 有沒有加分？— {mkt}", fontsize=13)
     fig.tight_layout(rect=[0, 0, 1, 0.94])
     fig.savefig(OUT / f"{mkt}_L3{sfx}_C_gain.png", bbox_inches="tight")
     plt.close(fig)

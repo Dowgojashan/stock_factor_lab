@@ -122,3 +122,15 @@
 [2026-08-23 13:11:44] [TW] 載入資料…
 [2026-08-23 15:08:10] ✅ TW_L2_M｜展開 861｜回測 861｜6737.6s
 [2026-08-23 15:08:10] === Phase 2 結束｜耗時 112.3 分鐘 ===
+[2026-08-24 16:18:36] === Phase 2 配對｜市場=TW｜因子=19（primary 6 / secondary 19）｜分桶 N=3｜V=('v0',)（C 關閉）｜in-sample 至 2025-12-31 ===
+[2026-08-24 16:18:36]     primary  ：['P_IC', 'PB', 'PS', 'EV_S', 'MOM', 'OCF_E']
+[2026-08-24 16:18:36]     secondary：['P_IC', 'PB', 'PS', 'EV_S', 'MOM', 'OCF_E', 'FCF_P', 'ROE', 'EV_EBITDA', 'ROIC', 'ACCRUAL', 'FCF_OI', 'DEBTRATIO', 'NETDEBT_EBITDA', 'VOL', 'REVENUE', 'CROIC', 'REV_G', 'EPS']
+[2026-08-24 16:18:36]     P1 條件數=57｜單因子=57｜跨因子配對=1539｜預期共 1596 策略
+[2026-08-24 16:18:36]     done  TW_L2_all_M
+[2026-08-24 16:18:36] dry-run：不執行。
+[2026-08-24 16:18:36] === Phase 2 配對｜市場=TW｜因子=19（primary 6 / secondary 19）｜分桶 N=3｜V=('v0',)（C 關閉）｜in-sample 至 2025-12-31 ===
+[2026-08-24 16:18:36]     primary  ：['P_IC', 'PB', 'PS', 'EV_S', 'MOM', 'OCF_E']
+[2026-08-24 16:18:36]     secondary：['P_IC', 'PB', 'PS', 'EV_S', 'MOM', 'OCF_E', 'FCF_P', 'ROE', 'EV_EBITDA', 'ROIC', 'ACCRUAL', 'FCF_OI', 'DEBTRATIO', 'NETDEBT_EBITDA', 'VOL', 'REVENUE', 'CROIC', 'REV_G', 'EPS']
+[2026-08-24 16:18:36]     P1 條件數=57｜單因子=57｜跨因子配對=1539｜預期共 1596 策略
+[2026-08-24 16:18:36]     done  TW_L2_all_M
+[2026-08-24 16:18:36] 已完成（且因子池相同），無待跑。

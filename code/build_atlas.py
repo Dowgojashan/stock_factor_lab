@@ -132,5 +132,8 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.stdout.reconfigure(encoding="utf-8")
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")   # Jupyter 的 OutStream 沒有這個方法，忽略即可
+    except AttributeError:
+        pass
     main()
