@@ -332,7 +332,12 @@ def build_co_fail_regimes(normal_assign: pd.DataFrame, crisis_assign: pd.DataFra
 
 
 def run(trees: list[str] | None = None, build_crisis: bool = True, log=print) -> dict:
+    # ⚠️ 兩個獨立manifest都要驗：STAGE1根目錄=stage1_scan（returns_monthly等），
+    # _marks/=stage1_marks（strategy_marks，下面is_usable過濾要用）。2026-08-25
+    # code review修正前，兩個階段共用一份manifest、後寫的蓋掉先寫的，這裡曾經
+    # 只驗到其中一半、另一半完全沒有雜湊保護，見 stage1_marks.py 的說明。
     freeze.verify_inputs(paths.STAGE1)
+    freeze.verify_inputs(paths.STAGE1 / "_marks")
     trees = trees or ["TW", "US", "XM"]
 
     log("載入 returns_monthly / returns_meta / strategy_marks / candidate_index …")

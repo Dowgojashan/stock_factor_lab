@@ -1,7 +1,7 @@
 {
   "stage": "stage4_strategy_map",
-  "produced_at": "2026-08-23T16:48:14",
-  "git_sha": "51cb807",
+  "produced_at": "2026-08-25T13:49:22",
+  "git_sha": "c3e6d70",
   "params": {
     "regime_fit_min_months": 3,
     "macro_confidence_cuts": {
@@ -19,26 +19,26 @@
     },
     {
       "path": "_frozen\\stage1\\strategy_scan.parquet",
-      "sha256": "a8f49e7f10c3abcd28da93d1c0b8a7bda0a3e604ed301fea9f343aa3cdfc959a",
-      "bytes": 2125574,
+      "sha256": "11d6216add231972e9437d5ebc9034fae944af1ed278d232386ea2d813a94d8e",
+      "bytes": 2125339,
       "rows": 15810
     },
     {
       "path": "_frozen\\stage1\\strategy_marks.parquet",
-      "sha256": "f192caaf40d1ae9d70a2f1c78c728cdc22bc357246016b17c2e538c4dc47f992",
-      "bytes": 543315,
+      "sha256": "5ea69b0fc80fac4f26d17b61ee3027c23e797b97f71e71b77b56cf3f23abe7c0",
+      "bytes": 544361,
       "rows": 15810
     },
     {
       "path": "_frozen\\stage1\\returns_monthly.parquet",
-      "sha256": "efa1a3179dbe44bbb51c6b0cd6d2c3c1284e2265161cbf729e8bba71e17059eb",
-      "bytes": 35729026,
+      "sha256": "c449417668b6ff2ad58ecd475141e6a1f8dafb79b9600412056bd06bd7394cb3",
+      "bytes": 35729254,
       "rows": 4547404
     },
     {
       "path": "_frozen\\stage3\\cluster_assign.parquet",
-      "sha256": "79b79768f4e8d1c71afe03294dbc4599c9f50932a6f63d02d13d81b496641074",
-      "bytes": 344854,
+      "sha256": "4a9cf7d290ed44298a92e46ea076d36d582868b5a4bbb867e18409584c8bfa45",
+      "bytes": 344773,
       "rows": 60158
     },
     {
@@ -75,8 +75,8 @@
   "outputs": [
     {
       "path": "_frozen\\stage4\\strategy_map.parquet",
-      "sha256": "1e91d6f129a51afde386f0592d4b749259613073a3a9435292c6d205baf02e29",
-      "bytes": 3997750,
+      "sha256": "2a28635b305da062b2255cf410a6cc42d20742def342d29393f6ab6ecd266bf3",
+      "bytes": 3998788,
       "rows": 15810
     },
     {

@@ -1,7 +1,7 @@
 {
   "stage": "stage3_hrp",
-  "produced_at": "2026-08-23T16:42:13",
-  "git_sha": "51cb807",
+  "produced_at": "2026-08-25T13:49:01",
+  "git_sha": "c3e6d70",
   "params": {
     "trees_built": [
       "TW_normal",
@@ -30,72 +30,72 @@
     "method_comparison": {
       "TW_normal": {
         "single": {
-          "cophenetic": 0.7579208050855177,
+          "cophenetic": 0.7579208050855173,
           "max_share": 0.95493337325947,
           "n_singleton": 165
         },
         "ward": {
-          "cophenetic": 0.4584802985969461,
+          "cophenetic": 0.4584802985969468,
           "max_share": 0.028297649348704896,
           "n_singleton": 0
         }
       },
       "US_normal": {
         "single": {
-          "cophenetic": 0.7242037236595505,
+          "cophenetic": 0.7242037236595497,
           "max_share": 0.9572966507177033,
           "n_singleton": 177
         },
         "ward": {
-          "cophenetic": 0.2991308524794546,
+          "cophenetic": 0.29913085247945237,
           "max_share": 0.03409090909090909,
           "n_singleton": 0
         }
       },
       "XM_normal": {
         "single": {
-          "cophenetic": 0.8146518767779951,
+          "cophenetic": 0.8146518767779948,
           "max_share": 0.9565824468085107,
           "n_singleton": 339
         },
         "ward": {
-          "cophenetic": 0.8946613816258085,
+          "cophenetic": 0.8946613816258101,
           "max_share": 0.013297872340425532,
           "n_singleton": 0
         }
       },
       "TW_crisis": {
         "single": {
-          "cophenetic": 0.7329914589858842,
+          "cophenetic": 0.7329914589858824,
           "max_share": 0.9588261715825722,
           "n_singleton": 188
         },
         "ward": {
-          "cophenetic": 0.513640912667885,
+          "cophenetic": 0.5136409126678824,
           "max_share": 0.025003743075310676,
           "n_singleton": 0
         }
       },
       "US_crisis": {
         "single": {
-          "cophenetic": 0.7580846642055011,
+          "cophenetic": 0.7580846642055004,
           "max_share": 0.9629186602870813,
           "n_singleton": 195
         },
         "ward": {
-          "cophenetic": 0.37721695720416426,
+          "cophenetic": 0.37721695720416354,
           "max_share": 0.02368421052631579,
           "n_singleton": 0
         }
       },
       "XM_crisis": {
         "single": {
-          "cophenetic": 0.9315482306810875,
+          "cophenetic": 0.9315482306810844,
           "max_share": 0.5294547872340426,
           "n_singleton": 359
         },
         "ward": {
-          "cophenetic": 0.9030055696629045,
+          "cophenetic": 0.9030055696628985,
           "max_share": 0.017220744680851063,
           "n_singleton": 0
         }
@@ -206,12 +206,12 @@
       }
     },
     "cophenetic": {
-      "TW_normal": 0.4584802985969461,
-      "US_normal": 0.2991308524794546,
-      "XM_normal": 0.8946613816258085,
-      "TW_crisis": 0.513640912667885,
-      "US_crisis": 0.37721695720416426,
-      "XM_crisis": 0.9030055696629045
+      "TW_normal": 0.4584802985969468,
+      "US_normal": 0.29913085247945237,
+      "XM_normal": 0.8946613816258101,
+      "TW_crisis": 0.5136409126678824,
+      "US_crisis": 0.37721695720416354,
+      "XM_crisis": 0.9030055696628985
     },
     "ari_l3_vs_fcombo": {
       "TW_normal": 0.1999349007688118,
@@ -252,20 +252,20 @@
   "inputs": [
     {
       "path": "_frozen\\stage1\\returns_monthly.parquet",
-      "sha256": "efa1a3179dbe44bbb51c6b0cd6d2c3c1284e2265161cbf729e8bba71e17059eb",
-      "bytes": 35729026,
+      "sha256": "c449417668b6ff2ad58ecd475141e6a1f8dafb79b9600412056bd06bd7394cb3",
+      "bytes": 35729254,
       "rows": 4547404
     },
     {
       "path": "_frozen\\stage1\\returns_meta.parquet",
-      "sha256": "bd0342308ecfc3e8fe501bbc7bc41d54877040d556cf326c510d4136efb1646a",
-      "bytes": 181841,
+      "sha256": "4a7dd7dc4e9cabd38e4bd04dfec742e1df99b7bc3a0f62216ad08deacf4e0010",
+      "bytes": 181944,
       "rows": 15810
     },
     {
       "path": "_frozen\\stage1\\strategy_marks.parquet",
-      "sha256": "f192caaf40d1ae9d70a2f1c78c728cdc22bc357246016b17c2e538c4dc47f992",
-      "bytes": 543315,
+      "sha256": "5ea69b0fc80fac4f26d17b61ee3027c23e797b97f71e71b77b56cf3f23abe7c0",
+      "bytes": 544361,
       "rows": 15810
     },
     {
@@ -290,80 +290,80 @@
   "outputs": [
     {
       "path": "_frozen\\stage3\\cluster_assign.parquet",
-      "sha256": "79b79768f4e8d1c71afe03294dbc4599c9f50932a6f63d02d13d81b496641074",
-      "bytes": 344854,
+      "sha256": "4a9cf7d290ed44298a92e46ea076d36d582868b5a4bbb867e18409584c8bfa45",
+      "bytes": 344773,
       "rows": 60158
     },
     {
       "path": "_frozen\\stage3\\cluster_meta.parquet",
-      "sha256": "b6d5c521adf5282bbfbe3b8555d4854b20e5c8691550a0ce8866035c40d2b7f2",
-      "bytes": 43512,
+      "sha256": "79e46f3b4a8b644ab8d72ccb251acfe9d95680589998db5e067cee59175b9e9c",
+      "bytes": 43510,
       "rows": 2100
     },
     {
       "path": "_frozen\\stage3\\cluster_corr_matrix_TW_normal.parquet",
-      "sha256": "fc9f9f805bbd13693bf0f5f91fe22b2d0b332f39ef48a52dc54ac7a8cf171186",
+      "sha256": "edb62c36bfba9b3b7f08dfba993162521860e69d52443d782192c701b485acbd",
       "bytes": 6963,
       "rows": 8
     },
     {
       "path": "_frozen\\stage3\\linkage_TW_normal.npy",
-      "sha256": "782190091be3870ddc1e6b98222b87c25f387af8383a15cf8c4310a794c04f29",
+      "sha256": "fbdb228dd0d61ad98033892e46004e1ed3f0dd998150a08cf63dbca51d827315",
       "bytes": 213824
     },
     {
       "path": "_frozen\\stage3\\cluster_corr_matrix_US_normal.parquet",
-      "sha256": "2291b8d3231de832dbe1a9bb356732b1f4dfc9df39f4f41ff9f28cf4a0e3d368",
+      "sha256": "56e1df9885e56ed345ef257bf8cb54bacc2f8e64aeb8249d7d2ed6b170f8ec1f",
       "bytes": 6963,
       "rows": 8
     },
     {
       "path": "_frozen\\stage3\\linkage_US_normal.npy",
-      "sha256": "7e4079367a1bba26549c106f2f62c677a585ba13c34c23b1f2130a97a24413af",
+      "sha256": "17e22868d31e0999d1d1e569c59cb1fbfec4b1971bf723ca074622ab97399115",
       "bytes": 267616
     },
     {
       "path": "_frozen\\stage3\\cluster_corr_matrix_XM_normal.parquet",
-      "sha256": "d3a410c297e2ff83cd1334cb4d96b3b5ec24e590244fc73f3a46ea70969c98b2",
+      "sha256": "395efbbff003dbaf68f62627de9ff0ce05d06ba51669ace39af6fe558919436e",
       "bytes": 6963,
       "rows": 8
     },
     {
       "path": "_frozen\\stage3\\linkage_XM_normal.npy",
-      "sha256": "538ccf8ec15fddd52c1f88838c1740adb20b938bc8de8dcd93ed4d4cd99c60f1",
+      "sha256": "19892c069e0f41a995e05f951d58911b6532d7e6651482bff68968fb2601e6c9",
       "bytes": 481376
     },
     {
       "path": "_frozen\\stage3\\cluster_corr_matrix_TW_crisis.parquet",
-      "sha256": "29742d6e04dc58c5aa00885d00b5cae573c1e48d37d1f6a3f419979414c10cea",
+      "sha256": "07fb67c3c708f2980c67bfb1c266f5ff5f4ef2eabe2fe7c242e595a660f71f66",
       "bytes": 6963,
       "rows": 8
     },
     {
       "path": "_frozen\\stage3\\linkage_TW_crisis.npy",
-      "sha256": "8f756fd834c9092fe5ab9fa10570a2a10f60ba46f0df7acebcfcd968274bab8b",
+      "sha256": "a2c43f6bd39a169edd241bd60b909ca0a79d7dd87672af450c011f3029cabee8",
       "bytes": 213824
     },
     {
       "path": "_frozen\\stage3\\cluster_corr_matrix_US_crisis.parquet",
-      "sha256": "ed7579b1a52ae95747b836d623bfc6e5aeab0aa3a6f5c44e58853b59d5b6460a",
+      "sha256": "45297bf90e4158e36dd459e1f0bcb3c6cd974e485cd585c12b6bef05be287fd0",
       "bytes": 6963,
       "rows": 8
     },
     {
       "path": "_frozen\\stage3\\linkage_US_crisis.npy",
-      "sha256": "6a780cde4d30b0bd0795c1f85e2bba330b715419d14a4da3a130e24acc2a162f",
+      "sha256": "28a25ae05cb954943b5ddf0ae3109ca85d7270e267d47072467cb38109688d22",
       "bytes": 267616
     },
     {
       "path": "_frozen\\stage3\\cluster_corr_matrix_XM_crisis.parquet",
-      "sha256": "8f99c69599153d9714d5522057070b5b29f57d0c7f12198cbc02754f9f4ffb6d",
+      "sha256": "66cd4ce6fa9e512bd1439306d8f6436a52d94457f1761e2f6125bf681b31f710",
       "bytes": 6963,
       "rows": 8
     },
     {
       "path": "_frozen\\stage3\\linkage_XM_crisis.npy",
-      "sha256": "2fbf88f2e4f7228b3660c34be7b816e46c5ff42688335aacce2072db36c19d23",
+      "sha256": "d068a882d6516ab1b3e836d3926f9299803664c415845cc28e9558e9e2220e85",
       "bytes": 481376
     },
     {

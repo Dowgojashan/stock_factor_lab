@@ -1,7 +1,7 @@
 {
   "stage": "stage2b_macro",
-  "produced_at": "2026-08-23T15:26:24",
-  "git_sha": "51cb807",
+  "produced_at": "2026-08-25T00:40:12",
+  "git_sha": "c3e6d70",
   "params": {
     "in_sample": "2000-01..2025-12",
     "smooth_window": 3,

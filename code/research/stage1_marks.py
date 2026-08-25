@@ -68,6 +68,8 @@ def build(log=print) -> pd.DataFrame:
     freeze.verify_inputs(paths.STAGE1)
     idx = pd.read_parquet(paths.STAGE0 / "candidate_index.parquet")
     scan = pd.read_parquet(paths.STAGE1 / "strategy_scan.parquet")
+    months = pd.read_parquet(paths.STAGE1 / "returns_monthly.parquet",
+                             columns=["strategy_uid", "ret"])
     log(f"讀入 candidate_index {len(idx):,} 列、strategy_scan {len(scan):,} 列")
 
     df = idx.merge(
@@ -139,6 +141,26 @@ def build(log=print) -> pd.DataFrame:
         d = 1 - sub["is_usable"].mean()
         log(f"    [{m}] 淘汰 {(~sub['is_usable']).sum()}/{len(sub)} ({d:.2%})")
 
+    # ---------------------------------------------------------- W-08：資料品質防線
+    # 兩個訊號OR合併（見 contracts.py 常數註解——只用單日門檻時，深掃驗出的283個
+    # 實質CAGR灌水策略只抓到6個，因異常股在分散組合裡單日被稀釋，但累積到月
+    # 報酬仍會超標，故用月報酬門檻補上，門檻本身是拿深掃的CAGR_inflation_pp
+    # 反推校準過的，非拍腦袋）：
+    #   A. 單一策略NAV的單日跳動 ≥ PRICE_JUMP_EXTREME（極端單一交易日案例）
+    #   B. 單一策略月報酬 ≥ MONTHLY_JUMP_EXTREME（異常股票被稀釋後仍看得到的訊號）
+    # 只標記、不淘汰——data_glitch=True 不影響 is_usable，供 Agent1/T2 快篩時
+    # 自行決定要不要排除，也供 diagnose_price_anomalies.py 交叉核對（見該模組）。
+    max_monthly_ret = months.groupby("strategy_uid")["ret"].max().rename("max_monthly_ret")
+    df = df.merge(max_monthly_ret, on="strategy_uid", how="left")
+    glitch_daily = df["max_daily_ret"] >= C.PRICE_JUMP_EXTREME
+    glitch_monthly = df["max_monthly_ret"] >= C.MONTHLY_JUMP_EXTREME
+    df["data_glitch"] = (glitch_daily | glitch_monthly).fillna(False)
+    n_glitch = int(df["data_glitch"].sum())
+    log(f"  data_glitch（單日≥{C.PRICE_JUMP_EXTREME:.0%} 或 單月≥{C.MONTHLY_JUMP_EXTREME:.0%}）："
+        f"{n_glitch} / {len(df)} ({n_glitch/len(df):.2%})"
+        f"　[單日刀命中{int(glitch_daily.fillna(False).sum())}／單月刀命中"
+        f"{int(glitch_monthly.fillna(False).sum())}]")
+
     out = df[[C.PK, "market"] + [c.name for c in C.STRATEGY_MARKS.columns
                                  if c.name not in (C.PK, "market")]].copy()
     out["market"] = out["market"].astype("category")
@@ -146,6 +168,7 @@ def build(log=print) -> pd.DataFrame:
         out[cat_col] = out[cat_col].astype("category")
     out["stability_grade"] = pd.Categorical(out["stability_grade"], categories=C.STABILITY_GRADES)
     out["is_usable"] = out["is_usable"].astype(bool)
+    out["data_glitch"] = out["data_glitch"].astype(bool)
 
     C.validate(out, C.STRATEGY_MARKS, strict_columns=True)
     log("✓ strategy_marks 契約通過")
@@ -156,15 +179,26 @@ def run(log=print) -> pd.DataFrame:
     out = build(log)
     p = paths.STAGE1 / "strategy_marks.parquet"
     out.to_parquet(p, compression="zstd", index=False)
+    # ⚠️ 2026-08-25 code review 修正：manifest 寫進獨立子目錄 `_marks/`，不寫
+    # `paths.STAGE1` 根目錄——`stage1_scan.py` 也寫那裡，兩者互寫會覆蓋彼此的
+    # manifest（只剩最後跑的那個受雜湊保護），導致另一邊的產物完全脫離凍結驗證。
+    # 比照 `stage1_mktcap.py` 已有的 `_mktcap/` 前例：manifest 位置獨立，但實際
+    # 產物檔案（strategy_marks.parquet）仍留在 STAGE1 根目錄，不移動、不影響
+    # 任何下游的讀取路徑。
     freeze.write_manifest(
-        "stage1_marks", paths.STAGE1,
+        "stage1_marks", paths.STAGE1 / "_marks",
         inputs=[paths.STAGE0 / "candidate_index.parquet",
-               paths.STAGE1 / "strategy_scan.parquet"],
+               paths.STAGE1 / "strategy_scan.parquet",
+               paths.STAGE1 / "returns_monthly.parquet"],
         outputs=[p],
         params={"rotation_high_pct": ROTATION_HIGH_PCT, "effn_low_pct": EFFN_LOW_PCT,
-               "empty_high_pct": EMPTY_HIGH_PCT, "tertile": list(TERTILE)},
+               "empty_high_pct": EMPTY_HIGH_PCT, "tertile": list(TERTILE),
+               "price_jump_extreme": C.PRICE_JUMP_EXTREME,
+               "monthly_jump_extreme": C.MONTHLY_JUMP_EXTREME},
         notes="兩把刀方向：低effective_n+高rotation_score（不輪動）；empty_ratio過高。"
-              "stability_grade 公式為本階段解讀，見 module docstring",
+              "stability_grade 公式為本階段解讀，見 module docstring。"
+              "W-08：data_glitch=單日跳動≥300%或單月報酬≥100%（OR合併，只標記不淘汰，"
+              "門檻用diagnose_price_anomalies的CAGR_inflation_pp反推校準，見contracts.py）",
     )
     log(f"→ strategy_marks.parquet  {len(out):,} 列, {p.stat().st_size/1024:.0f} KB")
     return out
@@ -175,6 +209,7 @@ def _report(df: pd.DataFrame, log=print) -> None:
     log("階段1 標記 · 驗收報告")
     log("=" * 62)
     log(f"is_usable: {df.is_usable.sum():,} / {len(df):,} ({df.is_usable.mean():.1%})")
+    log(f"data_glitch: {df.data_glitch.sum():,} / {len(df):,} ({df.data_glitch.mean():.2%})")
     log(f"\ndrop_reason 分布:\n{df.drop_reason.value_counts(dropna=False).to_string()}")
     log(f"\ncredibility_grade × market:\n"
         f"{pd.crosstab(df.market, df.credibility_grade).to_string()}")

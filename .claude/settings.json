@@ -122,7 +122,15 @@
       "Bash(echo \"TW phase3 strict exit: $?\")",
       "Bash(chmod +x \"C:\\\\Users\\\\iplab\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--git-stock-factor-lab\\\\3fd4a1f8-550a-4aaa-9ae6-af2477cf6702\\\\scratchpad\\\\tw_overnight_chain.sh\")",
       "Bash(bash \"C:\\\\Users\\\\iplab\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--git-stock-factor-lab\\\\3fd4a1f8-550a-4aaa-9ae6-af2477cf6702\\\\scratchpad\\\\tw_overnight_chain.sh\")",
-      "Bash(echo \"chain script exited: $?\")"
+      "Bash(echo \"chain script exited: $?\")",
+      "Bash(.venv/Scripts/python.exe -c ' *)",
+      "Bash(../.venv/Scripts/python.exe -m research.cli list)",
+      "Bash(../.venv/Scripts/python.exe -X utf8 -m research.cli stage0)",
+      "Bash(../.venv/Scripts/python.exe -X utf8 -m research.cli verify stage0)",
+      "Bash(../.venv/Scripts/python.exe -X utf8 -m research.cli stage1)",
+      "Bash(../.venv/Scripts/python.exe -X utf8 -m research.stage1_mktcap)",
+      "Read(//d/git/**)",
+      "Bash(../.venv/Scripts/python.exe -c \"import openai; print\\('已安裝，版本:', openai.__version__\\)\")"
     ]
   }
 }

@@ -1,7 +1,7 @@
 {
   "stage": "stage1_mktcap",
-  "produced_at": "2026-08-22T16:57:37",
-  "git_sha": "6336fbc",
+  "produced_at": "2026-08-25T00:22:39",
+  "git_sha": "c3e6d70",
   "params": {
     "field": "report:mktcap",
     "freq": "M",

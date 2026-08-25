@@ -247,7 +247,11 @@ def project_cluster_info(idx: pd.DataFrame, log=print) -> pd.DataFrame:
 # ============================================================================
 
 def build(log=print) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    # ⚠️ 兩個獨立manifest都要驗，理由同 stage3_hrp.py 的同一處註解——
+    # STAGE1根目錄=stage1_scan（strategy_scan/returns_monthly），
+    # _marks/=stage1_marks（strategy_marks），本函式兩者都讀。
     freeze.verify_inputs(paths.STAGE1)
+    freeze.verify_inputs(paths.STAGE1 / "_marks")
     freeze.verify_inputs(paths.STAGE2 / "regime")
     freeze.verify_inputs(paths.STAGE2 / "macro")
     freeze.verify_inputs(paths.STAGE3)

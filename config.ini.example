@@ -12,3 +12,14 @@ db = lab
 user = root
 password =
 charset = utf8
+
+[openai]
+; T10/cluster_story（LLM點③）用，去 https://platform.openai.com/api-keys 申請
+api_key =
+; Admin API key（跟 api_key 不同種！要在 org 設定裡另外產生、給 api.usage.read
+; 權限），供 utils/openai_quota.py 主動查當日花費用，見該模組 docstring
+admin_key =
+; 每日免費額度上限（美金）。OpenAI 沒有API能查這個數字，只能自己填
+daily_quota_usd =
+; T10（return_story文字生成）要用的模型。不寫死預設值——模型名稱會過期
+t10_model =

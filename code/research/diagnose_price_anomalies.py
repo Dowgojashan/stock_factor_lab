@@ -38,7 +38,9 @@ from . import paths
 
 OUT = paths.ROOT / "_analysis_outputs_dataquality"
 
-JUMP_EXTREME = 3.0        # A：單日 +300%
+#: W-08：與 stage1_marks.py 的 data_glitch 共用同一個數字（contracts.PRICE_JUMP_EXTREME），
+#: 避免這支「貴、按需跑」的深度診斷與 stage1 那支「便宜、每次都跑」的標記各自維護一份會漂移。
+JUMP_EXTREME = C.PRICE_JUMP_EXTREME   # A：單日 +300%
 JUMP_SUSPECT = 1.0        # C：單日 +100%
 PERSIST_DAYS = 5          # C：幾日內未回落即視為持續性（＝資料錯，非真實暴漲）
 PERSIST_KEEP = 0.5        # 回落判準：5 日後仍保有跳動幅度的 50% 以上
@@ -156,6 +158,53 @@ def cagr_impact(uids: list[str]) -> pd.DataFrame:
     return pd.DataFrame(rows).sort_values("CAGR_inflation_pp", ascending=False)
 
 
+#: recall 檢查只看「實質造成CAGR灌水」的案例，不是「有沒有碰過異常股票」——
+#: 後者範圍太廣（曾實測 49.7% 策略碰過某檔異常股，但中位數CAGR灌水=0，多是
+#: 分散組合裡權重小到可忽略），拿它當 data_glitch 的驗收基準會逼出一支
+#: 高誤報率的刀。真正該接住的是「灌水到有感」的案例，門檻見 contracts.py
+#: MONTHLY_JUMP_EXTREME 的校準說明。
+MATERIAL_CAGR_INFLATION_PP = 1.0
+
+
+def cross_check_data_glitch(hits: pd.DataFrame, impact: pd.DataFrame, log=print) -> None:
+    """W-08 · 把這次深度掃描的結果，拿去對 stage1_marks.py 的便宜信號 `data_glitch`。
+
+    兩個方法抓的是同一件事（策略持有過資料異常的股票），但用不同資料、不同目的：
+    這支從**原始股價**逐檔判定再映射回策略（貴、權威，含CAGR灌水量化）；
+    `data_glitch` 從**策略自己的NAV/月報酬**直接判斷（便宜、stage1_marks每次都算，
+    canary用途）。核對重點不是「兩者範圍完全一致」（`data_glitch` 本來就不該對
+    每個碰過異常股但沒受影響的策略都標記，否則誤報率會高到沒有canary的意義），
+    而是**recall on材質案例**：CAGR灌水>1個百分點的策略，data_glitch 不能漏標。
+    """
+    p = paths.STAGE1 / "strategy_marks.parquet"
+    if not p.exists():
+        log("\n⚠️ 找不到 strategy_marks.parquet，跳過 data_glitch 交叉核對"
+            "（需先跑 python -m research.stage1_marks）")
+        return
+    marks = pd.read_parquet(p, columns=["strategy_uid", "data_glitch"])
+    deep_hit = set(hits["strategy_uid"].unique()) if len(hits) else set()
+    cheap_hit = set(marks.loc[marks.data_glitch, "strategy_uid"])
+
+    log("\n" + "=" * 70)
+    log("W-08 · data_glitch 交叉核對（stage1_marks 便宜信號 vs 本次深度掃描）")
+    log("=" * 70)
+    log(f"深掃命中（曾持有異常股票）{len(deep_hit)} 策略｜data_glitch 標記 {len(cheap_hit)} 策略｜"
+        f"兩者重疊 {len(deep_hit & cheap_hit)}")
+
+    if len(impact):
+        material = impact[impact["CAGR_inflation_pp"] > MATERIAL_CAGR_INFLATION_PP]
+        missed = material[~material["strategy_uid"].isin(cheap_hit)]
+        log(f"\n【recall驗收】CAGR灌水 > {MATERIAL_CAGR_INFLATION_PP}pp 的材質案例共 "
+            f"{len(material)} 個，data_glitch 命中 {len(material) - len(missed)} 個")
+        if len(missed):
+            log(f"⚠️ 漏標 {len(missed)} 個（門檻可能需要重新校準）：")
+            log(missed[["strategy_uid", "CAGR_inflation_pp"]].head(10).to_string(index=False))
+        else:
+            log("✓ 材質案例（CAGR灌水>1pp）data_glitch 全數涵蓋（0漏標）")
+    log(f"\n（附註：深掃命中的 {len(deep_hit)} 策略中，多數是碰過異常股但被分散組合"
+        f"稀釋到CAGR幾無影響——data_glitch 刻意不標這些，避免canary誤報率過高）")
+
+
 def main() -> int:
     OUT.mkdir(parents=True, exist_ok=True)
     log = print
@@ -192,6 +241,7 @@ def main() -> int:
         impact = pd.DataFrame()
 
     _summary(anom, stocks, hits, impact, stats, log)
+    cross_check_data_glitch(hits, impact, log)
     log(f"\n產出於 {OUT}")
     return 0
 

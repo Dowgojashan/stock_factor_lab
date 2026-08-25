@@ -16,12 +16,14 @@ v8.1的明文規定，台美策略字串碰撞1,585個，傳裸字串會在跨�
     Step5解釋：T10 generate_return_story_text
     Agent0用：T11 get_current_regime／T12 query_macro_model
 
-⚠️ **T10 明確未實作**（LLM點，非遺漏）：把凍結判決串成story文字要呼叫LLM生成，
-   且成本由使用者決定何時觸發，本模組只把它需要的原料（T7判決）備好。
+⚠️ **T10（2026-08-25 實作）呼叫真實LLM會花錢**：預設不主動觸發，由使用者決定
+   何時呼叫。受 `utils/openai_quota` 的額度偵測保護，額度用盡會明確raise、
+   不會靜默失敗或重試。
 
-⚠️ **T5/T13 的「群間互補通用因果解釋文字」欄位回傳 None**——那是研究部v9的
-   LLM點③（cluster_story，Opus），尚未觸發，本模組只回傳客觀數字（相關值/成員/
-   代表策略），不編造解釋文字。
+⚠️ **T5 的「群間互補解釋文字」相依 LLM點③ 的離線產物**（`research/cluster_story.py`，
+   要花錢跑）。沒跑過時 `explanation` 為 None，工具仍照常回傳客觀數字（相關值/
+   成員/代表策略），絕不編造文字。**互補程度是程式判定的**（`contracts.
+   COMPLEMENTARITY_CUTS`），LLM 只為既定判決寫說明，見該模組 docstring。
 
 ⚠️ **T7 的「產業β」安檢回傳 None**——需要持股逐月產業分類資料，目前資料庫/
    管線完全沒有這項資料收集（見階段4 stage4_strategy_map.py docstring），
@@ -76,6 +78,40 @@ def _cluster_meta() -> pd.DataFrame:
 @functools.lru_cache(maxsize=1)
 def _co_fail() -> pd.DataFrame:
     return pd.read_parquet(paths.STAGE3 / "co_fail_regimes.parquet")
+
+
+@functools.lru_cache(maxsize=1)
+def _cluster_story_cached(mtime: float) -> pd.DataFrame:
+    return pd.read_parquet(paths.STAGE3 / "cluster_story.parquet")
+
+
+def _cluster_story() -> pd.DataFrame | None:
+    """LLM點③的凍結解釋文字。**可能不存在**——這是要花錢跑的離線一次性產物
+    （`python -m research.cluster_story`），沒跑過就回 None，呼叫端須自行處理，
+    不可假設一定有；不存在時 T5/T13 照常回傳客觀數字，只是沒有解釋文字。
+
+    ⚠️ 快取以檔案 mtime 當 key，不直接快取「不存在」這個結果——否則在同一個
+    行程裡先查過（回None）、之後才跑出產物的話，會永遠拿到過期的 None。
+    """
+    p = paths.STAGE3 / "cluster_story.parquet"
+    if not p.exists():
+        return None
+    return _cluster_story_cached(p.stat().st_mtime)
+
+
+def _lookup_story(tree_id: str, level: str, a: int, b: int) -> dict | None:
+    """查某一對群的解釋文字。群對在表裡以 (小,大) 正規化儲存，故查詢前先排序。"""
+    df = _cluster_story()
+    if df is None:
+        return None
+    lo, hi = sorted((int(a), int(b)))
+    r = df[(df.tree_id == tree_id) & (df.level == level)
+           & (df.cluster_a == lo) & (df.cluster_b == hi)]
+    if r.empty:
+        return None
+    r = r.iloc[0]
+    return {"complementarity": r.complementarity, "mechanism_note": r.mechanism_note,
+            "complement_note": r.complement_note, "caveat": r.caveat, "model": r.model}
 
 
 @functools.lru_cache(maxsize=1)
@@ -316,7 +352,7 @@ _PROFILE_COLUMNS = [
     "credibility_grade", "credibility_score_pct", "effective_n", "top1_share", "rotation_score",
     "stability_grade",
     "holdings_median", "holdings_p10", "empty_ratio", "smallcap_share", "size_tilt_pct",
-    "is_usable", "regime_fit", "macro_best_cell", "macro_best_cell_avg_ret",
+    "is_usable", "data_glitch", "regime_fit", "macro_best_cell", "macro_best_cell_avg_ret",
     "cluster_L1", "cluster_L2", "cluster_L3", "co_fail_peers",
 ]
 
@@ -398,8 +434,9 @@ def t5_get_complements(strategy_uid: str, scope: Literal["own", "xm"] = "own",
                        level: str = "L1", k: int = 3) -> dict:
     """T5 · 回傳與本策略所屬群相關最低的K個群 + 各群代表策略 + 群間相關值。
 
-    ⚠️ 群間互補的「凍結解釋文字」（研究部v9 LLM點③ cluster_story，Opus）
-    尚未觸發，`explanation_text` 固定回傳 None，見模組開頭說明。
+    群間互補的「凍結解釋文字」來自 LLM點③（`research/cluster_story.py`，離線一次性
+    產物）。**若尚未跑過該產物，`explanation` 會是 None**——此時仍照常回傳相關值等
+    客觀數字，只是沒有文字說明，呼叫端不可假設一定有。
     """
     tree_id = _tree_id_for(strategy_uid, scope=scope, variant="normal")
     ca = _cluster_assign()
@@ -423,10 +460,12 @@ def t5_get_complements(strategy_uid: str, scope: Literal["own", "xm"] = "own",
     return {
         "strategy_uid": strategy_uid, "tree_id": tree_id, "level": level, "my_cluster": my_cluster,
         "lowest_corr_clusters": [
-            {"cluster_id": int(cid), "corr": round(float(v), 4), "representative_uid": reps[int(cid)]}
+            {"cluster_id": int(cid), "corr": round(float(v), 4),
+             "representative_uid": reps[int(cid)],
+             # 解釋文字來自LLM點③的凍結產物；沒跑過就是 None（見docstring）
+             "explanation": _lookup_story(tree_id, level, my_cluster, int(cid))}
             for cid, v in lowest.items()
         ],
-        "explanation_text": None,
     }
 
 
@@ -592,6 +631,163 @@ def t9_compute_weights(strategy_uids: list[str]) -> dict:
     return {"hrp_weight": hrp_w, "equal_weight": eq_w,
            "n_common_months": int(common.shape[1]), "psd_ok": bool(result.psd_ok),
            "confidence": _confidence(common.shape[1], high=60, mid=24)}
+
+
+# ============================================================================
+# T10 · generate_return_story_text（Step5解釋，LLM點④，2026-08-25 實作）
+# ============================================================================
+
+#: 結構化輸出schema——逼LLM對T7的四道安檢**各自**只能寫對應那一項的話，不能
+#: 自由發揮成一整段夾雜因果推論的敘事。這是研究部v9「暫掛」清單裡「return_story
+#: 殘餘幻覺」的具體對策（原文：「LLM『串』時可能偷渡程式沒給的因果連接...
+#: 方向：結構化條列輸出，禁止添加程式未提供的因果」）。
+#: ⚠️ 這個 response_format 的wrapper shape（type=json_schema）尚未用真實API
+#: 呼叫驗證過，見 t10_generate_return_story_text docstring 的驗證待辦。
+_STORY_JSON_SCHEMA = {
+    "name": "return_story",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "few_stock_note": {
+                "type": "string",
+                "description": "只針對「是否靠少數股撐報酬」這一項寫一句話，"
+                               "禁止提及其他三道安檢、禁止引入未提供的數字"},
+            "sector_beta_note": {
+                "type": "string",
+                "description": "產業β資料不存在，只能說明「此項無法判定」，禁止臆測"},
+            "size_driven_note": {
+                "type": "string",
+                "description": "只針對「是否靠規模效應（重倉小型股）」這一項寫一句話"},
+            "real_alpha_note": {
+                "type": "string",
+                "description": "只針對「真alpha」判決寫一句話，且必須註明"
+                               "此判決僅基於前三道（產業β缺失）"},
+            "summary": {
+                "type": "string",
+                "description": "把以上四句整合成2-3句總結，不得新增以上四句之外的任何主張"},
+        },
+        "required": ["few_stock_note", "sector_beta_note", "size_driven_note",
+                    "real_alpha_note", "summary"],
+        "additionalProperties": False,
+    },
+    "strict": True,
+}
+
+_STORY_SYSTEM_PROMPT = (
+    "你是量化回測系統的判決轉譯器。你只能把使用者提供的『程式判決』與『支持數字』"
+    "轉成通順的中文句子，禁止做任何新的判斷、禁止引用使用者沒有給你的數字、"
+    "禁止提出使用者沒有給你的因果解釋。若某一項資料缺失，只能說明缺失，不能臆測。"
+)
+
+
+def _build_return_story_user_prompt(verdict: dict, evidence: dict) -> str:
+    """組 user prompt。只把T7判決+其依據數字餵給LLM，不給其他任何策略資訊
+    （不給策略名稱、不給因子邏輯、不給市場）——結構上就沒有材料可以拿去
+    「發揮」出程式沒給的因果，這是抗幻覺鐵則(1)（LLM不碰篩選/判斷）的延伸。
+    """
+    # 數字先四捨五入再進prompt：實測（2026-08-25）不修的話，float原始精度
+    # （如 effective_n=28.417404303353255）會被模型一字不漏抄進文字裡，既難讀
+    # 又多燒token。四捨五入是**呈現層**的處理，判決本身仍以未捨入的原值計算，
+    # 故不影響任何判定結果。
+    def _n(key, digits=1, pct=False):
+        v = evidence.get(key)
+        if v is None:
+            return "無資料"
+        return f"{v:.1%}" if pct else f"{round(float(v), digits)}"
+
+    return (
+        "策略的程式判決（已凍結，不可質疑或推翻）：\n"
+        f"- 靠少數股撐報酬：{verdict['靠少數股']}\n"
+        f"- 產業β：{verdict['產業β']}（None＝資料不存在，非False）\n"
+        f"- 規模效應（重倉小型股）：{verdict['規模效應']}\n"
+        f"- 真alpha：{verdict['真alpha']}（註：{verdict['note']}）\n\n"
+        "支持這些判決的客觀數字：\n"
+        f"- effective_n（有效持股分散度，1/HHI）：{_n('effective_n')}\n"
+        f"- top1_share（最大單股累積貢獻占比）：{_n('top1_share', pct=True)}\n"
+        f"- smallcap_share（持股落在最小市值三分之一的比例）：{_n('smallcap_share', pct=True)}\n"
+        f"- credibility_grade（可信度等級）：{evidence.get('credibility_grade')}\n\n"
+        "請用給定的 JSON schema 輸出，且只能使用以上提供的資訊。"
+        "引用數字時直接沿用上面給的寫法，不要自行改寫成更多小數位。"
+    )
+
+
+def t10_generate_return_story_text(strategy_uid: str, *, model: str | None = None,
+                                   temperature: float | None = None) -> dict:
+    """T10 · Step5解釋（LLM點④）：把T7的凍結判決串成可讀文字（按需生成，非預寫）。
+
+    **抗幻覺設計（研究部v9定案，三道鐵則的具體實作）**：
+      1. LLM不下判斷、不推翻數字——四道安檢的True/False/None全部是T7算好凍結的，
+         本函式只餵給LLM「判決+支持數字」，不給策略名稱/因子邏輯等其他資訊，
+         結構上讓LLM沒有材料可以「發揮」出程式沒給的因果。
+      2. 結構化條列輸出（JSON schema，見`_STORY_JSON_SCHEMA`）：逼LLM對「這一項」
+         只能寫「這一項」的話，不能把四道安檢混著講、不能生出schema以外的欄位。
+      3. 回傳`raw_verdict`/`raw_evidence` 供事後核對文字有沒有跟凍結數字矛盾
+         （「可數字反驗」鐵則——不一致就該觸發人工複查，本函式不自動做這層
+         語意比對，留給呼叫端或人工審閱）。
+
+    🔴 **`temperature` 預設不送（2026-08-25 實測修正）**：原本寫死 `temperature=0`
+    以滿足 v9 方法論「溫度/seed固定」的可複現要求，但實測 gpt-5.6 系列會回
+    `400 unsupported_value: 'temperature' does not support 0`，這類新型推理模型
+    只接受預設值。故改為預設不送此參數；只有在確認該模型支援時才由呼叫端明確傳入。
+    **連帶影響**：對不支援調溫的模型，「固定溫度」這條可複現手段不可用，可複現性
+    只剩「凍結輸入（判決+數字皆為程式算好）+ 結構化schema限制輸出形狀」兩道。
+    這是模型端的限制、不是實作疏漏，論文方法論若要宣稱可複現須誠實註明此點。
+
+    ⚠️ **呼叫這個函式會真的花錢**（OpenAI Chat Completions API），受
+    `utils.openai_quota` 保護——額度用盡會 raise `QuotaExhaustedError`，
+    不會靜默失敗或重試；其他API錯誤raise `OpenAIAPIError`。
+
+    ⚠️ **驗證待辦（2026-08-25，admin_key尚未到位前寫的）**：`response_format`
+    用的 `{"type": "json_schema", "json_schema": {...}}` wrapper shape、
+    以及 `model` 參數的合法命名，都還沒有拿真實帳號打過一次驗證——邏輯本身
+    可用合成回應跑通（見 `research/tests.py` 的 `t_ops_t10_*` 系列），但欄位
+    名稱/shape 是否跟目前的真實API一致，須等第一次真實呼叫才能確認。
+    """
+    verdict = t7_get_return_story_verdict(strategy_uid)
+    if "error" in verdict:
+        return verdict
+
+    profile = t3_get_strategy_profile([strategy_uid])[0]
+    evidence = {k: profile.get(k) for k in
+               ("effective_n", "top1_share", "smallcap_share", "credibility_grade")}
+
+    import requests
+    from utils.config import Config
+    from utils import openai_quota as OQ
+
+    cfg = Config()
+    api_key = cfg.get_openai_api_key()
+    model = model or cfg.get_openai_model("t10")
+
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": _STORY_SYSTEM_PROMPT},
+            {"role": "user", "content": _build_return_story_user_prompt(verdict, evidence)},
+        ],
+        "response_format": {"type": "json_schema", "json_schema": _STORY_JSON_SCHEMA},
+    }
+    if temperature is not None:      # 見 docstring：新型推理模型不接受非預設溫度
+        payload["temperature"] = temperature
+
+    resp = requests.post(
+        "https://api.openai.com/v1/chat/completions",
+        headers={"Authorization": f"Bearer {api_key}"},
+        json=payload,
+        timeout=60,
+    )
+    OQ.raise_for_openai_response(resp)
+    body = resp.json()
+    story = json.loads(body["choices"][0]["message"]["content"])
+
+    return {
+        "strategy_uid": strategy_uid,
+        "story": story,
+        "raw_verdict": verdict,
+        "raw_evidence": evidence,
+        "model": model,
+        "usage": body.get("usage"),
+    }
 
 
 # ============================================================================

@@ -1,7 +1,7 @@
 {
   "stage": "output_a",
-  "produced_at": "2026-08-23T18:21:00",
-  "git_sha": "51cb807",
+  "produced_at": "2026-08-25T13:49:40",
+  "git_sha": "c3e6d70",
   "params": {
     "group_size": 5,
     "k_crisis_groups": 4,
@@ -11,14 +11,14 @@
   "inputs": [
     {
       "path": "_frozen\\stage4\\strategy_map.parquet",
-      "sha256": "1e91d6f129a51afde386f0592d4b749259613073a3a9435292c6d205baf02e29",
-      "bytes": 3997750,
+      "sha256": "2a28635b305da062b2255cf410a6cc42d20742def342d29393f6ab6ecd266bf3",
+      "bytes": 3998788,
       "rows": 15810
     },
     {
       "path": "_frozen\\stage3\\cluster_assign.parquet",
-      "sha256": "79b79768f4e8d1c71afe03294dbc4599c9f50932a6f63d02d13d81b496641074",
-      "bytes": 344854,
+      "sha256": "4a9cf7d290ed44298a92e46ea076d36d582868b5a4bbb867e18409584c8bfa45",
+      "bytes": 344773,
       "rows": 60158
     },
     {

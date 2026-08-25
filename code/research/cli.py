@@ -19,13 +19,24 @@ from . import freeze, paths
 
 STAGES = {
     "stage0": ("階段0 · 格式整備 → candidate_index", paths.STAGE0, "research.stage0_index"),
-    "stage1": ("階段1 · 標記關卡 A/B/C → strategy_marks", paths.STAGE1, "research.stage1_scan"),
+    # ⚠️ 2026-08-25 code review 修正：原本這裡的說明文字寫「→ strategy_marks」，
+    # 但實際掛的模組是 stage1_scan（產出 strategy_scan，不是 strategy_marks）——
+    # 兩者共用同一份manifest時這個誤導不明顯，拆開manifest後說明必須跟模組對齊。
+    "stage1": ("階段1a · 單趟掃描 → strategy_scan", paths.STAGE1, "research.stage1_scan"),
+    "stage1_marks": ("階段1b · 標記關卡 A/B/C → strategy_marks",
+                     paths.STAGE1 / "_marks", "research.stage1_marks"),
     "stage2a": ("階段2a · Regime Dating（牛熊切割）", paths.STAGE2 / "regime", "research.stage2a_regime"),
     "stage2b": ("階段2b · 總經 → 月頻特徵表", paths.STAGE2 / "macro", "research.stage2b_macro"),
     "stage2c": ("階段2c · 交叉佐證（2a×2b 匯流）", paths.STAGE2 / "consistency", "research.stage2c_consistency"),
     "stage3": ("階段3 · HRP 階層聚類", paths.STAGE3, "research.stage3_hrp"),
     "stage4": ("階段4 · strategy_map 彙整凍結", paths.STAGE4, "research.stage4_strategy_map"),
 }
+
+#: W-08：資料品質防線常設化。不是 STAGES（不寫 _frozen manifest——新資料來了本來就
+#: 該掃出不同結果，不是「重跑要位元相同」的凍結產物語意），獨立走 dataquality 子指令，
+#: 讓它跟其他階段一樣「一行指令跑一次」，而不是只能用 python -m research.diagnose_price_anomalies
+#: 這種散落的呼叫方式（見同名模組 docstring 的完整判定方法論）。
+DATAQUALITY_DESC = "資料品質防線 · 原始價格異常深度掃描 + 與 stage1 data_glitch 交叉核對"
 
 
 def cmd_list() -> int:
@@ -41,6 +52,15 @@ def cmd_list() -> int:
         else:
             status = "未執行"
         print(f"{key:<8} {status:<10} {desc}")
+
+    dq_file = paths.ROOT / "_analysis_outputs_dataquality" / "price_anomaly_events.csv"
+    if dq_file.exists():
+        import datetime
+        ts = datetime.datetime.fromtimestamp(dq_file.stat().st_mtime).strftime("%Y-%m-%dT%H:%M")
+        status, desc = "已執行過", f"{DATAQUALITY_DESC}   [{ts}]"
+    else:
+        status, desc = "未執行", DATAQUALITY_DESC
+    print(f"{'dataq':<8} {status:<10} {desc}")
     return 0
 
 
@@ -73,6 +93,11 @@ def cmd_verify(stage: str) -> int:
     return 0
 
 
+def cmd_dataquality() -> int:
+    from . import diagnose_price_anomalies
+    return diagnose_price_anomalies.main()
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="research.cli", description="研究部管線")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -83,6 +108,7 @@ def main(argv: list[str] | None = None) -> int:
     p_ver.add_argument("stage")
     for s in STAGES:                       # 便捷寫法：cli stage0 == cli run stage0
         sub.add_parser(s, help=STAGES[s][0])
+    sub.add_parser("dataquality", help=DATAQUALITY_DESC)
 
     a = ap.parse_args(argv)
     if a.cmd == "list":
@@ -91,6 +117,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_run(a.stage)
     if a.cmd == "verify":
         return cmd_verify(a.stage)
+    if a.cmd == "dataquality":
+        return cmd_dataquality()
     return cmd_run(a.cmd)
 
 

@@ -1,0 +1,45 @@
+{
+  "stage": "stage1_marks",
+  "produced_at": "2026-08-25T13:33:12",
+  "git_sha": "c3e6d70",
+  "params": {
+    "rotation_high_pct": 0.95,
+    "effn_low_pct": 0.1,
+    "empty_high_pct": 0.95,
+    "tertile": [
+      0.3333333333333333,
+      0.6666666666666666
+    ],
+    "price_jump_extreme": 3.0,
+    "monthly_jump_extreme": 1.0
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage0\\candidate_index.parquet",
+      "sha256": "b308a282f48511117739a3d3215dd00601a03c8247a9693edaad1644de57a8e2",
+      "bytes": 1453737,
+      "rows": 15810
+    },
+    {
+      "path": "_frozen\\stage1\\strategy_scan.parquet",
+      "sha256": "11d6216add231972e9437d5ebc9034fae944af1ed278d232386ea2d813a94d8e",
+      "bytes": 2125339,
+      "rows": 15810
+    },
+    {
+      "path": "_frozen\\stage1\\returns_monthly.parquet",
+      "sha256": "c449417668b6ff2ad58ecd475141e6a1f8dafb79b9600412056bd06bd7394cb3",
+      "bytes": 35729254,
+      "rows": 4547404
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_frozen\\stage1\\strategy_marks.parquet",
+      "sha256": "5ea69b0fc80fac4f26d17b61ee3027c23e797b97f71e71b77b56cf3f23abe7c0",
+      "bytes": 544361,
+      "rows": 15810
+    }
+  ],
+  "notes": "兩把刀方向：低effective_n+高rotation_score（不輪動）；empty_ratio過高。stability_grade 公式為本階段解讀，見 module docstring。W-08：data_glitch=單日跳動≥300%或單月報酬≥100%（OR合併，只標記不淘汰，門檻用diagnose_price_anomalies的CAGR_inflation_pp反推校準，見contracts.py）"
+}

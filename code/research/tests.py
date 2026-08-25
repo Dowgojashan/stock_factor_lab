@@ -481,6 +481,148 @@ def t_consistency_real_data_contract():
         assert len(judged) > 0, f"[{m}] 沒有任何段被判定，2c 形同沒用"
 
 
+# ------------------------------------------------------------ cluster_story（LLM點③）
+
+@test
+def t_cluster_story_complementarity_thresholds():
+    """cluster_story：互補程度是**程式**判定的，門檻方向不能顛倒（相關越低＝互補越高）"""
+    from . import cluster_story as CS
+    hi, mid = C.COMPLEMENTARITY_CUTS["高"], C.COMPLEMENTARITY_CUTS["中"]
+    assert CS._complementarity(hi - 0.01) == "高"
+    assert CS._complementarity(hi) == "中"          # 邊界含在下一級
+    assert CS._complementarity(mid - 0.01) == "中"
+    assert CS._complementarity(mid) == "低"
+    assert CS._complementarity(0.98) == "低"
+    # 方向確認：相關越高，互補等級不可能變好
+    order = {"高": 2, "中": 1, "低": 0}
+    vals = [0.1, 0.4, 0.6, 0.85, 0.99]
+    levels = [order[CS._complementarity(v)] for v in vals]
+    assert levels == sorted(levels, reverse=True), f"互補等級隨相關上升應單調下降，實際{levels}"
+
+
+@test
+def t_cluster_story_prompt_carries_verdict_and_guardrails():
+    """cluster_story：prompt須把程式判決與「低互補不可宣稱分散」的指示帶進去
+    （這是防止LLM對相關0.98的群對硬掰互補故事的核心防線）"""
+    from . import cluster_story as CS
+    prof = CS._cluster_profiles("XM_normal")
+    a, b = sorted(prof)[:2]
+    p = CS.build_prompt("XM_normal", prof[a], prof[b], 0.958, "低", False)
+    assert "0.958" in p
+    assert "互補程度判決：低" in p
+    assert "不可推翻" in p
+    # system prompt 必須明文要求「低＝不可宣稱能分散風險」
+    assert "不可以宣稱它們能分散風險" in CS._SYSTEM_PROMPT
+    assert "不要包裝成深層的經濟因果故事" in CS._SYSTEM_PROMPT
+
+
+@test
+def t_cluster_story_profiles_drop_zero_count_categories():
+    """cluster_story：群側寫不得出現 count=0 的類別（categorical的value_counts會列出
+    該群根本沒有的類別，列在top_底下會誤導LLM以為有這個成分）"""
+    from . import cluster_story as CS
+    for prof in CS._cluster_profiles("TW_normal").values():
+        for key in ("top_factor_types", "top_F1", "top_C_source", "V_mix"):
+            assert all(v > 0 for v in prof[key].values()), f"{key} 含0計數：{prof[key]}"
+
+
+@test
+def t_cluster_story_report_runs():
+    """回歸測試：_report 不得炸掉。曾是真實bug——`corr` 撞到 DataFrame.corr 內建
+    方法名，寫成 `g.corr.min()` 會取到方法而非欄位，AttributeError。當時因為
+    production run 用了 `| tail -40`，stdout是block-buffered、stderr先flush，
+    traceback被擠出tail視窗，而且 pipeline 的 exit code 取的是 tail 的 0，
+    整個失敗完全沒被看見。產物本身是好的（run() 在 _report 之前就寫檔了）。
+    """
+    p = paths.STAGE3 / "cluster_story.parquet"
+    if not p.exists():
+        raise AssertionError("尚未執行 cluster_story，請先 python -m research.cluster_story")
+    from . import cluster_story as CS
+    CS._report(pd.read_parquet(p), log=lambda *a, **k: None)
+
+
+@test
+def t_cluster_story_sidecar_records_real_model():
+    """側錄必須記**實際模型名**。這份 json 的用途就是替不可完全複現的LLM產物留
+    溯源紀錄，若記成 "(from config)" 這種佔位字串等於失去意義。
+    """
+    import json as _json
+    p = paths.STAGE3 / "cluster_story_meta.json"
+    if not p.exists():
+        raise AssertionError("缺 cluster_story_meta.json")
+    meta = _json.loads(p.read_text(encoding="utf-8"))
+    df = pd.read_parquet(paths.STAGE3 / "cluster_story.parquet")
+    assert meta["model"] == str(df["model"].iloc[0]), \
+        f"側錄模型({meta['model']}) 與產物實際模型({df['model'].iloc[0]}) 不符"
+    assert "(" not in meta["model"], f"側錄記到佔位字串：{meta['model']}"
+
+
+@test
+def t_cluster_story_contract_with_mocked_llm():
+    """cluster_story：mock LLM回應時整條組裝流程要通過契約（不打真實API、不花錢）"""
+    from unittest import mock
+    from . import cluster_story as CS
+    fake = ({"mechanism_note": "機械性差異：市場不同。",
+             "complement_note": "相關0.372低於0.5門檻，判定高互補。",
+             "caveat": "僅根據提供的側寫。"},
+            {"prompt_tokens": 1100, "completion_tokens": 600, "total_tokens": 1700})
+    with mock.patch.object(CS, "_call_llm", return_value=fake), \
+         mock.patch("utils.config.Config.get_openai_api_key", return_value="sk-fake"), \
+         mock.patch("utils.config.Config.get_openai_model", return_value="fake-model"):
+        df = CS.build(trees=("XM_normal",), limit=3, log=lambda *a, **k: None)
+    assert len(df) == 3
+    C.validate(df, C.CLUSTER_STORY, strict_columns=True)
+
+
+# ------------------------------------------------------------ 階段1 標記（W-08）
+
+@test
+def t_stage1_data_glitch_direction():
+    """合成資料：data_glitch 方向不能顛倒——兩把刀（單日/單月）任一達門檻才標True，都在門檻下不標"""
+    df = pd.DataFrame({
+        C.PK: ["TW::a", "TW::b", "TW::c", "TW::d"],
+        "max_daily_ret":   [C.PRICE_JUMP_EXTREME + 0.01, C.PRICE_JUMP_EXTREME - 0.01,
+                            np.nan,                       0.05],
+        "max_monthly_ret": [0.10,                        C.MONTHLY_JUMP_EXTREME - 0.01,
+                            np.nan,                       C.MONTHLY_JUMP_EXTREME + 0.01],
+    })
+    daily = df["max_daily_ret"] >= C.PRICE_JUMP_EXTREME
+    monthly = df["max_monthly_ret"] >= C.MONTHLY_JUMP_EXTREME
+    flag = (daily | monthly).fillna(False)
+    assert flag.tolist() == [True, False, False, True], \
+        "單日刀命中(a)或單月刀命中(d)都要標True；兩刀都沒過(b)或都缺資料(c)要標False"
+
+
+@test
+def t_stage1_data_glitch_real_data():
+    """真實資料：data_glitch 在契約內、且不影響 is_usable（只標記不淘汰，W-08定案）。
+    另外對深度掃描（diagnose_price_anomalies）認證過的「CAGR灌水>1個百分點」283個
+    策略做recall回歸測試——這是W-08校準單月門檻(MONTHLY_JUMP_EXTREME)時的實測基準，
+    此測試防止未來有人改動門檻卻沒注意到recall掉下來。
+    """
+    p = paths.STAGE1 / "strategy_marks.parquet"
+    if not p.exists():
+        raise AssertionError("尚未執行 stage1_marks，請先 python -m research.stage1_marks")
+    df = pd.read_parquet(p)
+    C.validate(df, C.STRATEGY_MARKS, strict_columns=True)
+    assert df["data_glitch"].dtype == bool
+    # data_glitch=True 的策略不必然被淘汰——這是W-08刻意的設計（只標記、留給
+    # Agent1快篩時自行決定），故兩者之間不該有任何蘊含關係的斷言，這裡只驗證
+    # 兩欄位都存在且獨立可讀，避免未來有人誤把 data_glitch 接成第三把硬篩刀。
+    assert set(df["data_glitch"].unique()) <= {True, False}
+
+    p_impact = paths.ROOT / "_analysis_outputs_dataquality" / "price_anomaly_strategies.csv"
+    if p_impact.exists():
+        impact = pd.read_csv(p_impact)
+        big = impact[impact["CAGR_inflation_pp"] > 1.0]
+        if len(big):
+            glitch = set(df.loc[df.data_glitch, "strategy_uid"])
+            missed = big[~big["strategy_uid"].isin(glitch)]
+            assert missed.empty, (
+                f"data_glitch 漏抓了 {len(missed)} 個CAGR灌水>1pp的策略（校準基準是0漏抓）：\n"
+                f"{missed[['strategy_uid', 'CAGR_inflation_pp']].to_string(index=False)}")
+
+
 # ------------------------------------------------------------ 階段4 strategy_map
 
 @test
@@ -571,6 +713,28 @@ def t_ops_t1_covers_all_12_cells():
 
 
 @test
+def t_matrix_completeness_w06():
+    """W-06·12格矩陣完整性測試：3類型×4regime×2市場全部24格，T1回傳的每個條件
+    欄位都要真的能在strategy_map上套用（T2對不存在的欄位會KeyError）——
+    這是實戰部架構v8明文寫的驗收法（§門檻矩陣「把12格逐格拆成pandas條件，
+    若某一格有任何條件寫不出對應欄位→那個欄位就是漏掉的，必須回研究部補」），
+    抓的是「文件想引用、但階段4 strategy_map實際沒產出」這種欄位名稱漂移。
+    """
+    from ops import tools as T
+    failures = []
+    for itype in ("保守型", "積極型", "全天候"):
+        for regime in ("牛", "熊", "危機", "盤整"):
+            for market in ("TW", "US"):
+                rec = T.t1_get_recommended_criteria(itype, regime, market)
+                try:
+                    T.t2_filter_pool(rec["criteria"], market=market,
+                                     uid_whitelist=rec["uid_whitelist"])
+                except KeyError as e:
+                    failures.append(f"{itype}/{regime}/{market}：{e}")
+    assert not failures, "以下格引用了strategy_map沒有的欄位：\n" + "\n".join(failures)
+
+
+@test
 def t_ops_t1_conservative_crisis_stricter_than_bull():
     """保守型危機格的mdd_pct門檻必須比牛市格嚴（regime惡化收緊，方向不能顛倒）"""
     from ops import tools as T
@@ -626,6 +790,22 @@ def t_ops_t5_xm_scope_shows_cross_market_segregation():
 
 
 @test
+def t_ops_t5_degrades_gracefully_without_cluster_story():
+    """T5：cluster_story（要花錢的LLM離線產物）不存在時，仍須回傳完整客觀數字、
+    explanation 留 None，絕不因缺這個選配產物而壞掉或編造文字。
+    """
+    from unittest import mock
+    from ops import tools as T
+    tw, _ = _ops_examples()
+    with mock.patch.object(T, "_cluster_story", return_value=None):
+        r = T.t5_get_complements(tw, scope="xm", k=3)
+    assert len(r["lowest_corr_clusters"]) == 3
+    for c in r["lowest_corr_clusters"]:
+        assert c["explanation"] is None
+        assert isinstance(c["corr"], float)      # 客觀數字照給
+
+
+@test
 def t_ops_t6_correlation_matrix_symmetric():
     """T6：即時算的相關矩陣須對稱、對角線=1"""
     from ops import tools as T
@@ -665,6 +845,98 @@ def t_ops_t9_hrp_weights_sum_to_one():
     r = T.t9_compute_weights([tw, us])
     assert abs(sum(r["hrp_weight"].values()) - 1.0) < 1e-4
     assert abs(sum(r["equal_weight"].values()) - 1.0) < 1e-6
+
+
+# T10 全系列都 monkeypatch requests.post，不打真實OpenAI API——只驗證程式邏輯
+# 本身（prompt組裝/回應解析/錯誤分流），驗證不了真實API的欄位shape是否一致，
+# 見 ops/tools.py t10_generate_return_story_text docstring 的「驗證待辦」。
+
+def _fake_openai_response(status_code, body_dict):
+    import json as _json
+    import requests as _requests
+    resp = _requests.Response()
+    resp.status_code = status_code
+    resp._content = _json.dumps(body_dict, ensure_ascii=False).encode("utf-8")
+    return resp
+
+
+@test
+def t_ops_t10_prompt_uses_real_verdict_and_evidence():
+    """T10：prompt組裝要正確帶入T7判決與T3支持數字，且數字須**四捨五入後**才進prompt。
+
+    實測（2026-08-25）發現不捨入的話，float原始精度（effective_n=28.417404303353255）
+    會被模型一字不漏抄進輸出文字，既難讀又多燒token；捨入只動呈現層，判決本身
+    仍用原值算，故不影響判定結果。此測試同時鎖住「有帶到」與「已捨入」兩件事。
+    """
+    from ops import tools as T
+    tw, _ = _ops_examples()
+    verdict = T.t7_get_return_story_verdict(tw)
+    profile = T.t3_get_strategy_profile([tw])[0]
+    evidence = {k: profile.get(k) for k in
+               ("effective_n", "top1_share", "smallcap_share", "credibility_grade")}
+    prompt = T._build_return_story_user_prompt(verdict, evidence)
+    assert str(verdict["靠少數股"]) in prompt
+    assert str(verdict["真alpha"]) in prompt
+    assert str(evidence["credibility_grade"]) in prompt
+    # 有帶到（捨入後的形式）
+    assert f"{round(float(evidence['effective_n']), 1)}" in prompt
+    assert f"{evidence['top1_share']:.1%}" in prompt
+    # 且原始未捨入的長浮點數**不該**出現
+    assert str(evidence["effective_n"]) not in prompt, "原始float精度不該進prompt"
+
+
+@test
+def t_ops_t10_happy_path_parses_story():
+    """T10：mock正常回應時能正確解析出story，且raw_verdict/raw_evidence一併回傳供事後核對"""
+    from unittest import mock
+    from ops import tools as T
+    from utils.config import Config
+    tw, _ = _ops_examples()
+    fake_story = {
+        "few_stock_note": "此策略不靠少數股支撐報酬。",
+        "sector_beta_note": "產業β資料不存在，無法判定。",
+        "size_driven_note": "此策略不特別依賴小型股規模效應。",
+        "real_alpha_note": "在前三道皆通過下，判定為真alpha（產業β未列入判定）。",
+        "summary": "整體而言報酬來源分散、不特別依賴規模效應，惟產業β無法驗證。",
+    }
+    fake_resp = _fake_openai_response(200, {
+        "choices": [{"message": {"content": __import__("json").dumps(fake_story, ensure_ascii=False)}}],
+        "usage": {"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150},
+    })
+    with mock.patch("requests.post", return_value=fake_resp), \
+         mock.patch.object(Config, "get_openai_api_key", return_value="sk-fake"), \
+         mock.patch.object(Config, "get_openai_model", return_value="fake-model"):
+        r = T.t10_generate_return_story_text(tw)
+    assert r["story"] == fake_story
+    assert r["strategy_uid"] == tw
+    assert r["model"] == "fake-model"
+    assert r["usage"]["total_tokens"] == 150
+    assert "靠少數股" in r["raw_verdict"]
+
+
+@test
+def t_ops_t10_quota_exhausted_propagates():
+    """T10：額度用盡的錯誤要正確傳播成QuotaExhaustedError，不能被吞掉或誤判成一般錯誤"""
+    from unittest import mock
+    from ops import tools as T
+    from utils.config import Config
+    from utils import openai_quota as OQ
+    tw, _ = _ops_examples()
+    fake_resp = _fake_openai_response(429, {
+        "error": {"message": "You exceeded your current quota",
+                  "type": "insufficient_quota", "code": "insufficient_quota"}})
+    with mock.patch("requests.post", return_value=fake_resp), \
+         mock.patch.object(Config, "get_openai_api_key", return_value="sk-fake"), \
+         mock.patch.object(Config, "get_openai_model", return_value="fake-model"):
+        expect_raises(OQ.QuotaExhaustedError, T.t10_generate_return_story_text, tw)
+
+
+@test
+def t_ops_t10_missing_strategy_short_circuits_before_llm_call():
+    """T10：策略不存在時T7先擋下、直接回傳error，不會浪費一次LLM呼叫（沒mock requests也要過）"""
+    from ops import tools as T
+    r = T.t10_generate_return_story_text("TW::not_a_real_strategy")
+    assert "error" in r
 
 
 @test
@@ -747,6 +1019,30 @@ def t_output_a_real_data_contract():
     assert (evaluated["n_selected"] >= 2).all(), "有beats_market判定的列，選兵數不該<2"
     no_cand = df[df.n_candidates == 0]
     assert no_cand["beats_market"].isna().all(), "無候選的列不該有beats_market判定"
+
+
+# ------------------------------------------------------------ 階段1 manifest 獨立性（code review修正）
+
+@test
+def t_stage1_scan_and_marks_manifests_are_independent():
+    """回歸測試：stage1_scan 與 stage1_marks 曾經共用同一份 MANIFEST.json
+    （都寫 `paths.STAGE1`），後寫的覆蓋先寫的，導致先寫的那4份產物
+    （strategy_scan/returns_monthly/annual_returns/returns_meta）完全脫離
+    雜湊驗證，且沒有任何報錯——這是2026-08-25 code review 抓到的真實bug。
+    修法是 stage1_marks 改寫進獨立的 `_marks/` 子目錄（比照 stage1_mktcap
+    的 `_mktcap/` 前例）。此測試鎖住「兩份manifest各自獨立、各自涵蓋正確
+    的產物集合」，防止未來有人把兩者的 out_dir 又寫回同一個目錄。
+    """
+    m_scan = freeze.read_manifest(paths.STAGE1)
+    m_marks = freeze.read_manifest(paths.STAGE1 / "_marks")
+    assert m_scan["stage"] == "stage1_scan"
+    assert m_marks["stage"] == "stage1_marks"
+    scan_names = {o["path"].split("\\")[-1].split("/")[-1] for o in m_scan["outputs"]}
+    marks_names = {o["path"].split("\\")[-1].split("/")[-1] for o in m_marks["outputs"]}
+    assert {"strategy_scan.parquet", "returns_monthly.parquet",
+           "annual_returns.parquet", "returns_meta.parquet"} <= scan_names
+    assert "strategy_marks.parquet" in marks_names
+    assert scan_names.isdisjoint(marks_names)
 
 
 # ------------------------------------------------------------ 階段0 驗收

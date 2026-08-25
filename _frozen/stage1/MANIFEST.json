@@ -1,15 +1,11 @@
 {
-  "stage": "stage1_marks",
-  "produced_at": "2026-08-23T00:04:31",
-  "git_sha": "78d8bc7",
+  "stage": "stage1_scan",
+  "produced_at": "2026-08-25T13:33:07",
+  "git_sha": "c3e6d70",
   "params": {
-    "rotation_high_pct": 0.95,
-    "effn_low_pct": 0.1,
-    "empty_high_pct": 0.95,
-    "tertile": [
-      0.3333333333333333,
-      0.6666666666666666
-    ]
+    "skip_position_parquet": true,
+    "trading_days": 252,
+    "smallcap_pct_max": 33.333333333333336
   },
   "inputs": [
     {
@@ -19,19 +15,43 @@
       "rows": 15810
     },
     {
-      "path": "_frozen\\stage1\\strategy_scan.parquet",
-      "sha256": "a8f49e7f10c3abcd28da93d1c0b8a7bda0a3e604ed301fea9f343aa3cdfc959a",
-      "bytes": 2125574,
-      "rows": 15810
+      "path": "_frozen\\stage1\\mktcap_pct_TW.parquet",
+      "sha256": "37b3c056619156a7be0191adc0b61f0eed3fe2c4c4fa851fae9b166fef0a46b3",
+      "bytes": 1957542,
+      "rows": 312
+    },
+    {
+      "path": "_frozen\\stage1\\mktcap_pct_US.parquet",
+      "sha256": "115f3f020cfb0d53568eca1049354bf321f3e013f969dfa50b91da115d15c11d",
+      "bytes": 4126398,
+      "rows": 312
     }
   ],
   "outputs": [
     {
-      "path": "_frozen\\stage1\\strategy_marks.parquet",
-      "sha256": "f192caaf40d1ae9d70a2f1c78c728cdc22bc357246016b17c2e538c4dc47f992",
-      "bytes": 543315,
+      "path": "_frozen\\stage1\\strategy_scan.parquet",
+      "sha256": "11d6216add231972e9437d5ebc9034fae944af1ed278d232386ea2d813a94d8e",
+      "bytes": 2125339,
+      "rows": 15810
+    },
+    {
+      "path": "_frozen\\stage1\\returns_monthly.parquet",
+      "sha256": "c449417668b6ff2ad58ecd475141e6a1f8dafb79b9600412056bd06bd7394cb3",
+      "bytes": 35729254,
+      "rows": 4547404
+    },
+    {
+      "path": "_frozen\\stage1\\annual_returns.parquet",
+      "sha256": "e583acbdd0c3604ebf5efab78f57ed3ac61be0bbaad9349d95154bb6e8732162",
+      "bytes": 3374109,
+      "rows": 384485
+    },
+    {
+      "path": "_frozen\\stage1\\returns_meta.parquet",
+      "sha256": "4a7dd7dc4e9cabd38e4bd04dfec742e1df99b7bc3a0f62216ad08deacf4e0010",
+      "bytes": 181944,
       "rows": 15810
     }
   ],
-  "notes": "兩把刀方向：低effective_n+高rotation_score（不輪動）；empty_ratio過高。stability_grade 公式為本階段解讀，見 module docstring"
+  "notes": "DD-04 跳過 position.parquet；DD-05 單趟掃描；不含任何 regime 相關欄位（斷循環）"
 }

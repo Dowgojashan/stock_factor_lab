@@ -306,8 +306,28 @@ STRATEGY_MARKS = Schema(
         # 尾端寬鬆硬篩
         Column("is_usable", "bool"),
         Column("drop_reason", "str", nullable=True),
+        # W-08：資料品質防線常設化——不淘汰（True 不影響 is_usable），只標記供下游識別
+        Column("data_glitch", "bool"),
     ],
 )
+
+#: W-08：單日跳動門檻，與 diagnose_price_anomalies.py 的判定條件A同一個數字
+#: （單一策略NAV由多檔股票加權組成，≥300%單日跳動不可能是真實組合報酬，
+#: 只可能是底層價格資料錯誤——見該模組docstring起因段）。集中定義於此，
+#: 避免stage1_marks.py（便宜、每次stage1都算）與diagnose_price_anomalies.py
+#: （貴、按需跑的深度診斷）各自維護一份數字而悄悄漂移。
+PRICE_JUMP_EXTREME = 3.0
+
+#: W-08（2026-08-25 校準）：單月報酬門檻。起因：只用 PRICE_JUMP_EXTREME（單日）
+#: 上線後拿深度掃描（diagnose_price_anomalies）交叉核對，發現 7,850 個策略被
+#: 深掃判定「持有過資料異常股票」，但單日門檻只抓到 6 個——因為異常股票在多檔
+#: 分散組合裡通常只佔小權重，單日跳動被稀釋到組合層級遠低於300%，但**累積到
+#: 月報酬**仍可能造成實質CAGR灌水。用深掃算出的 CAGR_inflation_pp 當實測基準
+#: 反推門檻：CAGR灌水 >1個百分點的283個策略，其 max_monthly_ret **全部**
+#: ≥100%（最小值100.85%，283/283 全數命中）；以 100% 為門檻，套用到整個
+#: 可用策略池只會標記 2.42%（364/15,041），canary 該有的低誤報率。
+#: 兩個門檻用 OR 合併（見 stage1_marks.py），單日門檻保留給極端的單一交易日案例。
+MONTHLY_JUMP_EXTREME = 1.0
 
 
 RETURNS_META = Schema(
@@ -518,6 +538,37 @@ CO_FAIL_REGIMES = Schema(
 )
 
 
+#: LLM點③ cluster_story 的互補程度分級（**程式判定，不由LLM決定**）。
+#: 沿用 T10 同一套抗幻覺原則：判斷歸程式、LLM 只為既定判決寫字。
+#: 門檻依實測的群間相關分布訂（2026-08-25，六棵樹L1）：
+#:   市場內：TW 0.539~0.981、US 0.847~0.979 —— 同市場幾乎無真正低相關對
+#:   跨市場：XM 0.372~0.976，且最低的幾對**全是台↔美**（XM樹L1完美依市場分裂，
+#:           群1-3全台股、群4-8全美股，0混合）
+#: 故 0.5 以下＝跨市場才達得到的「高互補」；0.5~0.8＝中等；0.8 以上＝高度重疊，
+#: **不可宣稱互補**（這一級存在的意義就是擋住「對相關0.98的兩群硬掰互補故事」）。
+COMPLEMENTARITY_CUTS = {"高": 0.5, "中": 0.8}
+
+#: LLM點③ 產出：群對層級的互補性解釋（離線一次性凍結，供 T5/T13 的
+#: explanation_text 引用）。文字由 LLM 寫，但 complementarity 欄位是程式算的。
+CLUSTER_STORY = Schema(
+    name="cluster_story",
+    primary_key=["tree_id", "level", "cluster_a", "cluster_b"],
+    columns=[
+        Column("tree_id", "cat", allowed=TREE_IDS),
+        Column("level", "cat", allowed=("L1", "L2", "L3")),
+        Column("cluster_a", "int"),
+        Column("cluster_b", "int"),
+        Column("corr", "float", ge=-1, le=1),
+        Column("complementarity", "cat", allowed=("高", "中", "低")),   # 程式判定
+        Column("co_fail", "bool"),           # 危機期是否塌進同一群（來自 co_fail_regimes）
+        Column("mechanism_note", "str"),      # LLM：兩群客觀差異在哪
+        Column("complement_note", "str"),     # LLM：為既定的互補程度判決寫說明
+        Column("caveat", "str"),              # LLM：此判讀的限制
+        Column("model", "str"),
+    ],
+)
+
+
 # ============================================================================
 # 階段 4 · strategy_map 彙整（W-13）
 # ============================================================================
@@ -646,6 +697,8 @@ STRATEGY_MAP = Schema(
         # --- 尾端寬鬆硬篩（階段1）---
         Column("is_usable", "bool"),
         Column("drop_reason", "str", nullable=True),
+        # --- W-08 資料品質防線（階段1；見 STRATEGY_MARKS 同名欄位）---
+        Column("data_glitch", "bool"),
         # --- regime_fit（本階段彙整 2a×階段1報酬；完整數字見 regime_performance 附屬表）---
         Column("regime_fit", "str", nullable=True),          # pipe-joined 標籤，見 stage4 docstring
         # --- macro_fit 摘要（本階段彙整 2b×階段1報酬；完整4格數字見 macro_performance 附屬表）---
@@ -665,4 +718,5 @@ STRATEGY_MAP = Schema(
 ALL_SCHEMAS = {s.name: s for s in (CANDIDATE_INDEX, RETURNS_MONTHLY, RETURNS_META,
                                    MACRO_RAW, MACRO_HISTORY, REGIME_TABLE, REGIME_CONSISTENCY,
                                    CLUSTER_ASSIGN, CLUSTER_META, CO_FAIL_REGIMES, STRATEGY_MARKS,
-                                   REGIME_PERFORMANCE, MACRO_PERFORMANCE, STRATEGY_MAP)}
+                                   REGIME_PERFORMANCE, MACRO_PERFORMANCE, STRATEGY_MAP,
+                                   CLUSTER_STORY)}
