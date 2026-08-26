@@ -558,6 +558,22 @@ def t_cluster_story_sidecar_records_real_model():
 
 
 @test
+def t_complementarity_threshold_safe_for_normal_trees():
+    """回歸測試（2026-08-26敏感度分析）：COMPLEMENTARITY_CUTS的high門檻(0.5)在
+    實際使用範圍（3棵normal樹）必須安全——同市場配對的最低相關係數必須 >= 0.5，
+    否則會有同市場配對被誤判成「高互補」（cluster_story的核心防線失效）。
+    此測試只涵蓋normal樹，crisis樹已知不適用同一組門檻，見contracts.py註解。
+    """
+    from . import complementarity_sensitivity as CS
+    df = CS.build_all_pairs(log=lambda *a, **k: None)
+    normal = df[df.tree_id.str.endswith("_normal")]
+    same_min = normal.loc[normal.pair_type == "same", "corr"].min()
+    assert same_min >= C.COMPLEMENTARITY_CUTS["高"], (
+        f"同市場配對最低相關({same_min:.4f})低於high門檻"
+        f"({C.COMPLEMENTARITY_CUTS['高']})，會誤判成高互補")
+
+
+@test
 def t_cluster_story_contract_with_mocked_llm():
     """cluster_story：mock LLM回應時整條組裝流程要通過契約（不打真實API、不花錢）"""
     from unittest import mock
