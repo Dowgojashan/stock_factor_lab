@@ -35,6 +35,8 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from universe_benchmark import get_bench             # noqa: E402
 from phase2_analyze import MIN_HOLDINGS, avg_holdings  # noqa: E402
+from sweep_config import MARKET_START, date_range_suffix  # noqa: E402
+from phase1_linearity import IN_SAMPLE_END           # noqa: E402
 
 ART = HERE / "results_artifacts"
 OUT = HERE.parent / "_analysis_outputs_phase3"
@@ -69,16 +71,25 @@ def main():
     ap.add_argument("--market", default="TW", choices=["TW", "US"])
     ap.add_argument("--variant", default="strict")
     ap.add_argument("--bench", default="universe", choices=["universe", "index"])
+    ap.add_argument("--start", default=None,
+                    help="自訂起始日期 YYYY-MM-DD（需與 phase3_conditions.py 執行時相同）")
+    ap.add_argument("--end", default=None,
+                    help="自訂結束日期 YYYY-MM-DD（需與 phase3_conditions.py 執行時相同）")
     args = ap.parse_args()
     mkt = args.market
+    start = args.start or MARKET_START[mkt]
+    end = args.end or IN_SAMPLE_END
+    rsfx = date_range_suffix(start, end, MARKET_START[mkt], IN_SAMPLE_END)
     # 每個變體有自己的一份 Phase 3 回測（白名單不同 → 展開的 F 組合不同）
-    label = f"{mkt}_L3_M" if args.variant == "strict" else f"{mkt}_L3_{args.variant}_M"
+    label = (f"{mkt}_L3_M{rsfx}" if args.variant == "strict"
+             else f"{mkt}_L3_{args.variant}_M{rsfx}")
     sfx = f"_{args.variant}" if args.variant != "strict" else ""
     sfx += "_idxbench" if args.bench == "index" else ""
+    sfx += rsfx
     OUT.mkdir(parents=True, exist_ok=True)
 
-    bench, _ = get_bench(mkt, args.bench)
-    log(f"基準 = {bench:.2%}｜變體 = {args.variant}｜持股數門檻 ≥ {MIN_HOLDINGS}\n")
+    bench, _ = get_bench(mkt, args.bench, start=start, end=end)
+    log(f"基準 = {bench:.2%}｜變體 = {args.variant}｜期間 {start}~{end}｜持股數門檻 ≥ {MIN_HOLDINGS}\n")
 
     df = pd.read_parquet(ART / label / "stats.parquet")
     df[["F組合", "C", "C編號", "C來源"]] = df["strategy"].apply(lambda s: pd.Series(parse(s)))

@@ -43,7 +43,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 from fcv_core import MarketData, run_spec, is_done, ART_DIR   # noqa: E402
-from sweep_config import MARKET_START                          # noqa: E402
+from sweep_config import MARKET_START, date_range_suffix       # noqa: E402
 from condition_factory import build_conditions                 # noqa: E402
 from phase1_linearity import IN_SAMPLE_END                      # noqa: E402
 
@@ -72,12 +72,14 @@ def log(msg):
         f.write(line + "\n")
 
 
-def make_spec(market: str, variant: str = "strict") -> dict:
+def make_spec(market: str, variant: str = "strict", rsfx: str = "",
+             start: str = None, end: str = None) -> dict:
     """該變體的因子各切 3 桶放進同一個 P1；引擎自動產生單因子 + 跨因子無序對。
 
     variant 預設 "strict" ＝加入本參數前的行為完全相同（12 個因子、同順序）。
+    rsfx：自訂日期範圍時，用來讀取對應範圍的 Phase 1 判定（見 phase_variants.groups）。
     """
-    V = phase_variants.get(variant, market)
+    V = phase_variants.get(variant, market, rsfx)
     return {
         "_meta": {
             "phase": "P2_pairing",
@@ -86,7 +88,8 @@ def make_spec(market: str, variant: str = "strict") -> dict:
             "n_buckets": N_BUCKETS,
             "primary": V["primary"],
             "secondary": V["secondary"],
-            "in_sample_end": IN_SAMPLE_END,
+            "start": start or MARKET_START[market],
+            "in_sample_end": end or IN_SAMPLE_END,
             "note": "C/V 皆關閉；角色不對稱在分析層套用",
         },
         "P1": {
@@ -106,14 +109,24 @@ def main():
     ap.add_argument("--market", default="TW", choices=["TW", "US"])
     ap.add_argument("--variant", default="strict", choices=list(phase_variants.VARIANTS))
     ap.add_argument("--batch-size", type=int, default=150)
+    ap.add_argument("--start", default=None,
+                    help="自訂起始日期 YYYY-MM-DD（需與同範圍的 phase1_linearity.py 結果搭配）")
+    ap.add_argument("--end", default=None,
+                    help="自訂結束日期 YYYY-MM-DD（需與同範圍的 phase1_linearity.py 結果搭配）")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
-    V = phase_variants.get(args.variant, args.market)
+    start = args.start or MARKET_START[args.market]
+    end = args.end or IN_SAMPLE_END
+    rsfx = date_range_suffix(start, end, MARKET_START[args.market], IN_SAMPLE_END)
+    if rsfx:
+        log(f"⚠️ 自訂日期範圍 {start}~{end}，輸出改用獨立標籤（後綴 {rsfx}），不會覆蓋既有正式結果")
+
+    V = phase_variants.get(args.variant, args.market, rsfx)
     PRIMARY, SECONDARY, FACTORS = V["primary"], V["secondary"], V["factors"]
     # 因子池相同的變體共用同一份回測（openSec 與 all 同池 → 不重複跑）
-    label = phase_variants.l2_label(args.market, args.variant)
-    spec = make_spec(args.market, args.variant)
+    label = phase_variants.l2_label(args.market, args.variant, rsfx)
+    spec = make_spec(args.market, args.variant, rsfx, start, end)
     P1 = build_conditions(spec["P1"])
 
     n_cond = len(P1)
@@ -123,7 +136,7 @@ def main():
 
     log(f"=== Phase 2 配對｜市場={args.market}｜因子={len(FACTORS)}"
         f"（primary {len(PRIMARY)} / secondary {len(SECONDARY)}）｜"
-        f"分桶 N={N_BUCKETS}｜V={V_MODES}（C 關閉）｜in-sample 至 {IN_SAMPLE_END} ===")
+        f"分桶 N={N_BUCKETS}｜V={V_MODES}（C 關閉）｜期間 {start}~{end} ===")
     log(f"    primary  ：{PRIMARY}")
     log(f"    secondary：{SECONDARY}")
     log(f"    P1 條件數={n_cond}｜單因子={n_single}｜跨因子配對={n_pair}｜預期共 {n_expect} 策略")
@@ -140,7 +153,7 @@ def main():
         return 0
 
     log(f"[{args.market}] 載入資料…")
-    md = MarketData(args.market, start=MARKET_START[args.market], end=IN_SAMPLE_END)
+    md = MarketData(args.market, start=start, end=end)
 
     t0 = time.time()
     try:

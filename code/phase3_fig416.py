@@ -28,6 +28,8 @@ warnings.filterwarnings("ignore")
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from phase3_analyze import parse                 # noqa: E402
+from sweep_config import MARKET_START, date_range_suffix  # noqa: E402
+from phase1_linearity import IN_SAMPLE_END        # noqa: E402
 
 ART = HERE / "results_artifacts"
 OUT = HERE.parent / "_analysis_outputs_phase3"
@@ -58,8 +60,16 @@ def pretty_f(name):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--market", default="TW", choices=["TW", "US"])
+    ap.add_argument("--start", default=None,
+                    help="自訂起始日期 YYYY-MM-DD（需與 phase3_conditions.py 執行時相同）")
+    ap.add_argument("--end", default=None,
+                    help="自訂結束日期 YYYY-MM-DD（需與 phase3_conditions.py 執行時相同）")
     args = ap.parse_args()
-    mkt, label = args.market, f"{args.market}_L3_M"
+    mkt = args.market
+    start = args.start or MARKET_START[mkt]
+    end = args.end or IN_SAMPLE_END
+    rsfx = date_range_suffix(start, end, MARKET_START[mkt], IN_SAMPLE_END)
+    label = f"{mkt}_L3_M{rsfx}"
 
     df = pd.read_parquet(ART / label / "stats.parquet")
     df[["F組合", "C", "C編號", "C來源"]] = df["strategy"].apply(lambda s: pd.Series(parse(s)))
@@ -104,7 +114,7 @@ def main():
 
     fig.suptitle(f"4-16  控制 F 之後各動態因子 C 的 CAGR 折線 — Phase 3 / {mkt}", fontsize=12)
     fig.tight_layout(rect=[0, 0, 1, 0.94])
-    p = OUT / f"{mkt}_L3_fig4-16_controlled_C_lines.png"
+    p = OUT / f"{mkt}_L3_fig4-16{rsfx}_controlled_C_lines.png"
     fig.savefig(p, bbox_inches="tight")
     plt.close(fig)
 

@@ -28,7 +28,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 from fcv_core import MarketData, run_spec, is_done, ART_DIR      # noqa: E402
-from sweep_config import COMMON_FACTORS, build_p3, MARKET_START   # noqa: E402
+from sweep_config import COMMON_FACTORS, build_p3, MARKET_START, date_range_suffix  # noqa: E402
 from condition_factory import build_conditions                    # noqa: E402
 from phase1_linearity import IN_SAMPLE_END                        # noqa: E402
 from phase2_pairing import make_spec as make_p2_spec              # noqa: E402
@@ -53,20 +53,31 @@ def main():
     ap.add_argument("--market", default="TW", choices=["TW", "US"])
     ap.add_argument("--variant", default="strict")
     ap.add_argument("--batch-size", type=int, default=150)
+    ap.add_argument("--start", default=None,
+                    help="自訂起始日期 YYYY-MM-DD（需與同範圍的 phase3_conditions.py 結果搭配）")
+    ap.add_argument("--end", default=None,
+                    help="自訂結束日期 YYYY-MM-DD（需與同範圍的 phase3_conditions.py 結果搭配）")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
     market = args.market
-    label = f"{market}_L4_M" if args.variant == "strict" else f"{market}_L4_{args.variant}_M"
+    start = args.start or MARKET_START[market]
+    end = args.end or IN_SAMPLE_END
+    rsfx = date_range_suffix(start, end, MARKET_START[market], IN_SAMPLE_END)
+    if rsfx:
+        log(f"⚠️ 自訂日期範圍 {start}~{end}，輸出改用獨立標籤（後綴 {rsfx}），不會覆蓋既有正式結果")
+    label = (f"{market}_L4_M{rsfx}" if args.variant == "strict"
+             else f"{market}_L4_{args.variant}_M{rsfx}")
 
-    allowed, _ = load_allowed_pairs(market, args.variant)
+    allowed, _ = load_allowed_pairs(market, args.variant, rsfx)
     # ⚠️ 必須傳 variant：all 的因子池是 19 個，若沿用 strict 的 12 個，
     #    白名單裡含 REV_G 等因子的組合會在展開時**靜默跳過**（不報錯、策略數變少）。
-    spec = make_p2_spec(market, args.variant)
+    spec = make_p2_spec(market, args.variant, rsfx, start, end)
     spec["_meta"] = {
         "phase": "P4_valuation",
         "market": market,
-        "in_sample_end": IN_SAMPLE_END,
+        "start": start,
+        "in_sample_end": end,
         "n_allowed_f_pairs": len(allowed),
         "note": "只跑 v1；v0 沿用 Phase 3 的 {market}_L3_M",
     }
@@ -75,7 +86,7 @@ def main():
     P3 = build_conditions(spec["P3"])
     n_expect = len(allowed) * (len(P3) + 1) * len(V_MODES)
 
-    log(f"=== Phase 4 加入 V｜市場={market}｜in-sample 至 {IN_SAMPLE_END} ===")
+    log(f"=== Phase 4 加入 V｜市場={market}｜期間 {start}~{end} ===")
     log(f"    F 白名單={len(allowed)}｜C 狀態={len(P3)+1}｜V={V_MODES}（v0 沿用 Phase 3）")
     log(f"    預期共 {n_expect} 策略")
     log(f"    {'done' if is_done(label) else 'pending'}  {label}")
@@ -88,7 +99,7 @@ def main():
         return 0
 
     log(f"[{market}] 載入資料…")
-    md = MarketData(market, start=MARKET_START[market], end=IN_SAMPLE_END)
+    md = MarketData(market, start=start, end=end)
 
     t0 = time.time()
     try:
@@ -101,10 +112,10 @@ def main():
         import json as _json
         (Path(ART_DIR) / label / "_MANIFEST.json").write_text(_json.dumps({
             "label": label, "market": market, "variant": args.variant,
-            "n_allowed_f_pairs": len(allowed), "in_sample_end": IN_SAMPLE_END,
+            "n_allowed_f_pairs": len(allowed), "start": start, "in_sample_end": end,
             "v_modes": list(V_MODES), "n_backtested": meta["n_backtested"],
             "whitelist_from": f"_analysis_outputs_phase2/{market}_L2"
-                              f"{'' if args.variant == 'strict' else '_' + args.variant}_體質檢查表.csv",
+                              f"{'' if args.variant == 'strict' else '_' + args.variant}{rsfx}_體質檢查表.csv",
             "run_at": datetime.now().isoformat(),
         }, ensure_ascii=False, indent=2), encoding="utf-8")
         rc = 0

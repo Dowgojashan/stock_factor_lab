@@ -41,7 +41,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 from fcv_core import MarketData, run_spec, is_done, ART_DIR      # noqa: E402
-from sweep_config import COMMON_FACTORS, build_p3, MARKET_START   # noqa: E402
+from sweep_config import COMMON_FACTORS, build_p3, MARKET_START, date_range_suffix  # noqa: E402
 from condition_factory import build_conditions                    # noqa: E402
 from phase1_linearity import IN_SAMPLE_END                        # noqa: E402
 from phase2_pairing import make_spec as make_p2_spec              # noqa: E402
@@ -60,9 +60,12 @@ def log(msg):
         f.write(line + "\n")
 
 
-def load_allowed_pairs(market: str, variant: str = "strict"):
-    """從 Phase 2 的體質檢查表取出 F 構面白名單（策略名的前兩段）。"""
-    sfx = "" if variant == "strict" else f"_{variant}"
+def load_allowed_pairs(market: str, variant: str = "strict", rsfx: str = ""):
+    """從 Phase 2 的體質檢查表取出 F 構面白名單（策略名的前兩段）。
+
+    rsfx：自訂日期範圍的檔名後綴，須與該範圍的 phase2_analyze.py 輸出一致。
+    """
+    sfx = ("" if variant == "strict" else f"_{variant}") + rsfx
     p = HERE.parent / "_analysis_outputs_phase2" / f"{market}_L2{sfx}_體質檢查表.csv"
     if not p.exists():
         raise FileNotFoundError(f"找不到 Phase 2 體質檢查表：{p}\n請先執行 phase2_analyze.py")
@@ -79,22 +82,33 @@ def main():
     ap.add_argument("--market", default="TW", choices=["TW", "US"])
     ap.add_argument("--variant", default="strict")
     ap.add_argument("--batch-size", type=int, default=150)
+    ap.add_argument("--start", default=None,
+                    help="自訂起始日期 YYYY-MM-DD（需與同範圍的 phase2_pairing.py/analyze 結果搭配）")
+    ap.add_argument("--end", default=None,
+                    help="自訂結束日期 YYYY-MM-DD（需與同範圍的 phase2_pairing.py/analyze 結果搭配）")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
     market = args.market
-    label = f"{market}_L3_M" if args.variant == "strict" else f"{market}_L3_{args.variant}_M"
+    start = args.start or MARKET_START[market]
+    end = args.end or IN_SAMPLE_END
+    rsfx = date_range_suffix(start, end, MARKET_START[market], IN_SAMPLE_END)
+    if rsfx:
+        log(f"⚠️ 自訂日期範圍 {start}~{end}，輸出改用獨立標籤（後綴 {rsfx}），不會覆蓋既有正式結果")
+    label = (f"{market}_L3_M{rsfx}" if args.variant == "strict"
+             else f"{market}_L3_{args.variant}_M{rsfx}")
 
-    allowed, l2 = load_allowed_pairs(market, args.variant)
+    allowed, l2 = load_allowed_pairs(market, args.variant, rsfx)
     # P1 沿用 Phase 2 完全相同的定義（同因子池、同 3 桶、同順序）
     # → 引擎產生的 F 組合名稱才會與白名單完全對得起來
     # ⚠️ 必須傳 variant：all 的因子池是 19 個，若沿用 strict 的 12 個，
     #    白名單裡含 REV_G 等因子的組合會在展開時**靜默跳過**（不報錯、策略數變少）。
-    spec = make_p2_spec(market, args.variant)
+    spec = make_p2_spec(market, args.variant, rsfx, start, end)
     spec["_meta"] = {
         "phase": "P3_conditions",
         "market": market,
-        "in_sample_end": IN_SAMPLE_END,
+        "start": start,
+        "in_sample_end": end,
         "n_allowed_f_pairs": len(allowed),
         "note": "F 白名單來自 Phase 2 體質檢查表；V 仍關閉",
     }
@@ -105,7 +119,7 @@ def main():
     n_expect = len(allowed) * (len(P3) + 1) * len(V_MODES)
 
     n_single = sum(1 for a in allowed if a.endswith("__None"))
-    log(f"=== Phase 3 加入 C｜市場={market}｜in-sample 至 {IN_SAMPLE_END} ===")
+    log(f"=== Phase 3 加入 C｜市場={market}｜期間 {start}~{end} ===")
     log(f"    F 白名單（Phase 2 晉升）={len(allowed)}"
         f"（單因子 {n_single} / 配對 {len(allowed)-n_single}）")
     log(f"    P1 條件={len(P1)}｜C={len(P3)}（+None={len(P3)+1} 種 C 狀態）｜V={V_MODES}")
@@ -120,7 +134,7 @@ def main():
         return 0
 
     log(f"[{market}] 載入資料…")
-    md = MarketData(market, start=MARKET_START[market], end=IN_SAMPLE_END)
+    md = MarketData(market, start=start, end=end)
 
     t0 = time.time()
     try:
@@ -133,10 +147,10 @@ def main():
         import json as _json
         (Path(ART_DIR) / label / "_MANIFEST.json").write_text(_json.dumps({
             "label": label, "market": market, "variant": args.variant,
-            "n_allowed_f_pairs": len(allowed), "in_sample_end": IN_SAMPLE_END,
+            "n_allowed_f_pairs": len(allowed), "start": start, "in_sample_end": end,
             "v_modes": list(V_MODES), "n_backtested": meta["n_backtested"],
             "whitelist_from": f"_analysis_outputs_phase2/{market}_L2"
-                              f"{'' if args.variant == 'strict' else '_' + args.variant}_體質檢查表.csv",
+                              f"{'' if args.variant == 'strict' else '_' + args.variant}{rsfx}_體質檢查表.csv",
             "run_at": datetime.now().isoformat(),
         }, ensure_ascii=False, indent=2), encoding="utf-8")
         rc = 0

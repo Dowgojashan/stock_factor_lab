@@ -37,19 +37,22 @@ ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
 
 import analyze_batch as ab            # noqa: E402
+from sweep_config import MARKET_START, date_range_suffix  # noqa: E402
+from phase1_linearity import IN_SAMPLE_END                 # noqa: E402
 
 ART = HERE / "results_artifacts"
 ATLAS_OUT = ROOT / "_analysis_outputs_atlas"
 
 
-def phase_label(market, variant, phase):
+def phase_label(market, variant, phase, rsfx=""):
     """Phase 3/4 的 label 命名規則（與 phase3_conditions / phase4_valuation 一致）。"""
-    return f"{market}_L{phase}_M" if variant == "strict" else f"{market}_L{phase}_{variant}_M"
+    base = f"{market}_L{phase}_M" if variant == "strict" else f"{market}_L{phase}_{variant}_M"
+    return base + rsfx
 
 
-def build_merged_stats(market, variant, merged_label):
+def build_merged_stats(market, variant, merged_label, rsfx=""):
     """合併 L3(v0) + L4(v1) 的 stats，寫進 merged_label 目錄。"""
-    l3, l4 = phase_label(market, variant, 3), phase_label(market, variant, 4)
+    l3, l4 = phase_label(market, variant, 3, rsfx), phase_label(market, variant, 4, rsfx)
     for lab in (l3, l4):
         p = ART / lab / "stats.parquet"
         if not p.exists():
@@ -94,15 +97,23 @@ def main():
     ap = argparse.ArgumentParser(description="產出第四章 18 張圖圖鑑（SOP 版）")
     ap.add_argument("--market", default="TW", choices=["TW", "US"])
     ap.add_argument("--variant", default="openSec")
+    ap.add_argument("--start", default=None,
+                    help="自訂起始日期 YYYY-MM-DD（需與同範圍的 phase3/phase4 結果搭配）")
+    ap.add_argument("--end", default=None,
+                    help="自訂結束日期 YYYY-MM-DD（需與同範圍的 phase3/phase4 結果搭配）")
     ap.add_argument("--skip-credibility", action="store_true",
                     help="跳過逐策略可信度掃描（4-5~4-10），可省下約 10-15 分鐘")
     ap.add_argument("--keep-temp", action="store_true", help="保留暫時的合併 label 目錄")
     args = ap.parse_args()
 
-    merged_label = f"{args.market}_ATLAS_{args.variant}_M"
-    print(f"=== 第四章圖鑑｜{args.market}／{args.variant} ===")
+    start = args.start or MARKET_START[args.market]
+    end = args.end or IN_SAMPLE_END
+    rsfx = date_range_suffix(start, end, MARKET_START[args.market], IN_SAMPLE_END)
 
-    l3, l4, _ = build_merged_stats(args.market, args.variant, merged_label)
+    merged_label = f"{args.market}_ATLAS_{args.variant}_M{rsfx}"
+    print(f"=== 第四章圖鑑｜{args.market}／{args.variant}｜期間 {start}~{end} ===")
+
+    l3, l4, _ = build_merged_stats(args.market, args.variant, merged_label, rsfx)
     patch_artifact_resolver(l3, l4, merged_label)
 
     # 借 analyze_batch.main()：它從 argv 讀參數，這樣行為與原本完全一致
@@ -117,7 +128,7 @@ def main():
 
     # 成品搬到專屬目錄（analyze_batch 預設寫到 gitignore 的 _analysis_outputs/）
     src = ROOT / "_analysis_outputs" / merged_label
-    dst = ATLAS_OUT / f"{args.market}_{args.variant}"
+    dst = ATLAS_OUT / f"{args.market}_{args.variant}{rsfx}"
     if src.exists():
         dst.parent.mkdir(parents=True, exist_ok=True)
         if dst.exists():

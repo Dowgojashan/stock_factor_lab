@@ -34,7 +34,7 @@ sys.path.insert(0, str(HERE))
 from fcv_core import (MarketData, ensure_dtindex_cols, write_report_artifacts,  # noqa: E402
                       quick_stats_trades, ART_DIR)
 from combinations import sim_conditions                                          # noqa: E402
-from sweep_config import MARKET_START                                            # noqa: E402
+from sweep_config import MARKET_START, date_range_suffix                         # noqa: E402
 from phase1_linearity import IN_SAMPLE_END                                       # noqa: E402
 
 
@@ -47,11 +47,11 @@ def log(m):
 TR_TABLE = {"TW": "taiex_tr", "US": "sp500_tr"}
 
 
-def _index_cagr(market, table, start="2000-01-01"):
+def _index_cagr(market, table, start="2000-01-01", end=None):
     """任一指數表的年化。回傳 (cagr, 起日, 訖日)；表不存在或空表回 (nan, None, None)。"""
     import fcv_core  # noqa: F401  bootstrap sys.path
     from database import Database
-    from phase1_linearity import IN_SAMPLE_END as _END
+    end = end or IN_SAMPLE_END
     conn = Database(market).create_connection()
     try:
         s = pd.read_sql(f"SELECT date, close FROM `{table}`", conn)
@@ -63,14 +63,14 @@ def _index_cagr(market, table, start="2000-01-01"):
         return float("nan"), None, None
     s["date"] = pd.to_datetime(s["date"])
     s = s.set_index("date").sort_index()["close"].astype(float).dropna()
-    s = s[(s.index >= start) & (s.index <= _END)]
+    s = s[(s.index >= start) & (s.index <= end)]
     if len(s) < 2:
         return float("nan"), None, None
     yrs = (s.index[-1] - s.index[0]).days / 365.25
     return float((s.iloc[-1] / s.iloc[0]) ** (1 / yrs) - 1), s.index[0].date(), s.index[-1].date()
 
 
-def get_bench(market, kind="universe"):
+def get_bench(market, kind="universe", start=None, end=None):
     """統一的基準取得介面，供 phase1/3/4_analyze 共用。
 
       index    ：外部**價格**指數（taiex/sp500）——不含股利
@@ -85,22 +85,29 @@ def get_bench(market, kind="universe"):
     主基準維持 universe：它問的是「因子篩選有沒有比不篩選更好」，
     才是本研究要證明的事；報酬指數留給論文做對外的傳統基準對照。
 
+    start/end：自訂日期範圍時需與策略回測用的範圍一致，否則「贏大盤」的比較
+    會變成不同期間的兩個數字互比。預設沿用 MARKET_START/IN_SAMPLE_END。
+
     回傳 (年化報酬, 說明字串)。
     """
+    start = start or MARKET_START[market]
+    end = end or IN_SAMPLE_END
+    rsfx = date_range_suffix(start, end, MARKET_START[market], IN_SAMPLE_END)
     if kind == "index":
         from phase1_analyze import bench_cagr
-        v, b0, b1 = bench_cagr(market)
+        v, b0, b1 = bench_cagr(market, start=start, end=end)
         return v, f"外部價格指數 {b0}~{b1}（不含股利）"
     if kind == "index_tr":
-        v, b0, b1 = _index_cagr(market, TR_TABLE[market])
+        v, b0, b1 = _index_cagr(market, TR_TABLE[market], start=start, end=end)
         if b0 is None:
             raise FileNotFoundError(
                 f"{TR_TABLE[market]} 不存在或為空表；請先請 collector 匯入該市場的報酬指數")
         return v, f"外部報酬指數 {b0}~{b1}（含股利）"
-    p = Path(ART_DIR) / f"{market}_UNIVERSE_M" / "stats.parquet"
+    p = Path(ART_DIR) / f"{market}_UNIVERSE_M{rsfx}" / "stats.parquet"
     if not p.exists():
         raise FileNotFoundError(
-            f"找不到基準 {p}；請先執行：python universe_benchmark.py --market {market}")
+            f"找不到基準 {p}；請先執行：python universe_benchmark.py --market {market}"
+            + (f" --start {start} --end {end}" if rsfx else ""))
     v = float(pd.read_parquet(p).iloc[0]["CAGR"])
     return v, "基準（全買、含股利、同宇宙同成本）"
 
@@ -133,12 +140,17 @@ def bench_table(market):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--market", default="TW", choices=["TW", "US"])
+    ap.add_argument("--start", default=None, help="自訂起始日期 YYYY-MM-DD")
+    ap.add_argument("--end", default=None, help="自訂結束日期 YYYY-MM-DD")
     args = ap.parse_args()
     market = args.market
-    label = f"{market}_UNIVERSE_M"
+    start = args.start or MARKET_START[market]
+    end = args.end or IN_SAMPLE_END
+    rsfx = date_range_suffix(start, end, MARKET_START[market], IN_SAMPLE_END)
+    label = f"{market}_UNIVERSE_M{rsfx}"
 
-    log(f"=== 基準｜{market}｜in-sample 至 {IN_SAMPLE_END} ===")
-    md = MarketData(market, start=MARKET_START[market], end=IN_SAMPLE_END)
+    log(f"=== 基準｜{market}｜期間 {start}~{end} ===")
+    md = MarketData(market, start=start, end=end)
 
     # 「全選」遮罩：宇宙內所有公司、每個交易日都為 True。
     # md.common 已是「有因子資料 ∩ 有價格」的交集＝策略選股的同一個母體，
@@ -171,7 +183,7 @@ def main():
     # 與外部價格指數對照
     try:
         from phase1_analyze import bench_cagr
-        ext, b0, b1 = bench_cagr(market)
+        ext, b0, b1 = bench_cagr(market, start=start, end=end)
         log(f"\n  外部指數（價格指數，不含股利）= {ext:.2%}  [{b0}~{b1}]")
         log(f"  基準（含股利、同宇宙、同成本）= {float(r['CAGR']):.2%}")
         log(f"  → 差距 {float(r['CAGR'])-ext:+.2%}"

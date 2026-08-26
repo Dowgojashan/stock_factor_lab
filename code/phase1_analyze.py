@@ -34,6 +34,7 @@ warnings.filterwarnings("ignore")
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from phase1_linearity import FACTORS, N_BUCKETS, IN_SAMPLE_END, LOOKAHEAD_FLAGGED  # noqa: E402
+from sweep_config import MARKET_START, date_range_suffix                          # noqa: E402
 
 ART = HERE / "results_artifacts"
 OUT = HERE.parent / "_analysis_outputs_phase1"
@@ -52,8 +53,10 @@ def log(m):
     print(m, flush=True)
 
 
-def bench_cagr(market):
-    """in-sample 期間的大盤年化（重算，因為 in-sample 上界已改為 2025-12-31）。"""
+def bench_cagr(market, start=None, end=None):
+    """in-sample 期間的大盤年化。start/end 預設沿用 MARKET_START/IN_SAMPLE_END。"""
+    start = start or MARKET_START[market]
+    end = end or IN_SAMPLE_END
     try:
         import fcv_core  # noqa: F401  bootstrap
         from database import Database
@@ -63,7 +66,7 @@ def bench_cagr(market):
         conn.close()
         bm["date"] = pd.to_datetime(bm["date"])
         bm = bm.set_index("date").sort_index()["close"].astype(float).dropna()
-        bm = bm[(bm.index >= "2000-01-01") & (bm.index <= IN_SAMPLE_END)]
+        bm = bm[(bm.index >= start) & (bm.index <= end)]
         yrs = (bm.index[-1] - bm.index[0]).days / 365.25
         return float((bm.iloc[-1] / bm.iloc[0]) ** (1 / yrs) - 1), bm.index[0].date(), bm.index[-1].date()
     except Exception as e:
@@ -73,9 +76,9 @@ def bench_cagr(market):
         raise RuntimeError(f"大盤基準計算失敗，無法判定：{e}") from e
 
 
-def load_curve(market, factor):
+def load_curve(market, factor, rsfx=""):
     """回傳 v0 的 9 桶 CAGR 曲線（index=桶號）。缺檔或缺桶回傳 None。"""
-    p = ART / f"{market}_L1_{factor}_M" / "stats.parquet"
+    p = ART / f"{market}_L1_{factor}_M{rsfx}" / "stats.parquet"
     if not p.exists():
         return None
     df = pd.read_parquet(p)
@@ -85,7 +88,7 @@ def load_curve(market, factor):
     return df
 
 
-def size_overlap(market, factor, k, ref_pos=None):
+def size_overlap(market, factor, k, ref_pos=None, rsfx=""):
     """該因子第 k 桶的持股，有多少比例同時落在「規模最小的那一桶」(REVENUE_qb0)。
 
     為什麼要看這個：q_band 是橫斷面分位排名，某因子的極端桶很可能同時就是
@@ -99,7 +102,8 @@ def size_overlap(market, factor, k, ref_pos=None):
     """
     if ref_pos is None:
         return np.nan
-    p = ART / f"{market}_L1_{factor}_M" / f"{factor}_qb{k}of{N_BUCKETS}__None__None__v0" / "position.parquet"
+    p = (ART / f"{market}_L1_{factor}_M{rsfx}"
+         / f"{factor}_qb{k}of{N_BUCKETS}__None__None__v0" / "position.parquet")
     if not p.exists():
         return np.nan
     try:
@@ -112,9 +116,10 @@ def size_overlap(market, factor, k, ref_pos=None):
         return np.nan
 
 
-def load_size_ref(market):
+def load_size_ref(market, rsfx=""):
     """規模最小那一桶的持股遮罩（REVENUE_qb0），當作規模效應的參照。"""
-    p = ART / f"{market}_L1_REVENUE_M" / f"REVENUE_qb0of{N_BUCKETS}__None__None__v0" / "position.parquet"
+    p = (ART / f"{market}_L1_REVENUE_M{rsfx}"
+         / f"REVENUE_qb0of{N_BUCKETS}__None__None__v0" / "position.parquet")
     if not p.exists():
         log("⚠️ 找不到 REVENUE_qb0 的持股，略過規模重疊診斷")
         return None
@@ -159,21 +164,28 @@ def main():
     ap.add_argument("--market", default="TW", choices=["TW", "US"])
     ap.add_argument("--bench", default="universe", choices=["universe", "index"],
                     help="universe＝基準(含股利，預設)；index＝外部價格指數(不含股利)")
+    ap.add_argument("--start", default=None,
+                    help="自訂起始日期 YYYY-MM-DD（需與 phase1_linearity.py 執行時相同）")
+    ap.add_argument("--end", default=None,
+                    help="自訂結束日期 YYYY-MM-DD（需與 phase1_linearity.py 執行時相同）")
     args = ap.parse_args()
     mkt = args.market
-    sfx = "_idxbench" if args.bench == "index" else ""
+    start = args.start or MARKET_START[mkt]
+    end = args.end or IN_SAMPLE_END
+    rsfx = date_range_suffix(start, end, MARKET_START[mkt], IN_SAMPLE_END)
+    sfx = ("_idxbench" if args.bench == "index" else "") + rsfx
     OUT.mkdir(parents=True, exist_ok=True)
 
     from universe_benchmark import get_bench
-    bench, _ = get_bench(mkt, args.bench)
-    log(f"基準 = {bench:.2%}\n")
+    bench, _ = get_bench(mkt, args.bench, start=start, end=end)
+    log(f"基準 = {bench:.2%}｜期間 {start}~{end}\n")
 
     log("載入規模參照（REVENUE_qb0）以計算重疊診斷 …")
-    ref = load_size_ref(mkt)
+    ref = load_size_ref(mkt, rsfx)
 
     rows, curves, missing = [], {}, []
     for f in FACTORS:
-        df = load_curve(mkt, f)
+        df = load_curve(mkt, f, rsfx)
         if df is None or len(df) < N_BUCKETS:
             missing.append(f)
             continue
@@ -196,7 +208,7 @@ def main():
             "贏大盤桶數": int((ys > bench).sum()),
             # 規模干擾診斷：最佳桶的持股有多少比例也是「規模最小的那一桶」
             "最佳桶與最小規模重疊": (np.nan if f == "REVENUE" else
-                            round(size_overlap(mkt, f, int(np.argmax(ys)), ref), 3)),
+                            round(size_overlap(mkt, f, int(np.argmax(ys)), ref, rsfx), 3)),
             **{f"桶{i}": round(float(v), 4) for i, v in enumerate(ys)},
         })
 

@@ -38,7 +38,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 from fcv_core import MarketData, run_spec, is_done, ART_DIR   # noqa: E402
-from sweep_config import MARKET_START                          # noqa: E402
+from sweep_config import MARKET_START, date_range_suffix       # noqa: E402
 from condition_factory import build_conditions                 # noqa: E402
 
 # ==================== 設定 ====================
@@ -93,7 +93,7 @@ def log(msg):
         f.write(line + "\n")
 
 
-def make_spec(factor: str, market: str) -> dict:
+def make_spec(factor: str, market: str, start: str = None, end: str = None) -> dict:
     """單因子 9 桶、無 C。P1 只放這一個因子 → 引擎的同因子跳過邏輯保證不會配出 F2。"""
     return {
         "_meta": {
@@ -101,7 +101,8 @@ def make_spec(factor: str, market: str) -> dict:
             "market": market,
             "factor": factor,
             "n_buckets": N_BUCKETS,
-            "in_sample_end": IN_SAMPLE_END,
+            "start": start or MARKET_START[market],
+            "in_sample_end": end or IN_SAMPLE_END,
         },
         "P1": {
             factor: {
@@ -114,9 +115,9 @@ def make_spec(factor: str, market: str) -> dict:
     }
 
 
-def job_list(factors, market):
-    return [{"label": f"{market}_L1_{f}_M", "factor": f, "rebalance": "M",
-             "spec": make_spec(f, market)} for f in factors]
+def job_list(factors, market, start: str = None, end: str = None, rsfx: str = ""):
+    return [{"label": f"{market}_L1_{f}_M{rsfx}", "factor": f, "rebalance": "M",
+             "spec": make_spec(f, market, start, end)} for f in factors]
 
 
 def main():
@@ -124,6 +125,10 @@ def main():
     ap.add_argument("--market", default="TW", choices=["TW", "US"])
     ap.add_argument("--factors", default=",".join(FACTORS))
     ap.add_argument("--batch-size", type=int, default=150)
+    ap.add_argument("--start", default=None,
+                    help="自訂起始日期 YYYY-MM-DD（預設 MARKET_START，不影響既有正式結果）")
+    ap.add_argument("--end", default=None,
+                    help="自訂結束日期 YYYY-MM-DD（預設 IN_SAMPLE_END=2025-12-31）")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
@@ -132,9 +137,16 @@ def main():
         log("⚠️ PE 已由老師排除，自動移除（PE 僅保留為 V 構面估值濾網依據）")
         factors = [f for f in factors if f != "PE"]
 
-    jobs = job_list(factors, args.market)
+    start = args.start or MARKET_START[args.market]
+    end = args.end or IN_SAMPLE_END
+    rsfx = date_range_suffix(start, end, MARKET_START[args.market], IN_SAMPLE_END)
+    if rsfx:
+        log(f"⚠️ 自訂日期範圍 {start}~{end}（非預設 {MARKET_START[args.market]}~{IN_SAMPLE_END}），"
+            f"輸出改用獨立標籤（後綴 {rsfx}），不會覆蓋既有正式結果")
+
+    jobs = job_list(factors, args.market, start, end, rsfx)
     log(f"=== Phase 1 線性檢定｜市場={args.market}｜因子數={len(jobs)}｜"
-        f"分桶 N={N_BUCKETS}｜V={V_MODES}（F2/C 皆關閉）｜in-sample 至 {IN_SAMPLE_END} ===")
+        f"分桶 N={N_BUCKETS}｜V={V_MODES}（F2/C 皆關閉）｜期間 {start}~{end} ===")
     total = 0
     for j in jobs:
         P1 = build_conditions(j["spec"]["P1"])
@@ -155,7 +167,7 @@ def main():
         return 0
 
     log(f"[{args.market}] 載入資料（{len(pending)}/{len(jobs)} 個因子待跑）…")
-    md = MarketData(args.market, start=MARKET_START[args.market], end=IN_SAMPLE_END)
+    md = MarketData(args.market, start=start, end=end)
 
     t0 = time.time()
     n_ok = n_fail = 0

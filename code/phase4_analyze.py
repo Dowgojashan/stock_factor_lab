@@ -38,6 +38,8 @@ sys.path.insert(0, str(HERE))
 from universe_benchmark import get_bench                 # noqa: E402
 from phase2_analyze import MIN_HOLDINGS, avg_holdings    # noqa: E402
 from phase3_analyze import parse                         # noqa: E402
+from sweep_config import MARKET_START, date_range_suffix  # noqa: E402
+from phase1_linearity import IN_SAMPLE_END               # noqa: E402
 
 ART = HERE / "results_artifacts"
 OUT = HERE.parent / "_analysis_outputs_phase4"
@@ -56,9 +58,10 @@ def log(m):
     print(m, flush=True)
 
 
-def load(mkt, lab, variant="strict"):
+def load(mkt, lab, variant="strict", rsfx=""):
     """每個變體有自己的一份 Phase 3/4 回測（白名單不同）。"""
-    name = f"{mkt}_{lab}_M" if variant == "strict" else f"{mkt}_{lab}_{variant}_M"
+    name = (f"{mkt}_{lab}_M{rsfx}" if variant == "strict"
+            else f"{mkt}_{lab}_{variant}_M{rsfx}")
     df = pd.read_parquet(ART / name / "stats.parquet")
     df[["F組合", "C", "C編號", "C來源"]] = df["strategy"].apply(lambda s: pd.Series(parse(s)))
     df["key"] = df["F組合"] + "__" + df["C"]
@@ -70,17 +73,25 @@ def main():
     ap.add_argument("--market", default="TW", choices=["TW", "US"])
     ap.add_argument("--variant", default="strict")
     ap.add_argument("--bench", default="universe", choices=["universe", "index"])
+    ap.add_argument("--start", default=None,
+                    help="自訂起始日期 YYYY-MM-DD（需與 phase4_valuation.py 執行時相同）")
+    ap.add_argument("--end", default=None,
+                    help="自訂結束日期 YYYY-MM-DD（需與 phase4_valuation.py 執行時相同）")
     args = ap.parse_args()
     mkt = args.market
+    start = args.start or MARKET_START[mkt]
+    end = args.end or IN_SAMPLE_END
+    rsfx = date_range_suffix(start, end, MARKET_START[mkt], IN_SAMPLE_END)
     sfx = f"_{args.variant}" if args.variant != "strict" else ""
     sfx += "_idxbench" if args.bench == "index" else ""
+    sfx += rsfx
     OUT.mkdir(parents=True, exist_ok=True)
 
-    bench, _ = get_bench(mkt, args.bench)
-    log(f"基準 = {bench:.2%}｜變體 = {args.variant}\n")
+    bench, _ = get_bench(mkt, args.bench, start=start, end=end)
+    log(f"基準 = {bench:.2%}｜變體 = {args.variant}｜期間 {start}~{end}\n")
 
-    v0 = load(mkt, "L3", args.variant)
-    v1 = load(mkt, "L4", args.variant)
+    v0 = load(mkt, "L3", args.variant, rsfx)
+    v1 = load(mkt, "L4", args.variant, rsfx)
     log(f"v0（Phase 3）{len(v0)} 個｜v1（Phase 4）{len(v1)} 個")
 
     # 依 Phase 2 體質檢查表篩 F 組合（換基準/變體後合格者是原 203 的子集）
@@ -100,8 +111,8 @@ def main():
     m["dMDD"] = m["max_drawdown_v0"].abs() - m["max_drawdown_v1"].abs()
 
     log("計算 v1 的平均持股數 …")
-    l3 = f"{mkt}_L3_M" if args.variant == "strict" else f"{mkt}_L3_{args.variant}_M"
-    l4 = f"{mkt}_L4_M" if args.variant == "strict" else f"{mkt}_L4_{args.variant}_M"
+    l3 = f"{mkt}_L3_M{rsfx}" if args.variant == "strict" else f"{mkt}_L3_{args.variant}_M{rsfx}"
+    l4 = f"{mkt}_L4_M{rsfx}" if args.variant == "strict" else f"{mkt}_L4_{args.variant}_M{rsfx}"
     m["持股數_v1"] = [avg_holdings(l4, s) for s in m["strategy_v1"]]
     m["持股數_v0"] = [avg_holdings(l3, s) for s in m["strategy_v0"]]
 

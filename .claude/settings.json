@@ -135,7 +135,9 @@
       "Bash(rmdir /d/git/delivery_code/_analysis_outputs)",
       "Bash(rm -f /d/git/delivery_code/TA-LIB/TA_Lib-0.4.19-cp37-cp37m-win_amd64.whl /d/git/delivery_code/TA-LIB/TA_Lib-0.4.24-cp38-cp38-win_amd64.whl /d/git/delivery_code/TA-LIB/ta_lib-0.6.4-cp311-cp311-win_amd64.whl)",
       "Bash(rm -rf /d/git/delivery_code/core/build /d/git/delivery_code/utils/__pycache__)",
-      "Bash(D=\"/d/git/delivery_code\" *)"
+      "Bash(D=\"/d/git/delivery_code\" *)",
+      "Bash(timeout 30 python -c ' *)",
+      "PowerShell(Get-Process | Where-Object { $_.ProcessName -match 'git' } | Select-Object Id, ProcessName, StartTime, Path)"
     ],
     "additionalDirectories": [
       "\\tmp",

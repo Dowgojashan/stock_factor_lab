@@ -27,16 +27,21 @@ _VERDICT_KEY = {"✅ 過關": "PASSED", "⚠️ 只取極端桶": "EDGE_ONLY",
 _cache = {}
 
 
-def groups(market="TW"):
+def groups(market="TW", rsfx=""):
     """讀該市場 Phase 1 的判定，回傳 {PASSED/EDGE_ONLY/MARGINAL/ELIMINATED/ALL_USABLE}。
     順序沿用 CSV（判定優先、同判定內依 |ρ| 由大到小）——**順序會影響引擎產生的配對名稱**，
-    故不可任意重排，否則既有白名單會對不上。"""
-    if market in _cache:
-        return _cache[market]
-    p = _P1DIR / f"{market}_phase1_linearity.csv"
+    故不可任意重排，否則既有白名單會對不上。
+
+    rsfx：自訂日期範圍的檔名後綴（見 sweep_config.date_range_suffix）。空字串＝預設範圍。
+    """
+    key = (market, rsfx)
+    if key in _cache:
+        return _cache[key]
+    p = _P1DIR / f"{market}_phase1{rsfx}_linearity.csv"
     if not p.exists():
         raise FileNotFoundError(
-            f"找不到 {p}；請先跑 phase1_linearity.py --market {market} 與 phase1_analyze.py")
+            f"找不到 {p}；請先跑 phase1_linearity.py --market {market} 與 phase1_analyze.py"
+            + (f"（自訂日期範圍需帶相同的 --start/--end）" if rsfx else ""))
     df = _pd.read_csv(p, encoding="utf-8-sig")
     g = {v: [] for v in _VERDICT_KEY.values()}
     for _, r in df.iterrows():
@@ -44,12 +49,12 @@ def groups(market="TW"):
         if k and r["因子"] not in LOOKAHEAD:
             g[k].append(r["因子"])
     g["ALL_USABLE"] = g["PASSED"] + g["EDGE_ONLY"] + g["MARGINAL"] + g["ELIMINATED"]
-    _cache[market] = g
+    _cache[key] = g
     return g
 
 # ==================== 變體 ====================
-def _spec(market):
-    g = groups(market)
+def _spec(market, rsfx=""):
+    g = groups(market, rsfx)
     P, E, M, A = g["PASSED"], g["EDGE_ONLY"], g["MARGINAL"], g["ALL_USABLE"]
     return {
         "strict": {
@@ -98,20 +103,23 @@ _POOL_SHARE = {
 }
 
 
-def l2_label(market, variant):
+def l2_label(market, variant, rsfx=""):
     """該變體的 Phase 2 回測標籤（因子池相同者共用）。
 
     ⚠️ 共用前先斷言兩者的因子池**完全相同（含順序）**——順序會影響引擎產生的
     配對名稱，若不同卻共用，白名單會對不上而靜默少跑一堆組合。
+
+    rsfx：自訂日期範圍的檔名後綴（見 sweep_config.date_range_suffix）。
     """
     owner = _POOL_SHARE[variant]
     if owner != variant:
-        a, b = get(variant, market)["factors"], get(owner, market)["factors"]
+        a, b = get(variant, market, rsfx)["factors"], get(owner, market, rsfx)["factors"]
         if a != b:
             raise AssertionError(
                 f"[{market}] {variant} 與 {owner} 的因子池不同，不可共用 Phase 2 回測："
                 f"\n  {variant}: {a}\n  {owner}: {b}")
-    return f"{market}_L2_M" if owner == "strict" else f"{market}_L2_{owner}_M"
+    base = f"{market}_L2_M" if owner == "strict" else f"{market}_L2_{owner}_M"
+    return base + rsfx
 
 def assert_pool_unchanged(label, factors, art_dir=None):
     """比對既有 `_DONE` 裡記錄的因子池與現在要跑的是否相同，不同就拒絕沿用。
@@ -155,8 +163,8 @@ def assert_pool_unchanged(label, factors, art_dir=None):
 N_BUCKETS = 3
 
 
-def get(name="strict", market="TW"):
-    spec = _spec(market)
+def get(name="strict", market="TW", rsfx=""):
+    spec = _spec(market, rsfx)
     if name not in spec:
         raise ValueError(f"未知變體 {name}，可用：{list(spec)}")
     v = dict(spec[name])

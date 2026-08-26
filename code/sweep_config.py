@@ -43,6 +43,14 @@ REBALANCES = ["M", "Q"]
 MARKET_START = {"US": "2000-01-01", "TW": "2000-01-01"}
 
 
+def date_range_suffix(start, end, default_start, default_end):
+    """自訂日期範圍（--start/--end）時的檔名後綴；等於預設範圍時回傳空字串，
+    確保不帶參數執行時檔名與既有正式產物完全相同，不會覆蓋掉既有結果。"""
+    if start == default_start and end == default_end:
+        return ""
+    return f"_r{start}_{end}"
+
+
 # ==================== 產生器 ====================
 def build_p1(factors, n_list):
     """每因子對每個 N 出 N 個 q_band（k=0..N-1）。N={5,10} → 每因子 15 條、共 45 條。"""

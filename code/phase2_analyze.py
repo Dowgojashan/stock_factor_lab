@@ -40,6 +40,8 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from universe_benchmark import get_bench               # noqa: E402
 import phase_variants                                  # noqa: E402
+from sweep_config import MARKET_START, date_range_suffix  # noqa: E402
+from phase1_linearity import IN_SAMPLE_END              # noqa: E402
 
 ART = HERE / "results_artifacts"
 OUT = HERE.parent / "_analysis_outputs_phase2"
@@ -120,24 +122,32 @@ def main():
     ap.add_argument("--variant", default="strict", choices=list(phase_variants.VARIANTS))
     ap.add_argument("--bench", default="universe", choices=["universe", "index"],
                     help="universe＝基準(含股利，預設)；index＝外部價格指數(不含股利)")
+    ap.add_argument("--start", default=None,
+                    help="自訂起始日期 YYYY-MM-DD（需與 phase2_pairing.py 執行時相同）")
+    ap.add_argument("--end", default=None,
+                    help="自訂結束日期 YYYY-MM-DD（需與 phase2_pairing.py 執行時相同）")
     args = ap.parse_args()
     mkt = args.market
+    start = args.start or MARKET_START[mkt]
+    end = args.end or IN_SAMPLE_END
+    rsfx = date_range_suffix(start, end, MARKET_START[mkt], IN_SAMPLE_END)
     # ⚠️ 必須帶 market：phase_variants.get() 的 market 預設是 "TW"，漏傳會拿台股的
     #    Phase 1 判定去篩美股（2026-08-12 code review 抓到，美股 openSec 曾因此用錯
     #    primary 池——台股過關 5 個 vs 美股過關 8 個，且台股的 MOM 在美股只是「只取極端桶」）。
-    V = phase_variants.get(args.variant, mkt)
+    V = phase_variants.get(args.variant, mkt, rsfx)
     PRIMARY, SECONDARY = V["primary"], V["secondary"]
     PRIMARY_MARGIN, SECONDARY_TOL = V["primary_margin"], V["secondary_tol"]
     # 因子池相同的變體共用同一份 Phase 2 回測（差別只在分析層的角色指派）：
     #   strict / relaxed  → 12 因子 → TW_L2_M（630 個）
     #   all    / openSec  → 19 因子 → TW_L2_all_M（1,596 個）
     # 對應關係集中在 phase_variants._POOL_SHARE，避免再出現「讀錯回測」的靜默錯誤。
-    label = phase_variants.l2_label(mkt, args.variant)
+    label = phase_variants.l2_label(mkt, args.variant, rsfx)
     sfx = f"_{args.variant}" if args.variant != "strict" else ""
     sfx += "_idxbench" if args.bench == "index" else ""
+    sfx += rsfx
     OUT.mkdir(parents=True, exist_ok=True)
 
-    bench, _ = get_bench(mkt, args.bench)
+    bench, _ = get_bench(mkt, args.bench, start=start, end=end)
     log(f"變體＝{args.variant}：{V['desc']}")
     log(f"  primary  ({len(PRIMARY)})：{PRIMARY}")
     log(f"  secondary({len(SECONDARY)})：{SECONDARY}")
