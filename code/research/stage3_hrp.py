@@ -39,6 +39,13 @@ DD-03（共同窗）已用**修復後、新候選池**的 hist_start 分布重�
    零變異數策略（危機窗內完全沒有報酬變化，corrcoef 會產生 NaN）會被偵測並
    排除出該樹，並記錄排除數量。
 
+⚠️ **2026-08-26 老師意見後定案（開發待辦追蹤.md H-14/H-15/H-16）：crisis 樹「留但
+   降級」**——保留產出（`co_fail_regimes`、危機期相關矩陣），但用途限定在論文的
+   描述性揭露，不再是任何選兵決策的依據（見 `ops/tools.py` T1 已移除
+   `cluster_diversify`）。**crisis 樹刻意不做 in-sample/out-of-sample 切分**：
+   17-26 個月本來就不足以支撐一次穩健估計，切了只會讓兩段都不可靠，不是更嚴謹。
+   之後若要做 H-11（normal 樹的 IS/OOS），這條規則不適用於 crisis 樹。
+
 用法：
     cd code
     python -m research.stage3_hrp                 # 全部六棵樹（3 normal + 3 crisis）

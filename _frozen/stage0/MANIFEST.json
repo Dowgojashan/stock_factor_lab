@@ -1,7 +1,7 @@
 {
   "stage": "stage0_index",
-  "produced_at": "2026-08-26T01:43:35",
-  "git_sha": "26c5f9e",
+  "produced_at": "2026-08-27T11:09:51",
+  "git_sha": "f35ce90",
   "params": {
     "variant": "openSec",
     "pk_rule": "strategy_uid = market + '::' + strategy",

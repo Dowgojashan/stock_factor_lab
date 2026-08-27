@@ -211,8 +211,11 @@ def t1_get_recommended_criteria(invest_type: InvestType, regime: RegimeLabel, ma
 
     回傳 `criteria`（T2可直接吃的 [(col,op,val),...] 條件列表）、
     `uid_whitelist`（需要額外白名單交集時才有，如全天候的跨regime穩健）、
-    `method`（大部分是"filter"；危機×全天候是"cluster_diversify"，
-    須改呼叫T5/T13做群間分散，見架構文件全天候-危機格說明）。
+    `method`（固定回傳"filter"；危機格門檻更嚴但**不再**用"cluster_diversify"，
+    見2026-08-26老師意見：危機樹樣本量過小(17-26個月)，不可靠到不能拿來做
+    決策依據，`cluster_corr_matrix`/`co_fail_regimes`只能當論文的描述性揭露，
+    見開發待辦追蹤.md H-15。"cluster_diversify"仍是合法method值，保留給日後
+    想做「crisis樹選法 vs 一般選法」對照實驗時使用，見`output_a._pick_cluster_diversified_crisis`）。
     """
     c: list[tuple[str, str, Any]] = []
     uid_whitelist: set[str] | None = None
@@ -231,9 +234,9 @@ def t1_get_recommended_criteria(invest_type: InvestType, regime: RegimeLabel, ma
             c[-1] = ("mdd_pct", ">=", _MDD_PCT_LEVEL["最嚴"])
             c.append(("credibility_grade", "in", ["高"]))
             c.append(("regime_fit", "contains", "危機抗跌"))
-            method = "cluster_diversify"
-            notes.append("危機格：候選須跨cluster_L1>=N群且co_fail_regimes不得互相重疊，"
-                         "請改呼叫T2先取候選池、再用T13/co_fail_regimes做群間分散篩選")
+            notes.append("危機格：門檻已是三格中最嚴，不再用cluster_diversify"
+                         "（危機樹樣本量過小不可靠，見H-15）；如需群間分散仍可自行呼叫"
+                         "T13查co_fail_regimes當參考，但不是本函式的預設路徑")
         elif regime == "盤整":
             c.append(("return_shape", "==", "穩定爬升"))
             c.append(("factor_type", "!=", "動能型"))
@@ -260,8 +263,7 @@ def t1_get_recommended_criteria(invest_type: InvestType, regime: RegimeLabel, ma
             c[2] = ("credibility_grade", "in", ["高"])
             c[3] = ("rotation_score", "<=", _q(market, "rotation_score", _ROTATION_Q["最嚴"]))
             c.append(("stability_grade", "in", ["高原"]))
-            method = "cluster_diversify"
-            notes.append("危機格：追加跨cluster_L1分散+co_fail_regimes檢查，見保守型危機格說明")
+            notes.append("危機格：門檻已是三格中最嚴，不再用cluster_diversify，見保守型危機格說明")
         elif regime == "盤整":
             c.append(("stability_grade", "in", ["高原"]))
             c.append(("factor_type", "!=", "動能型"))
@@ -279,10 +281,8 @@ def t1_get_recommended_criteria(invest_type: InvestType, regime: RegimeLabel, ma
         if regime == "熊":
             c.append(("effective_n", ">=", _q(market, "effective_n", 0.5)))
         elif regime == "危機":
-            method = "cluster_diversify"
-            notes.append("危機格：核心手段是從cluster_corr_matrix挑群間相關最低的K群、"
-                         "每群取1-2策略、並確認這K群在危機樹中不合併——請改呼叫T5/T13，"
-                         "此處criteria/uid_whitelist僅供初步縮池")
+            notes.append("危機格：不再用cluster_diversify（見H-15），沿用base條件"
+                         "（stability_grade高原 + 跨regime穩健白名單），不額外加碼")
 
     return {"invest_type": invest_type, "regime": regime, "market": market,
            "criteria": c, "uid_whitelist": sorted(uid_whitelist) if uid_whitelist else None,

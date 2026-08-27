@@ -14,14 +14,18 @@
 
 ⚠️ **選兵方法是本階段的具體化，不是真正的Agent1**：Agent1的Step3（agentic LLM
    精挑）尚未建置（見W-05交接：只做到Step2快篩的T1/T2工具）。本模組用**純量化
-   規則**代替：
-     - 非危機格：T1+T2篩出候選 → 依`credibility_score_pct`排序、每個cluster_L1
-       最多取1檔，取到`GROUP_SIZE`檔為止（跨群分散，呼應「選互補一組而非最強N個」）。
-     - 危機格：先選候選中信度最高者當種子，用T5找相關最低的`K_CRISIS_GROUPS-1`個
-       群（且排除與已選群co_fail者，呼應「這K群在危機樹中不合併」的要求），
-       每群各取1檔信度最高的候選。
+   規則**代替：T1+T2篩出候選 → 依`credibility_score_pct`排序、每個cluster_L1
+   最多取1檔，取到`GROUP_SIZE`檔為止（跨群分散，呼應「選互補一組而非最強N個」）。
    這個規則跟未來真正的agentic Agent1會選出**不同**的組合，是預期中的事——
    目的是先驗證「照矩陣機械選一組會長怎樣」，agentic版本上線後可以對照差異。
+
+⚠️ **2026-08-26老師意見後修正（H-15）：危機格不再用群間分散選法**。原本危機格
+   走`_pick_cluster_diversified_crisis()`（用T5/T13找危機樹低相關群），但危機樹
+   樣本量過小（17-26個月），老師意見是「留但降級」——`cluster_corr_matrix`/
+   `co_fail_regimes`只當論文的描述性揭露，不能拿來做選兵決策。現在危機格跟其他
+   regime一樣走`_pick_diversified()`（一般跨cluster_L1分散＋更嚴格的T1門檻），
+   `_pick_cluster_diversified_crisis()`函式保留但不再是預設路徑，供日後想對照
+   「危機樹選法 vs 一般選法」時使用（見開發待辦追蹤.md H-15）。
 
 **權重**：一律用T9（HRP遞迴二分，用該組策略的完整共同月份算），套用到情境窗內評估
    ——權重反映的是策略間長期相關結構，不是為了那個情境窗特別擬合的，避免用未來
@@ -56,8 +60,8 @@ from . import freeze, paths
 
 OUT_DIR = paths.FROZEN / "output_a"
 
-GROUP_SIZE = 5             # 非危機格：跨群取到這麼多檔為止
-K_CRISIS_GROUPS = 4        # 危機格：挑幾個低相關群（種子群+T5找的其餘）
+GROUP_SIZE = 5             # 一般選法：跨群取到這麼多檔為止（危機格自H-15起也走這條路徑）
+K_CRISIS_GROUPS = 4        # 僅供 _pick_cluster_diversified_crisis()（H-15後非預設路徑）使用
 MIN_SEGMENT_MONTHS = 2     # 段內至少要有幾個月資料才評估（MDD至少要2點才有意義）
 
 
