@@ -161,6 +161,22 @@ def build(log=print) -> pd.DataFrame:
         f"　[單日刀命中{int(glitch_daily.fillna(False).sum())}／單月刀命中"
         f"{int(glitch_monthly.fillna(False).sum())}]")
 
+    # ---------------------------------------------------------- H-01：alpha 出賽關卡
+    # 2026-08-26 老師意見：HRP分群母體要先過「至少贏大盤」這關，不要把弱者也塞進去分類
+    # （原話：「你要派出去的選手才拿來分類」）。獨立欄位，**不覆寫 is_usable**——那是
+    # 階段1既有的資料品質關卡，語意不同，且是下游多處（stage3/stage4）已引用的凍結欄位。
+    # 門檻：CAGR >= 自建宇宙基準（BENCHMARK_CAGR，即Phase2-4「贏大盤」用的同一組基準）。
+    # ⚠️ 目前用該策略的**全樣本**CAGR判定，不是IS窗限定——H-11（in-sample/out-of-sample
+    # 切分點）尚未拍板，是先讓H-02~H-08動起來的過渡做法；正式驗證泛化能力時（H-11/H-13），
+    # 若要嚴謹避免「用了OOS期間表現才決定放不放行」，須改成只用IS窗CAGR重算本欄位。
+    df["passes_alpha_gate"] = df["CAGR"] >= df["market"].map(C.BENCHMARK_CAGR)
+    n_alpha = int(df["passes_alpha_gate"].sum())
+    log(f"  passes_alpha_gate（CAGR>=自建宇宙基準，全樣本判定、非IS窗，見H-11）："
+        f"{n_alpha} / {len(df)} ({n_alpha/len(df):.1%})")
+    for m, sub in df.groupby("market"):
+        n = int(sub["passes_alpha_gate"].sum())
+        log(f"    [{m}] 過關 {n}/{len(sub)} ({n/len(sub):.1%})，基準={C.BENCHMARK_CAGR[m]:.2%}")
+
     out = df[[C.PK, "market"] + [c.name for c in C.STRATEGY_MARKS.columns
                                  if c.name not in (C.PK, "market")]].copy()
     out["market"] = out["market"].astype("category")
@@ -169,6 +185,7 @@ def build(log=print) -> pd.DataFrame:
     out["stability_grade"] = pd.Categorical(out["stability_grade"], categories=C.STABILITY_GRADES)
     out["is_usable"] = out["is_usable"].astype(bool)
     out["data_glitch"] = out["data_glitch"].astype(bool)
+    out["passes_alpha_gate"] = out["passes_alpha_gate"].astype(bool)
 
     C.validate(out, C.STRATEGY_MARKS, strict_columns=True)
     log("✓ strategy_marks 契約通過")
@@ -194,11 +211,15 @@ def run(log=print) -> pd.DataFrame:
         params={"rotation_high_pct": ROTATION_HIGH_PCT, "effn_low_pct": EFFN_LOW_PCT,
                "empty_high_pct": EMPTY_HIGH_PCT, "tertile": list(TERTILE),
                "price_jump_extreme": C.PRICE_JUMP_EXTREME,
-               "monthly_jump_extreme": C.MONTHLY_JUMP_EXTREME},
+               "monthly_jump_extreme": C.MONTHLY_JUMP_EXTREME,
+               "alpha_gate_benchmark_cagr": C.BENCHMARK_CAGR,
+               "alpha_gate_window": "full-sample（非IS窗，H-11拍板前的過渡做法）"},
         notes="兩把刀方向：低effective_n+高rotation_score（不輪動）；empty_ratio過高。"
               "stability_grade 公式為本階段解讀，見 module docstring。"
               "W-08：data_glitch=單日跳動≥300%或單月報酬≥100%（OR合併，只標記不淘汰，"
-              "門檻用diagnose_price_anomalies的CAGR_inflation_pp反推校準，見contracts.py）",
+              "門檻用diagnose_price_anomalies的CAGR_inflation_pp反推校準，見contracts.py）。"
+              "H-01：passes_alpha_gate=CAGR>=自建宇宙基準（只標記不淘汰，不覆寫is_usable），"
+              "見開發待辦追蹤.md H-01",
     )
     log(f"→ strategy_marks.parquet  {len(out):,} 列, {p.stat().st_size/1024:.0f} KB")
     return out
@@ -210,6 +231,10 @@ def _report(df: pd.DataFrame, log=print) -> None:
     log("=" * 62)
     log(f"is_usable: {df.is_usable.sum():,} / {len(df):,} ({df.is_usable.mean():.1%})")
     log(f"data_glitch: {df.data_glitch.sum():,} / {len(df):,} ({df.data_glitch.mean():.2%})")
+    log(f"passes_alpha_gate: {df.passes_alpha_gate.sum():,} / {len(df):,} "
+        f"({df.passes_alpha_gate.mean():.1%})")
+    log(f"is_usable × passes_alpha_gate（HRP實際會用的母體＝兩者皆True）:\n"
+        f"{pd.crosstab(df.is_usable, df.passes_alpha_gate).to_string()}")
     log(f"\ndrop_reason 分布:\n{df.drop_reason.value_counts(dropna=False).to_string()}")
     log(f"\ncredibility_grade × market:\n"
         f"{pd.crosstab(df.market, df.credibility_grade).to_string()}")

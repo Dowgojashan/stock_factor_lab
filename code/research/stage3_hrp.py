@@ -65,13 +65,21 @@ import pandas as pd
 from . import contracts as C
 from . import freeze, hrp, paths
 
-#: L1/L2 目標群數是固定的粗細層級（給 LLM 讀 / 給快篩配額用的中間層級）。
-#: L3 錨定在該市場的獨立 F 組合數（DD-06：見 EXPECTED_F_COMBOS，快篩多樣性
-#: 假象的根源，也是「真正不同的策略」數量級的客觀估計）。crisis 樹沿用同一套
-#: 目標群數（不是資料驅動的巧合，是刻意設計——常態/危機要切在同一個粒度上
-#: 才能比較「有效群數是否塌縮」，見模組開頭）。
-L1_TARGET = 8
-L2_TARGET = 40
+#: L1 目標群數（給 LLM 讀 / 給快篩配額用的粗粒度層級）。
+#: 2026-08-28（H-03）改用輪廓係數（`hrp.silhouette_scan`，見
+#: `research/cluster_count_selection.py`）對每棵樹的凍結linkage逐一切割選出，
+#: 取代原本寫死的 8——那個 8 其實是老師在會議上舉的資金試算例子（「假設了 ok
+#: 我臺股分8群美股3群」），不是他真的指定的群數，見開發待辦追蹤.md H-03。
+#: 三棵normal樹的輪廓係數掃描結果：TW在k=6（0.046，扣掉k=3那個67.6%最大群佔比
+#: 的退化解）、US在k=7（0.062，全域最高點非退化）、XM在k=3（0.279，大幅領先
+#: 其他k，很可能是台美市場邊界本身主導了低k時的分群結構，非策略層級細緻分群，
+#: 使用者2026-08-28確認照資料走）。crisis 樹沿用同市場normal樹的k（不是資料
+#: 驅動的巧合，是刻意設計——常態/危機要切在同一個粒度上才能比較「有效群數是否
+#: 塌縮」，見模組開頭）。
+L1_TARGET = {"TW": 6, "US": 7, "XM": 3}
+#: L2 層級已移除（H-04，2026-08-28）：原L2_TARGET=40從未被任何下游決策邏輯
+#: 讀取（只在T3的profile欄位列表裡出現，且contracts/三份架構文件都找不到40
+#: 這個數字的依據），純粹是沒有用途的技術債，順手拿掉。
 L3_TARGET = {"TW": C.EXPECTED_F_COMBOS["TW"], "US": C.EXPECTED_F_COMBOS["US"],
             "XM": C.EXPECTED_F_COMBOS["TW"] + C.EXPECTED_F_COMBOS["US"]}
 
@@ -206,8 +214,9 @@ def _build_tree(tree_id: str, tree_key: str, wide: pd.DataFrame,
     weights = hrp.recursive_bisection_weights(cov, leaf_order)
     log(f"  遞迴二分權重完成（全樹持有時的權重，非任意子集）｜加總={weights.sum():.6f}")
 
+    l1_target = L1_TARGET[tree_key]
     l3_target = L3_TARGET[tree_key]
-    targets = {"L1": L1_TARGET, "L2": L2_TARGET, "L3": l3_target}
+    targets = {"L1": l1_target, "L3": l3_target}
     labels = {}
     level_diag = {}
     for lvl, target in targets.items():
@@ -227,11 +236,11 @@ def _build_tree(tree_id: str, tree_key: str, wide: pd.DataFrame,
 
     assign = pd.DataFrame({
         C.PK: wide.index, "tree_id": tree_id,
-        "cluster_L1": labels["L1"], "cluster_L2": labels["L2"], "cluster_L3": labels["L3"],
+        "cluster_L1": labels["L1"], "cluster_L3": labels["L3"],
     })
 
     meta_rows, corr_mats = [], {}
-    for lvl in ("L1", "L2", "L3"):
+    for lvl in ("L1", "L3"):
         m, gcorr = _cluster_meta_and_corr(wide, corr, labels[lvl], lvl, tree_id)
         meta_rows.append(m)
         corr_mats[lvl] = gcorr
@@ -436,7 +445,8 @@ def run(trees: list[str] | None = None, build_crisis: bool = True, log=print) ->
                  if build_crisis else []),
         outputs=outs,
         params={"trees_built": list(results),
-               "L1_target": L1_TARGET, "L2_target": L2_TARGET, "L3_target": L3_TARGET,
+               "L1_target": L1_TARGET, "L3_target": L3_TARGET,
+               "L1_target_method": "silhouette（H-03，見cluster_count_selection.py）",
                "linkage_method_chosen": {tid: r["method"] for tid, r in results.items()},
                "linkage_selection_criterion": "L3切割時最大群佔比最低者勝出，非cophenetic"
                                               "（見程式註解：single linkage 實測出現鏈狀效應)",

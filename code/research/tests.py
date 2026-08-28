@@ -536,7 +536,12 @@ def t_cluster_story_report_runs():
     """
     p = paths.STAGE3 / "cluster_story.parquet"
     if not p.exists():
-        raise AssertionError("尚未執行 cluster_story，請先 python -m research.cluster_story")
+        raise AssertionError(
+            "cluster_story.parquet 目前不存在，**這是預期中的狀態，非回歸**："
+            "2026-08-28 H-03 改了L1群數後，8/25跑的舊版（群編號到7/8）已被隔離"
+            "到 _stale_pre_H03/（避免靜默配對到錯誤的群），見開發待辦追蹤.md H-04下游重跑。"
+            "要讓這項測試回綠，需針對新群數重新執行 python -m research.cluster_story"
+            "（約$1.31 LLM費用，需先確認才能花）")
     from . import cluster_story as CS
     CS._report(pd.read_parquet(p), log=lambda *a, **k: None)
 
@@ -549,12 +554,74 @@ def t_cluster_story_sidecar_records_real_model():
     import json as _json
     p = paths.STAGE3 / "cluster_story_meta.json"
     if not p.exists():
-        raise AssertionError("缺 cluster_story_meta.json")
+        raise AssertionError(
+            "cluster_story_meta.json 目前不存在，**這是預期中的狀態，非回歸**——"
+            "同 t_cluster_story_report_runs 的說明，見開發待辦追蹤.md H-04下游重跑")
     meta = _json.loads(p.read_text(encoding="utf-8"))
     df = pd.read_parquet(paths.STAGE3 / "cluster_story.parquet")
     assert meta["model"] == str(df["model"].iloc[0]), \
         f"側錄模型({meta['model']}) 與產物實際模型({df['model'].iloc[0]}) 不符"
     assert "(" not in meta["model"], f"側錄記到佔位字串：{meta['model']}"
+
+
+@test
+def t_cluster_temporal_annual_quarterly_compounding():
+    """H-06：合成資料驗證年/季複利報酬算對方向與數值——用已知的12個月報酬，
+    手算年化複利結果去對，確認不是簡單加總（那樣會系統性低估報酬）。"""
+    from . import cluster_temporal_profile as CTP
+    idx = pd.period_range("2020-01", "2020-12", freq="M")
+    # 每月都漲10%，12個月複利應為 1.1**12 - 1 ≈ 2.1384，不是 12*0.10=1.20（簡單加總）
+    rep = pd.Series([0.10] * 12, index=idx)
+    ann, qtr = CTP._annual_quarterly(rep)
+    assert len(ann) == 1 and ann.iloc[0]["year"] == 2020
+    assert abs(ann.iloc[0]["ret"] - (1.1**12 - 1)) < 1e-9, \
+        f"年報酬應為複利 {1.1**12-1:.4f}，實際 {ann.iloc[0]['ret']:.4f}（是否誤用簡單加總？）"
+    assert ann.iloc[0]["n_months"] == 12
+    # 4季，每季3個月都漲10% → 每季複利 1.1**3-1
+    assert len(qtr) == 4
+    for r in qtr.itertuples():
+        assert abs(r.ret - (1.1**3 - 1)) < 1e-9
+        assert r.n_months == 3
+
+    # 跨年邊界＋不滿12個月：2020-11~2021-02（4個月），2020年只有2個月
+    idx2 = pd.period_range("2020-11", "2021-02", freq="M")
+    rep2 = pd.Series([0.05, 0.05, 0.05, 0.05], index=idx2)
+    ann2, _ = CTP._annual_quarterly(rep2)
+    assert set(ann2["year"]) == {2020, 2021}
+    row_2020 = ann2[ann2.year == 2020].iloc[0]
+    assert row_2020["n_months"] == 2, "2020年應只涵蓋11、12月共2個月，不能誤算成12"
+    assert abs(row_2020["ret"] - (1.05**2 - 1)) < 1e-9
+
+
+@test
+def t_cluster_temporal_profile_real_data():
+    """H-06：真實資料，三張表都符合契約，且群組成一致性可交叉核對
+    （cluster_profile_quant 的 n_members 應等於該群在 cluster_annual_returns
+    裡的月數涵蓋範圍所暗示的成員來源——用更直接的方式：三張表的
+    (tree_id,cluster_id) 集合必須完全一致，不能有表A有的群表B沒有）。"""
+    for fname, schema in (("cluster_annual_returns.parquet", C.CLUSTER_ANNUAL_RETURNS),
+                          ("cluster_quarterly_returns.parquet", C.CLUSTER_QUARTERLY_RETURNS),
+                          ("cluster_profile_quant.parquet", C.CLUSTER_PROFILE_QUANT)):
+        p = paths.STAGE3 / fname
+        if not p.exists():
+            raise AssertionError(f"尚未執行 cluster_temporal_profile（缺 {fname}）")
+        C.validate(pd.read_parquet(p), schema)
+
+    ann = pd.read_parquet(paths.STAGE3 / "cluster_annual_returns.parquet")
+    prof = pd.read_parquet(paths.STAGE3 / "cluster_profile_quant.parquet")
+    keys_ann = set(zip(ann.tree_id, ann.cluster_id))
+    keys_prof = set(zip(prof.tree_id, prof.cluster_id))
+    assert keys_ann == keys_prof, \
+        f"annual表與profile表的(tree_id,cluster_id)集合不一致：只在annual={keys_ann-keys_prof}｜只在profile={keys_prof-keys_ann}"
+
+    # pct_TW + pct_US 應該落在 [0,1]（XM可混合，TW/US單市場樹應恰為1.0）
+    assert (prof["pct_TW"] + prof["pct_US"]).between(0.999, 1.001).all()
+    tw_only = prof[prof.tree_id == "TW_normal"]
+    assert (tw_only["pct_TW"] == 1.0).all(), "TW_normal的群不該混進美股策略"
+
+    # n_years_positive 不能超過 n_years（基本的邏輯一致性）
+    assert (prof["n_years_positive"] <= prof["n_years"]).all()
+    assert (prof["pct_years_positive"] <= 1.0).all()
 
 
 @test
@@ -813,9 +880,11 @@ def t_ops_t5_degrades_gracefully_without_cluster_story():
     from unittest import mock
     from ops import tools as T
     tw, _ = _ops_examples()
+    # k=2：XM樹自H-03改用資料驅動的L1群數後只有3群（見開發待辦追蹤.md H-03），
+    # 扣掉自己那群，最多只剩2個「別群」可比，k=3會要不到那麼多。
     with mock.patch.object(T, "_cluster_story", return_value=None):
-        r = T.t5_get_complements(tw, scope="xm", k=3)
-    assert len(r["lowest_corr_clusters"]) == 3
+        r = T.t5_get_complements(tw, scope="xm", k=2)
+    assert len(r["lowest_corr_clusters"]) == 2
     for c in r["lowest_corr_clusters"]:
         assert c["explanation"] is None
         assert isinstance(c["corr"], float)      # 客觀數字照給
@@ -1180,9 +1249,11 @@ def t_stage3_co_fail_regimes_real_data():
         raise AssertionError("尚未執行 stage3_hrp（缺 co_fail_regimes.parquet）")
     df = pd.read_parquet(p)
     C.validate(df, C.CO_FAIL_REGIMES)
+    from . import stage3_hrp as S3   # L1_TARGET 現在依市場而異（H-03），不再是單一常數8
     for m in ("TW", "US", "XM"):
         sub = df[df.tree_key == m]
-        assert len(sub) == 8, f"{m} L1 群數應為 8（L1_TARGET），實際 {len(sub)} 筆"
+        expect = S3.L1_TARGET[m]
+        assert len(sub) == expect, f"{m} L1 群數應為 {expect}（L1_TARGET[{m}]），實際 {len(sub)} 筆"
         assert sub["crisis_dest_share"].between(0, 1).all()
 
 

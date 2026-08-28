@@ -1,0 +1,17 @@
+﻿tree,cluster,n,avg_intra_corr,F1_top,F1_top_pct,C_top,v1_pct,CAGR_med,MDD_med,holdings_med,glitch_pct,rep_uid,rep_CAGR,rep_MDD,rep_cred,rep_stab
+TW_normal,1,305,0.794,P_IC,0.354,ROE,0.997,0.1659,-0.5911,13.0,0.111,TW::P_IC_qb1of3__ROE_qb2of3__None__v1,0.1517,-0.5583,中,中
+TW_normal,2,202,0.819,EV_S,0.376,EPS,0.629,0.1712,-0.6384,18.0,0.252,TW::MOM_qb2of3__REV_G_qb2of3__C11_EPS_DYN_qmax8__v0,0.2108,-0.5295,中,陡峰
+TW_normal,3,1654,0.778,MOM,0.256,ROE,0.942,0.1366,-0.6137,14.0,0.002,TW::PB_qb1of3__None__None__v1,0.1001,-0.5991,高,中
+TW_normal,4,2534,0.917,MOM,0.257,ROE,0.008,0.1446,-0.6114,80.0,0.001,TW::PB_qb1of3__None__None__v0,0.106,-0.6075,高,中
+TW_normal,5,75,0.882,P_IC,1.0,EPS,0.0,0.2353,-0.4931,51.0,0.333,TW::P_IC_qb0of3__NETDEBT_EBITDA_qb1of3__C15_FCF_P_DYN_riseq1__v0,0.1644,-0.5767,低,中
+TW_normal,6,1909,0.867,PB,0.289,ROE,0.164,0.1803,-0.5588,58.0,0.001,TW::PS_qb0of3__None__None__v0,0.1643,-0.5643,低,高原
+US_normal,1,531,0.813,PB,0.243,EPS,0.0,0.2932,-0.6172,72.0,0.083,US::PB_qb0of3__OCF_E_qb0of3__C14_EPS_DYN_ytdavg_gt_lyavg__v0,0.2824,-0.5674,中,中
+US_normal,2,1224,0.753,REVENUE,0.311,ROE,0.384,0.2358,-0.5485,36.0,0.06,US::P_IC_qb1of3__FCF_P_qb0of3__None__v0,0.1809,-0.533,高,中
+US_normal,3,930,0.838,REVENUE,0.33,ROE,0.0,0.2611,-0.572,87.0,0.014,US::EPS_qb0of3__None__None__v0,0.2255,-0.5511,低,高原
+US_normal,4,682,0.772,REVENUE,0.349,EPS,1.0,0.1955,-0.6185,23.0,0.051,US::EPS_qb0of3__None__None__v1,0.2046,-0.5716,中,中
+US_normal,5,1810,0.889,P_IC,0.216,EPS,0.461,0.1504,-0.5342,65.0,0.008,US::REVENUE_qb1of3__None__C12_EPS_DYN_yoy__v0,0.1518,-0.5725,中,陡峰
+US_normal,6,225,0.779,P_IC,0.271,EPS,1.0,0.231,-0.6537,19.0,0.004,US::PS_qb0of3__FCF_OI_qb0of3__C2_ROE_DYN_riseq2__v1,0.2278,-0.6065,高,高原
+US_normal,7,2958,0.83,EV_S,0.231,FCF_P,0.499,0.2284,-0.6336,35.0,0.021,US::PS_qb0of3__None__None__v0,0.2317,-0.6006,低,陡峰
+XM_normal,1,6679,0.824,P_IC,0.193,ROE,0.348,0.154,-0.5957,49.0,0.018,TW::PB_qb1of3__None__C6_ROE_DYN_ytdavg_gt_lyytdavg__v0,0.1272,-0.5751,高,中
+XM_normal,2,1897,0.79,REVENUE,0.311,EPS,0.361,0.2449,-0.5918,59.0,0.049,US::EPS_qb0of3__None__None__v0,0.2255,-0.5511,低,高原
+XM_normal,3,6464,0.819,P_IC,0.218,EPS,0.465,0.2112,-0.5908,39.0,0.024,US::EV_S_qb0of3__None__None__v0,0.2285,-0.5928,低,陡峰

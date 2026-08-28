@@ -233,7 +233,7 @@ def project_cluster_info(idx: pd.DataFrame, log=print) -> pd.DataFrame:
     rows = []
     for m in C.MARKETS:
         a = assign[assign.tree_id == f"{m}_normal"][
-            [C.PK, "cluster_L1", "cluster_L2", "cluster_L3"]].copy()
+            [C.PK, "cluster_L1", "cluster_L3"]].copy()   # cluster_L2 移除，見 H-04
         cf = co_fail[co_fail.tree_key == m].set_index("cluster_normal")["co_fail_peers"]
         a["co_fail_peers"] = a["cluster_L1"].map(cf)
         rows.append(a)

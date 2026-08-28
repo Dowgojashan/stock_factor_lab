@@ -1,7 +1,7 @@
 {
   "stage": "stage4_strategy_map",
-  "produced_at": "2026-08-25T13:49:22",
-  "git_sha": "c3e6d70",
+  "produced_at": "2026-08-28T11:46:43",
+  "git_sha": "94d7021",
   "params": {
     "regime_fit_min_months": 3,
     "macro_confidence_cuts": {
@@ -25,8 +25,8 @@
     },
     {
       "path": "_frozen\\stage1\\strategy_marks.parquet",
-      "sha256": "5ea69b0fc80fac4f26d17b61ee3027c23e797b97f71e71b77b56cf3f23abe7c0",
-      "bytes": 544361,
+      "sha256": "4b81d7fb55665f465dbfc394c027b764c0805c373d32a719b4b2b6c3c59e4b03",
+      "bytes": 544970,
       "rows": 15810
     },
     {
@@ -37,15 +37,15 @@
     },
     {
       "path": "_frozen\\stage3\\cluster_assign.parquet",
-      "sha256": "4a9cf7d290ed44298a92e46ea076d36d582868b5a4bbb867e18409584c8bfa45",
-      "bytes": 344773,
+      "sha256": "ca3c56a47b8b3da494155d62e6c58acfb4428714fa04fea82cf41689b49a3ae5",
+      "bytes": 295416,
       "rows": 60158
     },
     {
       "path": "_frozen\\stage3\\co_fail_regimes.parquet",
-      "sha256": "983ceb854357b6bda769ba6049839db05d7f43b435046325db97b245d439e079",
-      "bytes": 6743,
-      "rows": 24
+      "sha256": "f6748e3c0f9c4719b2aeb08593fb9fd38080a8ff9113bc2bf0f93ebd360e03a3",
+      "bytes": 6603,
+      "rows": 16
     },
     {
       "path": "_frozen\\stage2\\regime\\regime_table_TW.parquet",
@@ -75,8 +75,8 @@
   "outputs": [
     {
       "path": "_frozen\\stage4\\strategy_map.parquet",
-      "sha256": "2a28635b305da062b2255cf410a6cc42d20742def342d29393f6ab6ecd266bf3",
-      "bytes": 3998788,
+      "sha256": "cd5d07710575eb249eec73a60ef44f3dc347c50d014bd6bd18b945ea517da66b",
+      "bytes": 3985944,
       "rows": 15810
     },
     {

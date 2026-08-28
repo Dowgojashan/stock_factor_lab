@@ -192,6 +192,57 @@ def adjusted_rand_index(labels_a: pd.Series, labels_b: pd.Series) -> float:
 
 
 # ============================================================================
+# 群數選擇（H-03：silhouette，取代寫死的目標群數）
+# ============================================================================
+
+def silhouette_score(dist: np.ndarray, labels: np.ndarray) -> float:
+    """平均輪廓係數。不依賴 sklearn（環境沒裝，見 adjusted_rand_index 同樣理由）。
+
+    s(i) = (b(i)-a(i)) / max(a(i),b(i))：a(i)=自己群內平均距離，
+    b(i)=最近的「別群」平均距離。全部向量化（N×k 矩陣乘法），singleton 群 s(i)=0。
+    """
+    labels = np.asarray(labels)
+    n = len(labels)
+    uniq = np.unique(labels)
+    k = len(uniq)
+    if k < 2 or k >= n:
+        return float("nan")
+    membership = (labels[:, None] == uniq[None, :]).astype(np.float64)   # N×k
+    sizes = membership.sum(axis=0)                                       # k
+    sum_to_cluster = dist @ membership                                   # N×k：到每群的距離總和
+    own_ix = np.searchsorted(uniq, labels)
+    own_size = sizes[own_ix]
+    sum_to_own = sum_to_cluster[np.arange(n), own_ix]
+    a = np.where(own_size > 1, sum_to_own / np.maximum(own_size - 1, 1), 0.0)
+    mean_to_cluster = sum_to_cluster / sizes[None, :]
+    mean_to_cluster[np.arange(n), own_ix] = np.inf   # 排除自己那群，b(i) 只看別群
+    b = mean_to_cluster.min(axis=1)
+    s = np.where(own_size > 1, (b - a) / np.maximum(a, b), 0.0)
+    return float(s.mean())
+
+
+def silhouette_scan(link: np.ndarray, dist: np.ndarray,
+                    k_range: range) -> pd.DataFrame:
+    """對一段群數範圍逐一切割、算輪廓係數，回傳 (k, silhouette, max_share, n_singleton) 表。
+
+    max_share/n_singleton 一併回報，因為輪廓係數最高的 k 有時剛好是「切出一堆
+    singleton + 一個巨群」這種退化解（跟 DD-06 的 single-linkage 鏈狀效應是同一
+    類陷阱），純看輪廓係數最大值可能選到不平衡的解，需要一起看才能判斷。
+    """
+    n = dist.shape[0]
+    rows = []
+    for k in k_range:
+        labels = cut_clusters(link, k)
+        sizes = pd.Series(labels).value_counts()
+        sil = silhouette_score(dist, labels)
+        rows.append({"k": k, "silhouette": sil,
+                     "n_clusters_actual": int(len(sizes)),
+                     "max_share": float(sizes.max() / n),
+                     "n_singleton": int((sizes == 1).sum())})
+    return pd.DataFrame(rows)
+
+
+# ============================================================================
 # 一次跑完整套（供合成資料驗證與真實管線共用）
 # ============================================================================
 

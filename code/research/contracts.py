@@ -308,6 +308,10 @@ STRATEGY_MARKS = Schema(
         Column("drop_reason", "str", nullable=True),
         # W-08：資料品質防線常設化——不淘汰（True 不影響 is_usable），只標記供下游識別
         Column("data_glitch", "bool"),
+        # H-01（2026-08-26老師意見）：alpha出賽關卡，獨立欄位不覆寫is_usable語意。
+        # CAGR>=自建宇宙基準(BENCHMARK_CAGR)。目前用全樣本CAGR判定，非IS窗——
+        # H-11(IS/OOS切分)拍板前的過渡做法，見開發待辦追蹤.md H-01/H-11。
+        Column("passes_alpha_gate", "bool"),
     ],
 )
 
@@ -501,7 +505,7 @@ CLUSTER_ASSIGN = Schema(
         Column(PK, "str"),
         Column("tree_id", "cat", allowed=TREE_IDS),
         Column("cluster_L1", "int"),
-        Column("cluster_L2", "int"),
+        # cluster_L2 移除（H-04，2026-08-28）：從未被下游決策邏輯讀取，見 stage3_hrp.py 常數區註解
         Column("cluster_L3", "int"),
     ],
 )
@@ -511,7 +515,7 @@ CLUSTER_META = Schema(
     primary_key=["tree_id", "level", "cluster_id"],
     columns=[
         Column("tree_id", "cat", allowed=TREE_IDS),
-        Column("level", "cat", allowed=("L1", "L2", "L3")),
+        Column("level", "cat", allowed=("L1", "L3")),   # L2 移除，見 H-04
         Column("cluster_id", "int"),
         Column("n_members", "int", ge=1),
         Column("avg_intra_corr", "float", nullable=True),   # 單一成員的群無群內相關可算
@@ -527,7 +531,7 @@ CO_FAIL_REGIMES = Schema(
     primary_key=["tree_key", "level", "cluster_normal"],
     columns=[
         Column("tree_key", "cat", allowed=TREE_KEYS),
-        Column("level", "cat", allowed=("L1", "L2", "L3")),
+        Column("level", "cat", allowed=("L1", "L3")),   # L2 移除，見 H-04
         Column("cluster_normal", "int"),                     # 常態樹的群 id
         Column("n_members", "int", ge=1),
         Column("crisis_dest_cluster", "int"),                # 危機期多數成員的去向（危機樹群id）
@@ -564,7 +568,7 @@ CLUSTER_STORY = Schema(
     primary_key=["tree_id", "level", "cluster_a", "cluster_b"],
     columns=[
         Column("tree_id", "cat", allowed=TREE_IDS),
-        Column("level", "cat", allowed=("L1", "L2", "L3")),
+        Column("level", "cat", allowed=("L1", "L3")),   # L2 移除，見 H-04
         Column("cluster_a", "int"),
         Column("cluster_b", "int"),
         Column("corr", "float", ge=-1, le=1),
@@ -574,6 +578,76 @@ CLUSTER_STORY = Schema(
         Column("complement_note", "str"),     # LLM：為既定的互補程度判決寫說明
         Column("caveat", "str"),              # LLM：此判讀的限制
         Column("model", "str"),
+    ],
+)
+
+
+#: H-06（2026-08-28）：群的定量特徵表，老師具體要求的角度——「某幾年固定賺錢、
+#: 某幾年賠錢」「季度或年份的獲利表現是不是不太一樣」。純程式算、無LLM，供論文
+#: 直接呈現，也是之後 H-08（單群LLM解釋）的輸入素材。只在 L1 算（給LLM讀/論文
+#: 呈現的粗粒度，L3群數太多不適合逐群描述，跟 CLUSTER_STORY 同樣的理由）。
+#: 群代表序列＝成員報酬簡單平均（與 stage3_hrp._cluster_meta_and_corr 同一定義），
+#: 年/季報酬皆為該期間內逐月複利。
+CLUSTER_ANNUAL_RETURNS = Schema(
+    name="cluster_annual_returns",
+    primary_key=["tree_id", "level", "cluster_id", "year"],
+    columns=[
+        Column("tree_id", "cat", allowed=TREE_IDS),
+        Column("level", "cat", allowed=("L1",)),
+        Column("cluster_id", "int"),
+        Column("year", "int", ge=1999, le=2026),
+        Column("ret", "float"),
+        Column("n_months", "int", ge=1, le=12),   # 首尾年可能不足12個月
+    ],
+)
+
+CLUSTER_QUARTERLY_RETURNS = Schema(
+    name="cluster_quarterly_returns",
+    primary_key=["tree_id", "level", "cluster_id", "year", "quarter"],
+    columns=[
+        Column("tree_id", "cat", allowed=TREE_IDS),
+        Column("level", "cat", allowed=("L1",)),
+        Column("cluster_id", "int"),
+        Column("year", "int", ge=1999, le=2026),
+        Column("quarter", "int", ge=1, le=4),
+        Column("ret", "float"),
+        Column("n_months", "int", ge=1, le=3),
+    ],
+)
+
+CLUSTER_PROFILE_QUANT = Schema(
+    name="cluster_profile_quant",
+    primary_key=["tree_id", "level", "cluster_id"],
+    columns=[
+        Column("tree_id", "cat", allowed=TREE_IDS),
+        Column("level", "cat", allowed=("L1",)),
+        Column("cluster_id", "int"),
+        Column("n_members", "int", ge=1),
+        Column("pct_TW", "float", ge=0, le=1),
+        Column("pct_US", "float", ge=0, le=1),
+        Column("top1_factor_type", "str", nullable=True),
+        Column("top1_factor_type_pct", "float", ge=0, le=1, nullable=True),
+        Column("top1_F1", "str", nullable=True),
+        Column("top1_F1_pct", "float", ge=0, le=1, nullable=True),
+        Column("top1_C_source", "str", nullable=True),
+        Column("top1_C_source_pct", "float", ge=0, le=1, nullable=True),
+        Column("pct_v1", "float", ge=0, le=1),
+        Column("CAGR_median", "float"),
+        Column("MDD_median", "float"),
+        Column("smallcap_share_median", "float", ge=0, le=1),
+        Column("avg_intra_corr", "float", nullable=True),
+        Column("window_start_year", "int"),
+        Column("window_end_year", "int"),
+        Column("n_years", "int", ge=1),
+        Column("n_years_positive", "int", ge=0),
+        Column("pct_years_positive", "float", ge=0, le=1),
+        Column("best_year", "int"),
+        Column("best_year_ret", "float"),
+        Column("worst_year", "int"),
+        Column("worst_year_ret", "float"),
+        Column("annual_ret_mean", "float"),
+        Column("annual_ret_std", "float", nullable=True),
+        Column("quarterly_ret_std", "float", nullable=True),
     ],
 )
 
@@ -708,14 +782,16 @@ STRATEGY_MAP = Schema(
         Column("drop_reason", "str", nullable=True),
         # --- W-08 資料品質防線（階段1；見 STRATEGY_MARKS 同名欄位）---
         Column("data_glitch", "bool"),
+        # --- H-01 alpha出賽關卡（階段1；見 STRATEGY_MARKS 同名欄位）---
+        Column("passes_alpha_gate", "bool"),
         # --- regime_fit（本階段彙整 2a×階段1報酬；完整數字見 regime_performance 附屬表）---
         Column("regime_fit", "str", nullable=True),          # pipe-joined 標籤，見 stage4 docstring
         # --- macro_fit 摘要（本階段彙整 2b×階段1報酬；完整4格數字見 macro_performance 附屬表）---
         Column("macro_best_cell", "cat", allowed=CLOCK_CELLS, nullable=True),
         Column("macro_best_cell_avg_ret", "float", nullable=True),
         # --- HRP 投影（階段3；完整見 cluster_assign/co_fail_regimes 附屬表）---
+        # cluster_L2 移除（H-04，2026-08-28），見 stage3_hrp.py 常數區註解
         Column("cluster_L1", "float", nullable=True),
-        Column("cluster_L2", "float", nullable=True),
         Column("cluster_L3", "float", nullable=True),
         Column("co_fail_peers", "str", nullable=True),
         # --- v1_beneficial（本階段新算：同一 market×f_combo×C_id 下 v1 CAGR 是否優於 v0）---
@@ -728,4 +804,5 @@ ALL_SCHEMAS = {s.name: s for s in (CANDIDATE_INDEX, RETURNS_MONTHLY, RETURNS_MET
                                    MACRO_RAW, MACRO_HISTORY, REGIME_TABLE, REGIME_CONSISTENCY,
                                    CLUSTER_ASSIGN, CLUSTER_META, CO_FAIL_REGIMES, STRATEGY_MARKS,
                                    REGIME_PERFORMANCE, MACRO_PERFORMANCE, STRATEGY_MAP,
-                                   CLUSTER_STORY)}
+                                   CLUSTER_STORY, CLUSTER_ANNUAL_RETURNS, CLUSTER_QUARTERLY_RETURNS,
+                                   CLUSTER_PROFILE_QUANT)}

@@ -353,7 +353,7 @@ _PROFILE_COLUMNS = [
     "stability_grade",
     "holdings_median", "holdings_p10", "empty_ratio", "smallcap_share", "size_tilt_pct",
     "is_usable", "data_glitch", "regime_fit", "macro_best_cell", "macro_best_cell_avg_ret",
-    "cluster_L1", "cluster_L2", "cluster_L3", "co_fail_peers",
+    "cluster_L1", "cluster_L3", "co_fail_peers",   # cluster_L2 移除，見 H-04
 ]
 
 
@@ -567,7 +567,7 @@ def t8_compute_portfolio_risk(strategy_uids: list[str], weights: list[float] | N
 
     ca = _cluster_assign()
     cluster_coverage = {}
-    for lvl in ("L1", "L2", "L3"):
+    for lvl in ("L1", "L3"):   # cluster_L2 移除，見 H-04
         cids = []
         for uid, wt in zip(strategy_uids, w):
             r = ca[(ca.strategy_uid == uid) & (ca.tree_id == _tree_id_for(uid, "own", "normal"))]
