@@ -137,7 +137,13 @@
       "Bash(rm -rf /d/git/delivery_code/core/build /d/git/delivery_code/utils/__pycache__)",
       "Bash(D=\"/d/git/delivery_code\" *)",
       "Bash(timeout 30 python -c ' *)",
-      "PowerShell(Get-Process | Where-Object { $_.ProcessName -match 'git' } | Select-Object Id, ProcessName, StartTime, Path)"
+      "PowerShell(Get-Process | Where-Object { $_.ProcessName -match 'git' } | Select-Object Id, ProcessName, StartTime, Path)",
+      "Bash(python universe_benchmark.py --market TW --start 2022-01-01 --end 2025-12-31 > /tmp/univ_bench.log 2>&1; echo \"EXITCODE:$?\")",
+      "Bash(cygpath -w /tmp/univ_bench.log)",
+      "Read(//d/git/_analysis_outputs_phase2/**)",
+      "PowerShell(Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'phase2_pairing|jupyter|ipykernel' } | Select-Object ProcessId, Name, CreationDate, @{N='CmdLine';E={$_.CommandLine.Substring\\(0,[Math]::Min\\(120,$_.CommandLine.Length\\)\\)}})",
+      "PowerShell(Get-Process -Id 9928 -ErrorAction SilentlyContinue)",
+      "Bash(python phase3_fig416.py --market TW --variant openSec --start 2022-01-01 --end 2025-12-31)"
     ],
     "additionalDirectories": [
       "\\tmp",

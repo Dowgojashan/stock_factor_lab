@@ -9,7 +9,7 @@ Phase 3 的 4-16 圖：控制 F 之後，各 C 的 CAGR 折線（論文第四章
 
 只取 12 個**單因子**組合（F2=None）→ 嚴格對應原始 4-16，X 軸標名稱。
 
-用法：python phase3_fig416.py [--market TW]
+用法：python phase3_fig416.py [--market TW] [--variant openSec]
 """
 import re
 import sys
@@ -60,6 +60,9 @@ def pretty_f(name):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--market", default="TW", choices=["TW", "US"])
+    ap.add_argument("--variant", default="strict",
+                    help="須跟 phase3_conditions.py 執行時用的 --variant 相同，"
+                         "否則對應的回測標籤（如 _openSec_）根本沒被建過，讀不到檔案")
     ap.add_argument("--start", default=None,
                     help="自訂起始日期 YYYY-MM-DD（需與 phase3_conditions.py 執行時相同）")
     ap.add_argument("--end", default=None,
@@ -69,7 +72,8 @@ def main():
     start = args.start or MARKET_START[mkt]
     end = args.end or IN_SAMPLE_END
     rsfx = date_range_suffix(start, end, MARKET_START[mkt], IN_SAMPLE_END)
-    label = f"{mkt}_L3_M{rsfx}"
+    vsfx = "" if args.variant == "strict" else f"_{args.variant}"
+    label = f"{mkt}_L3{vsfx}_M{rsfx}"
 
     df = pd.read_parquet(ART / label / "stats.parquet")
     df[["F組合", "C", "C編號", "C來源"]] = df["strategy"].apply(lambda s: pd.Series(parse(s)))
@@ -112,9 +116,9 @@ def main():
     ax.legend(frameon=False, fontsize=7.5, loc="upper left",
               bbox_to_anchor=(1.005, 1.0), borderaxespad=0)
 
-    fig.suptitle(f"4-16  控制 F 之後各動態因子 C 的 CAGR 折線 — Phase 3 / {mkt}", fontsize=12)
+    fig.suptitle(f"4-16  控制 F 之後各動態因子 C 的 CAGR 折線 — Phase 3 / {mkt}／{args.variant}", fontsize=12)
     fig.tight_layout(rect=[0, 0, 1, 0.94])
-    p = OUT / f"{mkt}_L3_fig4-16{rsfx}_controlled_C_lines.png"
+    p = OUT / f"{mkt}_L3{vsfx}_fig4-16{rsfx}_controlled_C_lines.png"
     fig.savefig(p, bbox_inches="tight")
     plt.close(fig)
 
