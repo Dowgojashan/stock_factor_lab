@@ -643,6 +643,12 @@ def t9_compute_weights(strategy_uids: list[str]) -> dict:
 #: 方向：結構化條列輸出，禁止添加程式未提供的因果」）。
 #: ⚠️ 這個 response_format 的wrapper shape（type=json_schema）尚未用真實API
 #: 呼叫驗證過，見 t10_generate_return_story_text docstring 的驗證待辦。
+#: T10 單次呼叫的預估 token 數，供呼叫前的免費額度煞車用。
+#: 2026-08-25 實測 21 次呼叫的 completion 落在 226~256 tok，加上 prompt 後
+#: 單次約 1,000 tok 上下，取 1,500 留餘裕。實際用量以回應的 usage 為準。
+_T10_EST_TOKENS = 1_500
+_T10_RESERVE_RATIO = 0.05     # 用到95%就踩煞車，留餘裕給進行中的請求
+
 _STORY_JSON_SCHEMA = {
     "name": "return_story",
     "schema": {
@@ -770,6 +776,11 @@ def t10_generate_return_story_text(strategy_uid: str, *, model: str | None = Non
     if temperature is not None:      # 見 docstring：新型推理模型不接受非預設溫度
         payload["temperature"] = temperature
 
+    # 暫停機制：呼叫前先確認今日免費額度夠不夠、且模型在免費名單內
+    # （額度不足或模型要付費 → raise FreeTierExhaustedError，不會真的送出請求）
+    OQ.check_free_tier_budget(model, estimated_tokens=_T10_EST_TOKENS,
+                              reserve_ratio=_T10_RESERVE_RATIO)
+
     resp = requests.post(
         "https://api.openai.com/v1/chat/completions",
         headers={"Authorization": f"Bearer {api_key}"},
@@ -779,6 +790,8 @@ def t10_generate_return_story_text(strategy_uid: str, *, model: str | None = Non
     OQ.raise_for_openai_response(resp)
     body = resp.json()
     story = json.loads(body["choices"][0]["message"]["content"])
+    usage = body.get("usage")
+    OQ.log_usage(model, "t10_return_story", usage or {})
 
     return {
         "strategy_uid": strategy_uid,
@@ -786,7 +799,7 @@ def t10_generate_return_story_text(strategy_uid: str, *, model: str | None = Non
         "raw_verdict": verdict,
         "raw_evidence": evidence,
         "model": model,
-        "usage": body.get("usage"),
+        "usage": usage,
     }
 
 

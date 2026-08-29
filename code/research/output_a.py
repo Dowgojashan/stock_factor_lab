@@ -27,9 +27,15 @@
    `_pick_cluster_diversified_crisis()`函式保留但不再是預設路徑，供日後想對照
    「危機樹選法 vs 一般選法」時使用（見開發待辦追蹤.md H-15）。
 
-**權重**：一律用T9（HRP遞迴二分，用該組策略的完整共同月份算），套用到情境窗內評估
-   ——權重反映的是策略間長期相關結構，不是為了那個情境窗特別擬合的，避免用未來
-   資訊校正過去窗的偏誤。
+**權重**：🆕 2026-08-29 改為**等權為主，HRP降為對照組**（S-04定案）。理由：讀學長
+   郭鎧菘論文（結合量化交易與多代理人決策之金融交易框架初探）發現其實證結論——
+   「多代理的主要貢獻偏向標的篩選，而非資金權重配置；平均權重配置在多數情境下
+   能取得相對穩健的績效」，直接回答了老師會議問的「這每一群裡面到底要用績效
+   最好的，還是績效去除以MVD」——答案是選誰才是重點，權重不需要另外最佳化。
+   `beats_market`（贏大盤判定）以等權組合為準；HRP權重（T9遞迴二分，用該組策略
+   完整共同月份算）仍照算，結果記在`*_hrp`欄位供對照，不影響任何判定或篩選。
+   HRP權重反映的是策略間長期相關結構、非情境窗內擬合，作為「等權vs風險平價
+   差多少」的對照組留在論文裡。
 
 **「贏大盤」的基準**：直接用regime_table自己的`pct_change`欄（該段大盤基準漲跌幅），
    不重算——同一份資料源、同一套定義，不會有兩套基準打架的問題。
@@ -214,17 +220,28 @@ def build_one(market: str, seg, invest_type: str, wide: pd.DataFrame, log=print)
         return row
 
     w = T.t9_compute_weights(picked)
-    weights = w.get("hrp_weight") or w.get("equal_weight")
-    row["weight_scheme"] = "hrp" if "hrp_weight" in w else "equal(HRP共同月數不足)"
+    eq_weights = w.get("equal_weight")
+    hrp_weights = w.get("hrp_weight")   # None：該組共同月數<6，HRP不可靠（T9自己的門檻）
+    row["weight_scheme"] = "equal"      # S-04定案：等權為主，見模組docstring
 
     months = _month_range(seg.start, seg.end)
-    stats = _segment_stats(wide, picked, months, weights)
+    stats = _segment_stats(wide, picked, months, eq_weights)
     row.update(stats)
     if stats.get("insufficient"):
         row["note"] = (note + f"；情境窗內共同月數過少({stats['n_months']})，不評估組合表現").strip("；")
         return row
 
     row["beats_market"] = bool(stats["portfolio_ret"] > row["market_pct_change"])
+
+    # HRP 對照組（S-04：不影響上面的判定，純粹留做「等權 vs 風險平價」的論文對照）
+    if hrp_weights is not None:
+        hrp_stats = _segment_stats(wide, picked, months, hrp_weights)
+        if not hrp_stats.get("insufficient"):
+            row["portfolio_ret_hrp"] = hrp_stats["portfolio_ret"]
+            row["portfolio_mdd_hrp"] = hrp_stats["portfolio_mdd"]
+            row["free_lunch_mdd_gain_hrp"] = hrp_stats["free_lunch_mdd_gain"]
+            row["beats_market_hrp"] = bool(hrp_stats["portfolio_ret"] > row["market_pct_change"])
+
     row["note"] = note
     return row
 
@@ -257,7 +274,8 @@ def run(log=print) -> pd.DataFrame:
         outputs=[p],
         params={"group_size": GROUP_SIZE, "k_crisis_groups": K_CRISIS_GROUPS,
                "min_segment_months": MIN_SEGMENT_MONTHS,
-               "selection_method": "純量化規則代替Agent1 Step3，見模組docstring"},
+               "selection_method": "純量化規則代替Agent1 Step3，見模組docstring",
+               "weight_scheme": "equal（S-04定案，HRP降為*_hrp對照欄位，不影響beats_market）"},
         notes="產出A：20年情境×策略表現對照表，3類投資人×全部regime段。"
               "選兵用純量化規則(baseline①)，非真正agentic LLM(Agent1尚未建置)",
     )
@@ -275,8 +293,13 @@ def _report(df: pd.DataFrame, log=print) -> None:
             n_no_cand = int((sub.n_candidates == 0).sum())
             n_eval = int(sub["beats_market"].notna().sum()) if "beats_market" in sub else 0
             n_beat = int(sub["beats_market"].sum()) if "beats_market" in sub else 0
+            hrp_line = ""
+            if "beats_market_hrp" in sub:
+                n_eval_hrp = int(sub["beats_market_hrp"].notna().sum())
+                n_beat_hrp = int(sub["beats_market_hrp"].sum())
+                hrp_line = f"｜HRP對照{n_beat_hrp}/{n_eval_hrp if n_eval_hrp else 1}"
             log(f"[{market}/{itype}] {len(sub)}段｜無候選{n_no_cand}｜可評估{n_eval}｜"
-               f"贏大盤{n_beat}/{n_eval if n_eval else 1}")
+               f"贏大盤(等權){n_beat}/{n_eval if n_eval else 1}{hrp_line}")
 
 
 def main(argv: list[str] | None = None) -> int:

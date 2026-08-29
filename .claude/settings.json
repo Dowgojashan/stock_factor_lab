@@ -132,7 +132,10 @@
       "Read(//d/git/**)",
       "Bash(../.venv/Scripts/python.exe -c \"import openai; print\\('已安裝，版本:', openai.__version__\\)\")",
       "Bash(/d/git/stock_factor_lab/.venv/Scripts/python.exe -m py_compile phase2_analyze.py phase1_linearity.py)",
-      "Bash(/d/git/stock_factor_lab/.venv/Scripts/python.exe -X utf8 -c ' *)"
+      "Bash(/d/git/stock_factor_lab/.venv/Scripts/python.exe -X utf8 -c ' *)",
+      "Bash(PYTHONIOENCODING=utf-8 \"/d/git/stock_factor_lab/.venv/Scripts/python.exe\" -m utils.openai_quota --selftest)",
+      "Bash(python -m py_compile ops/tools.py research/cluster_story.py ../utils/openai_quota.py)",
+      "Bash(PYTHONIOENCODING=utf-8 \"/d/git/stock_factor_lab/.venv/Scripts/python.exe\" -m utils.openai_quota --usage)"
     ]
   }
 }

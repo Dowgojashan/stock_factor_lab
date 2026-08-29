@@ -1,12 +1,13 @@
 {
   "stage": "output_a",
-  "produced_at": "2026-08-28T11:47:15",
-  "git_sha": "94d7021",
+  "produced_at": "2026-08-29T13:57:56",
+  "git_sha": "929030f",
   "params": {
     "group_size": 5,
     "k_crisis_groups": 4,
     "min_segment_months": 2,
-    "selection_method": "純量化規則代替Agent1 Step3，見模組docstring"
+    "selection_method": "純量化規則代替Agent1 Step3，見模組docstring",
+    "weight_scheme": "equal（S-04定案，HRP降為*_hrp對照欄位，不影響beats_market）"
   },
   "inputs": [
     {
@@ -43,8 +44,8 @@
   "outputs": [
     {
       "path": "_frozen\\output_a\\scenario_table.parquet",
-      "sha256": "147a9f5d6468cec4f8515828654f4afefb067c0ec9f1ba65a1213638680dfd10",
-      "bytes": 24265,
+      "sha256": "a9debbf5688ecc499b6e49fc5777607bd126e398420f2517ca26dc77342f35cf",
+      "bytes": 30526,
       "rows": 216
     }
   ],

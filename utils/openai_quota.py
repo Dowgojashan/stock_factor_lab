@@ -44,14 +44,205 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
+import json
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import requests
 
 OPENAI_API_BASE = "https://api.openai.com/v1"
 REQUEST_TIMEOUT = 15   # 秒。查用量是輕量的 metadata 讀取，不是模型推論，不需要長逾時
+
+
+# ============================================================================
+# 每日免費額度（data-sharing 方案）· 用量帳本與暫停機制
+# ============================================================================
+#
+# 使用者的帳號有 OpenAI「與 OpenAI 共享流量」的每日免費額度，分兩個獨立的池：
+#   標準池 1,000,000 tokens/日
+#   小模型池 10,000,000 tokens/日
+# 兩池分開計算、互不流用（用完標準池不會自動吃小模型池）。
+#
+# ⚠️ **名單是使用者 2026-08-29 從 OpenAI 後台複製的，不是我查來的**。OpenAI 可能
+#    隨時調整涵蓋的模型與額度，這份常數僅代表當下狀態，發現對不上請直接更新這裡。
+#
+# ⚠️ **不在名單上的模型 = 付費**。`classify_model()` 對未知模型一律回 None
+#    （代表「不在免費名單」），**不做寬鬆猜測**——猜錯的代價是靜默燒錢，
+#    而漏判的代價只是多問一句，兩者不對稱。
+
+FREE_TIER_LIMITS = {
+    "standard": 1_000_000,
+    "mini": 10_000_000,
+}
+
+#: 小模型池（10M）。比對時**優先於標準池**——`gpt-5-mini` 同時符合兩邊的前綴，
+#: 必須先判小模型池才不會被誤歸到標準池、用錯額度上限。
+_MINI_TIER_MODELS = (
+    "gpt-5.4-mini", "gpt-5.4-nano", "gpt-5-mini", "gpt-5-nano",
+    "gpt-4.1-mini", "gpt-4.1-nano", "gpt-4o-mini", "o3-mini", "o4-mini",
+)
+
+#: 標準池（1M）
+_STANDARD_TIER_MODELS = (
+    "gpt-5.4", "gpt-5.2", "gpt-5.1", "gpt-5", "gpt-4.1", "gpt-4o", "o1", "o3",
+)
+
+#: 用量帳本。放 code/_catalog/（既有的「執行紀錄」慣例所在），純 token 統計、
+#: 不含任何金鑰或提示詞內容，可安全進版控——論文要交代 LLM 成本時直接引用。
+LEDGER_PATH = Path(__file__).resolve().parent.parent / "code" / "_catalog" / "llm_usage.jsonl"
+
+
+class FreeTierExhaustedError(RuntimeError):
+    """今日免費額度（該池）已用盡或即將用盡——**暫停機制**的觸發訊號。
+
+    刻意與 `QuotaExhaustedError` 分開：後者是 OpenAI 真的回報帳戶額度用盡
+    （已經花到錢或被擋），前者是**我們自己主動踩煞車**，還沒真的超額。
+    呼叫端接到這個要停下來問人，不要自動改用付費模型繼續跑。
+    """
+
+
+def _matches_family(model: str, prefix: str) -> bool:
+    """模型名是否屬於 `prefix` 這個family。
+
+    🔴 **不能用單純的 startswith**（2026-08-29 自我測試抓到的真實bug）：
+       `"gpt-5.6-terra".startswith("gpt-5")` 是 True，會把不在免費名單的 gpt-5.6
+       誤判成免費的 gpt-5，然後靜默去燒付費額度——正是本模組要防的事。
+       任何未來版本（5.6／5.9／…）都會中這個陷阱。
+
+    規則：前綴後面**不可以接數字或小數點**（那代表是不同版本的 family），
+    接 `-`（日期/變體後綴，如 `gpt-4o-2024-08-06`）或字串結束才算同一個 family。
+    """
+    if not model.startswith(prefix):
+        return False
+    rest = model[len(prefix):]
+    return rest == "" or rest[0] not in ".0123456789"
+
+
+def classify_model(model: str) -> str | None:
+    """模型 → 免費額度池（'standard' / 'mini'），不在免費名單回 None。
+
+    **先比小模型池**（見 `_MINI_TIER_MODELS` 上方說明），比對規則見 `_matches_family`。
+    """
+    m = (model or "").strip().lower()
+    if not m:
+        return None
+    for prefix in _MINI_TIER_MODELS:
+        if _matches_family(m, prefix):
+            return "mini"
+    for prefix in _STANDARD_TIER_MODELS:
+        if _matches_family(m, prefix):
+            return "standard"
+    return None
+
+
+def _day_key(now: _dt.datetime | None = None, tz_utc: bool = True) -> str:
+    """帳本的「當日」定義。
+
+    ⚠️ **OpenAI 每日免費額度實際在哪個時區重置，官方文件沒有明說，我也沒有實測過**。
+    這裡預設用 UTC（API 額度最常見的作法），若之後發現實際是太平洋時間或其他時區
+    導致跨日判斷差一天，改這裡即可。用 `tz_utc=False` 可改用本機時區比對。
+    """
+    now = now or (_dt.datetime.now(_dt.timezone.utc) if tz_utc else _dt.datetime.now())
+    if tz_utc and now.tzinfo is not None:
+        now = now.astimezone(_dt.timezone.utc)
+    return now.date().isoformat()
+
+
+def log_usage(model: str, purpose: str, usage: dict, *,
+              now: _dt.datetime | None = None, path: Path | None = None) -> dict:
+    """把一次 LLM 呼叫的用量追加進帳本（JSONL，一行一筆）。回傳寫入的那筆紀錄。
+
+    `usage` 直接吃 OpenAI 回應裡的 `usage` 物件（含 prompt_tokens/completion_tokens/
+    total_tokens）。缺欄位時以 0 計，不猜測、不推估。
+    """
+    path = path or LEDGER_PATH
+    prompt = int(usage.get("prompt_tokens", 0) or 0)
+    completion = int(usage.get("completion_tokens", 0) or 0)
+    total = int(usage.get("total_tokens", 0) or 0) or (prompt + completion)
+    rec = {
+        "ts": (now or _dt.datetime.now(_dt.timezone.utc)).astimezone(
+            _dt.timezone.utc).isoformat(timespec="seconds"),
+        "day_utc": _day_key(now),
+        "model": model,
+        "tier": classify_model(model),
+        "purpose": purpose,
+        "prompt_tokens": prompt,
+        "completion_tokens": completion,
+        "total_tokens": total,
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    return rec
+
+
+def read_ledger(path: Path | None = None) -> list[dict]:
+    """讀回整本帳本。檔案不存在回空 list（第一次跑本來就沒有，不是錯誤）。"""
+    path = path or LEDGER_PATH
+    if not path.exists():
+        return []
+    out = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                out.append(json.loads(line))
+    return out
+
+
+def today_totals(*, now: _dt.datetime | None = None,
+                 path: Path | None = None) -> dict[str, int]:
+    """今日（UTC）各池已用 token 數。未分類（付費）模型歸在 'unclassified'。"""
+    day = _day_key(now)
+    totals = {"standard": 0, "mini": 0, "unclassified": 0}
+    for r in read_ledger(path):
+        if r.get("day_utc") != day:
+            continue
+        tier = r.get("tier") or "unclassified"
+        totals[tier] = totals.get(tier, 0) + int(r.get("total_tokens", 0) or 0)
+    return totals
+
+
+def check_free_tier_budget(model: str, *, estimated_tokens: int = 0,
+                           now: _dt.datetime | None = None,
+                           path: Path | None = None,
+                           reserve_ratio: float = 0.0) -> dict:
+    """呼叫 LLM **之前**檢查今日免費額度還夠不夠。不夠就 raise FreeTierExhaustedError。
+
+    `estimated_tokens`：本次預估會用掉多少（不知道就傳0，那就只擋「已經超額」的情況）。
+    `reserve_ratio`：預留比例，例如 0.05 代表用到 95% 就踩煞車，留一點餘裕給
+                     正在進行中的請求，避免剛好卡在邊界上被 OpenAI 擋掉。
+
+    **不在免費名單的模型直接 raise**——這是刻意的：使用者的意圖是「盡量用免費的，
+    超過再決定要不要花錢」，靜默改用付費模型跑下去正好違反這個意圖。
+    """
+    tier = classify_model(model)
+    if tier is None:
+        raise FreeTierExhaustedError(
+            f"模型 `{model}` 不在每日免費額度名單內，跑下去會直接計費。\n"
+            f"  免費名單（標準池 {FREE_TIER_LIMITS['standard']:,} tok/日）："
+            f"{', '.join(_STANDARD_TIER_MODELS)}\n"
+            f"  免費名單（小模型池 {FREE_TIER_LIMITS['mini']:,} tok/日）："
+            f"{', '.join(_MINI_TIER_MODELS)}\n"
+            f"→ 請改用名單內的模型，或明確確認要付費後再跑")
+
+    limit = FREE_TIER_LIMITS[tier]
+    used = today_totals(now=now, path=path)[tier]
+    budget = int(limit * (1.0 - reserve_ratio))
+    projected = used + max(0, int(estimated_tokens))
+    status = {"model": model, "tier": tier, "limit": limit, "used": used,
+              "projected": projected, "budget": budget,
+              "remaining": max(0, budget - used)}
+    if projected > budget:
+        raise FreeTierExhaustedError(
+            f"今日「{tier}」池免費額度不足：已用 {used:,}／預估本次再用 "
+            f"{estimated_tokens:,} → 合計 {projected:,}，超過可用上限 {budget:,}"
+            f"（總額度 {limit:,}"
+            f"{f'，已預留 {reserve_ratio:.0%}' if reserve_ratio else ''}）。\n"
+            f"→ 已暫停，請決定：等明天額度重置／改用另一個池的小模型／確認要付費")
+    return status
 
 
 class QuotaExhaustedError(RuntimeError):
@@ -249,18 +440,120 @@ def selftest(log=print) -> None:
     assert under.exhausted is False and over.exhausted is True
     log("  ✓ 通過")
 
+    log("== T7 免費額度：模型分池不能歸錯（mini 必須優先於 standard）==")
+    assert classify_model("gpt-5-mini") == "mini", "gpt-5-mini 應歸小模型池，不是標準池"
+    assert classify_model("gpt-5-nano") == "mini"
+    assert classify_model("gpt-4o-mini-2024-07-18") == "mini", "帶版本後綴也要認得"
+    assert classify_model("gpt-5") == "standard"
+    assert classify_model("gpt-4o-2024-08-06") == "standard"
+    assert classify_model("o3-mini") == "mini"
+    assert classify_model("o3") == "standard"
+    assert classify_model("") is None
+    # 🔴 回歸測試：純 startswith 會讓 gpt-5.6 被誤判成免費的 gpt-5 而靜默燒錢，
+    #    這是 2026-08-29 自我測試抓到的真實bug，見 _matches_family()
+    assert classify_model("gpt-5.6-terra") is None, "gpt-5.6 不在名單，不可誤判成 gpt-5"
+    assert classify_model("gpt-5.6-sol") is None
+    assert classify_model("gpt-5.9") is None, "任何未來版本都不該被舊版前綴吃掉"
+    assert classify_model("gpt-51") is None, "gpt-51 不是 gpt-5"
+    assert classify_model("gpt-4.5") is None, "gpt-4.5 不在名單（名單只有4.1與4o）"
+    # 反向：合法的版本/日期後綴仍要認得
+    assert classify_model("gpt-5-2025-01-01") == "standard"
+    assert classify_model("gpt-5.4") == "standard"
+    assert classify_model("gpt-5.4-mini") == "mini"
+    log("  ✓ 通過（含 gpt-5.6 誤判回歸測試）")
+
+    log("== T8 免費額度：帳本寫入與當日彙總 ==")
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        p = Path(td) / "ledger.jsonl"
+        t0 = _dt.datetime(2026, 8, 29, 10, 0, tzinfo=_dt.timezone.utc)
+        log_usage("gpt-5", "test_a", {"prompt_tokens": 100, "completion_tokens": 50}, now=t0, path=p)
+        log_usage("gpt-5-mini", "test_b", {"prompt_tokens": 200, "completion_tokens": 80}, now=t0, path=p)
+        log_usage("gpt-5.6-terra", "test_paid", {"total_tokens": 999}, now=t0, path=p)
+        tot = today_totals(now=t0, path=p)
+        assert tot["standard"] == 150, f"standard 應為150，實際{tot['standard']}"
+        assert tot["mini"] == 280, f"mini 應為280，實際{tot['mini']}"
+        assert tot["unclassified"] == 999, "不在名單的模型要單獨歸類，不能混進免費池"
+        # 隔天不該累計進來
+        t1 = t0 + _dt.timedelta(days=1)
+        assert today_totals(now=t1, path=p)["standard"] == 0, "跨日必須重新計算"
+        log("  ✓ 通過（含跨日重置）")
+
+        log("== T9 免費額度：預算檢查與暫停機制 ==")
+        # 額度還夠 → 不該 raise
+        st = check_free_tier_budget("gpt-5", estimated_tokens=1000, now=t0, path=p)
+        assert st["tier"] == "standard" and st["used"] == 150
+        # 預估會爆掉 → 要 raise
+        try:
+            check_free_tier_budget("gpt-5", estimated_tokens=FREE_TIER_LIMITS["standard"],
+                                   now=t0, path=p)
+            raise AssertionError("預期 raise FreeTierExhaustedError 但沒有")
+        except FreeTierExhaustedError:
+            pass
+        # 不在免費名單 → 直接 raise，不可靜默放行
+        try:
+            check_free_tier_budget("gpt-5.6-terra", now=t0, path=p)
+            raise AssertionError("付費模型應該要被擋下並要求確認")
+        except FreeTierExhaustedError:
+            pass
+        # reserve_ratio 要真的收緊門檻
+        try:
+            check_free_tier_budget("gpt-5", estimated_tokens=FREE_TIER_LIMITS["standard"] - 200,
+                                   now=t0, path=p, reserve_ratio=0.5)
+            raise AssertionError("reserve_ratio=0.5 應讓可用上限砍半而擋下")
+        except FreeTierExhaustedError:
+            pass
+        log("  ✓ 通過")
+
     log("\n全部合成資料測試通過。"
         "⚠️ 但這只證明解析邏輯本身沒寫錯，不保證跟真實API回應欄位一致——"
-        "admin_key 到位後仍須打一次真的來核對，見模組docstring。")
+        "admin_key 到位後仍須打一次真的來核對，見模組docstring。"
+        "\n⚠️ 免費額度名單是使用者提供的當下狀態，OpenAI 可能調整，發現不符請更新常數。")
+
+
+def cmd_usage(args) -> int:
+    """看帳本：今日各池用量 + 歷史累計。"""
+    recs = read_ledger()
+    if not recs:
+        print(f"帳本還沒有任何紀錄（{LEDGER_PATH}）")
+        return 0
+
+    tot = today_totals()
+    print(f"=== 今日（{_day_key()} UTC）免費額度使用狀況 ===")
+    for tier in ("standard", "mini"):
+        used, limit = tot[tier], FREE_TIER_LIMITS[tier]
+        pct = used / limit * 100 if limit else 0
+        bar = "█" * int(pct / 5) + "░" * (20 - int(pct / 5))
+        print(f"  {tier:9s} {bar} {used:>10,} / {limit:,} ({pct:.2f}%)")
+    if tot.get("unclassified"):
+        print(f"  ⚠️ 付費（不在免費名單）：{tot['unclassified']:,} tokens")
+
+    print(f"\n=== 歷史累計（全部 {len(recs)} 次呼叫）===")
+    by_purpose: dict[str, dict] = {}
+    for r in recs:
+        k = r.get("purpose", "?")
+        d = by_purpose.setdefault(k, {"n": 0, "tokens": 0, "models": set()})
+        d["n"] += 1
+        d["tokens"] += int(r.get("total_tokens", 0) or 0)
+        d["models"].add(r.get("model", "?"))
+    for k, d in sorted(by_purpose.items(), key=lambda kv: -kv[1]["tokens"]):
+        print(f"  {k:20s} {d['n']:>5} 次  {d['tokens']:>12,} tok  "
+              f"模型：{', '.join(sorted(d['models']))}")
+    days = sorted({r.get("day_utc", "?") for r in recs})
+    print(f"\n涵蓋日期：{days[0]} ~ {days[-1]}（{len(days)} 天）")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="utils.openai_quota")
     ap.add_argument("--selftest", action="store_true", help="用合成資料驗證解析邏輯")
+    ap.add_argument("--usage", action="store_true", help="查看用量帳本（今日額度 + 歷史累計）")
     a = ap.parse_args(argv)
     if a.selftest:
         selftest()
         return 0
+    if a.usage:
+        return cmd_usage(a)
     ap.print_help()
     return 0
 

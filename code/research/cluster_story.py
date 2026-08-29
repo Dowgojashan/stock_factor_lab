@@ -34,6 +34,11 @@ strategy_map 算好餵進去，LLM 不得引用未提供的數字，也不得在
     python -m research.cluster_story --limit 3          # 先跑3對試水溫
     python -m research.cluster_story                    # 全跑（三棵normal樹，84對）
     python -m research.cluster_story --trees XM_normal  # 只跑跨市場那棵
+    python -m research.cluster_story --resume           # 額度暫停後，接續跑剩下的對
+                                                          # （讀既有cluster_story.parquet，
+                                                          #   跳過已完成的pair，只打尚未
+                                                          #   跑過的；--limit在此時代表
+                                                          #   「這次最多再打幾對新的」）
 """
 from __future__ import annotations
 
@@ -53,6 +58,15 @@ from . import freeze, paths
 #: 不需要 LLM 解釋。跑 crisis 樹只會多燒錢又產出語意重複的文字。
 DEFAULT_TREES = ("TW_normal", "US_normal", "XM_normal")
 LEVEL = "L1"          # 與 cluster_corr_matrix / co_fail_regimes 的粒度一致
+
+#: 免費額度預留比例：用到 95% 就踩煞車，留餘裕給正在進行中的請求，
+#: 避免剛好卡在邊界被 OpenAI 擋掉（見 utils.openai_quota.check_free_tier_budget）
+RESERVE_RATIO = 0.05
+
+#: 單次呼叫的預估 token 數，供**呼叫前**的額度檢查用。
+#: 2026-08-25 實測 84 對共 prompt 112,861 + completion 43,046 ≈ 每對 1,856 tok，
+#: 取整數並留一點餘裕。這只是煞車用的估計值，實際用量以回應的 usage 為準。
+EST_TOKENS_PER_CALL = 2_000
 
 
 def _complementarity(corr: float) -> str:
@@ -165,10 +179,18 @@ def build_prompt(tree_id: str, a: dict, b: dict, corr: float,
     )
 
 
-def _call_llm(prompt: str, model: str, api_key: str) -> tuple[dict, dict]:
-    """回傳 (story, usage)。"""
+def _call_llm(prompt: str, model: str, api_key: str,
+              *, est_tokens: int = 0) -> tuple[dict, dict]:
+    """回傳 (story, usage)。
+
+    呼叫**前**先查今日免費額度夠不夠（`check_free_tier_budget`，額度不足或模型不在
+    免費名單會 raise `FreeTierExhaustedError` 暫停）；呼叫**後**把實際用量寫進帳本。
+    """
     import requests
     from utils import openai_quota as OQ
+    # 暫停機制：額度不足時在這裡就擋下，不會真的送出請求
+    OQ.check_free_tier_budget(model, estimated_tokens=est_tokens,
+                              reserve_ratio=RESERVE_RATIO)
     resp = requests.post(
         "https://api.openai.com/v1/chat/completions",
         headers={"Authorization": f"Bearer {api_key}"},
@@ -180,10 +202,17 @@ def _call_llm(prompt: str, model: str, api_key: str) -> tuple[dict, dict]:
     )
     OQ.raise_for_openai_response(resp)
     body = resp.json()
-    return json.loads(body["choices"][0]["message"]["content"]), body.get("usage", {})
+    usage = body.get("usage", {})
+    OQ.log_usage(model, "cluster_story", usage)
+    return json.loads(body["choices"][0]["message"]["content"]), usage
 
 
-def build(trees=DEFAULT_TREES, limit=None, dry_run=False, model=None, log=print) -> pd.DataFrame:
+def build(trees=DEFAULT_TREES, limit=None, dry_run=False, model=None, resume=False,
+         resume_path=None, log=print) -> pd.DataFrame:
+    """`resume_path`：--resume 要讀的既有產物路徑，預設是正式輸出位置
+    （`_frozen/stage3/cluster_story.parquet`）。開放這個參數只為了讓測試能指向
+    temp目錄、不必真的讀寫production路徑。
+    """
     freeze.verify_inputs(paths.STAGE3)
     freeze.verify_inputs(paths.STAGE4)
 
@@ -195,8 +224,29 @@ def build(trees=DEFAULT_TREES, limit=None, dry_run=False, model=None, log=print)
     else:
         api_key, model = None, (model or "(dry-run)")
 
-    rows, n_done, total_usage = [], 0, {"prompt_tokens": 0, "completion_tokens": 0}
+    from utils import openai_quota as OQ
+
+    # --resume：讀既有產物，跳過已經打過的pair，只跑剩下的——不然「暫停」就只是
+    # 換句話說的「整批重來」，跟原本要解決的問題（84對跑到第80對爆掉不能整批白跑）
+    # 是同一件事的兩半，只做前半（部分保存）不做後半（真的接得上）沒有意義。
+    rows: list[dict] = []
+    done_pairs: set[tuple[str, int, int]] = set()
+    if resume:
+        p = resume_path or (paths.STAGE3 / "cluster_story.parquet")
+        if p.exists():
+            prev = pd.read_parquet(p)
+            rows = prev.to_dict("records")
+            done_pairs = {(str(r["tree_id"]), int(r["cluster_a"]), int(r["cluster_b"]))
+                         for r in rows}
+            log(f"↻ --resume：讀到既有 {len(rows)} 對，將跳過已完成的、只跑剩下的")
+        else:
+            log("⚠️ --resume 但找不到既有 cluster_story.parquet，視同全新執行")
+
+    n_new, total_usage = 0, {"prompt_tokens": 0, "completion_tokens": 0}
+    paused = False
     for tree_id in trees:
+        if paused:
+            break
         profiles = _cluster_profiles(tree_id)
         corr = pd.read_parquet(paths.STAGE3 / f"cluster_corr_matrix_{tree_id}.parquet")
         corr.columns = corr.columns.astype(int)
@@ -204,7 +254,9 @@ def build(trees=DEFAULT_TREES, limit=None, dry_run=False, model=None, log=print)
         cofail = _co_fail_lookup(tree_id)
 
         for a_id, b_id in itertools.combinations(sorted(profiles), 2):
-            if limit is not None and n_done >= limit:
+            if (tree_id, a_id, b_id) in done_pairs:
+                continue
+            if limit is not None and n_new >= limit:
                 break
             c = float(corr.loc[a_id, b_id])
             comp = _complementarity(c)
@@ -218,7 +270,18 @@ def build(trees=DEFAULT_TREES, limit=None, dry_run=False, model=None, log=print)
                         "caveat": "(dry-run)"}
             else:
                 t0 = time.time()
-                story, usage = _call_llm(prompt, model, api_key)
+                try:
+                    story, usage = _call_llm(prompt, model, api_key,
+                                             est_tokens=EST_TOKENS_PER_CALL)
+                except OQ.FreeTierExhaustedError as e:
+                    # 暫停機制：免費額度不足時停在這裡，**已完成的部分照樣回傳**
+                    # （原本設計是全部跑完才組 DataFrame，中途中斷會整批白跑；
+                    #   84對要跑十幾分鐘，跑到第80對才爆掉卻全丟是不能接受的）
+                    log(f"\n⛔ 免費額度暫停：{e}")
+                    log(f"   目前累計已完成 {len(rows)} 對（本次新跑 {n_new} 對），"
+                        f"將只寫入這些；額度恢復後可用 --resume 從中斷處接續")
+                    paused = True
+                    break
                 for k in total_usage:
                     total_usage[k] += usage.get(k, 0)
                 log(f"  [{tree_id}] 群{a_id}×群{b_id} corr={c:.3f} 互補={comp} "
@@ -230,46 +293,63 @@ def build(trees=DEFAULT_TREES, limit=None, dry_run=False, model=None, log=print)
                         "mechanism_note": story["mechanism_note"],
                         "complement_note": story["complement_note"],
                         "caveat": story["caveat"], "model": model})
-            n_done += 1
-        if limit is not None and n_done >= limit:
+            n_new += 1
+        if limit is not None and n_new >= limit:
             break
 
     if not rows:
         # limit=0 或 trees 給空的時候會走到這；空 DataFrame 沒有欄位，
         # 後面 df["tree_id"] 會 KeyError，明確擋下比讓它炸在型別轉換好懂
-        raise ValueError("沒有產生任何群對——請檢查 --trees 是否有效、--limit 是否為0")
+        # （額度一開始就不足而一對都沒跑成，也會走到這，訊息同樣說得通；
+        #   --resume 且該次trees/limit範圍內的pair全部早就跑完，也會走到這）
+        raise ValueError("沒有產生任何群對——請檢查 --trees 是否有效、--limit 是否為0、"
+                         "今日免費額度是否已用盡，或（--resume 時）是否已全部跑完")
     df = pd.DataFrame(rows)
     for col in ("tree_id", "level", "complementarity"):
         df[col] = df[col].astype("category")
     df["co_fail"] = df["co_fail"].astype(bool)
     if not dry_run:
         C.validate(df, C.CLUSTER_STORY, strict_columns=True)
-        log(f"✓ cluster_story 契約通過（{len(df)} 對）")
-        log(f"  token 合計：prompt {total_usage['prompt_tokens']:,}／"
+        log(f"✓ cluster_story 契約通過（累計 {len(df)} 對，本次新跑 {n_new} 對"
+            f"{'，⚠️ 因額度暫停未跑完' if paused else ''}）")
+        log(f"  本次token合計：prompt {total_usage['prompt_tokens']:,}／"
             f"completion {total_usage['completion_tokens']:,}")
+    df.attrs["paused"] = paused
+    df.attrs["n_new"] = n_new
     return df
 
 
-def run(trees=DEFAULT_TREES, limit=None, model=None, log=print) -> pd.DataFrame:
-    df = build(trees=trees, limit=limit, dry_run=False, model=model, log=log)
+def run(trees=DEFAULT_TREES, limit=None, model=None, resume=False, log=print) -> pd.DataFrame:
+    df = build(trees=trees, limit=limit, dry_run=False, model=model, resume=resume, log=log)
     p = paths.STAGE3 / "cluster_story.parquet"
     df.to_parquet(p, compression="zstd", index=False)
-    # 側錄要記**實際用的**模型：`model` 參數可能是 None（表示由 build 去 config 讀），
-    # 直接寫參數會變成 "(from config)" 這種沒有稽核價值的字串。這份側錄的存在意義
-    # 就是替一個不可完全複現的LLM產物留下溯源紀錄，記錯模型等於失去意義。
-    actual_model = str(df["model"].iloc[0]) if len(df) else (model or "(unknown)")
+    # 側錄的 model 欄位：resume 可能跨次用不同模型，回報所有出現過的模型而非只取
+    # 第一列——原本 `iloc[0]` 在非resume情境下沒問題（單一模型跑到底），但resume
+    # 後若中途換過模型，只記第一列會漏掉事實，稽核用途就失去意義。
+    models_used = sorted(str(m) for m in df["model"].unique()) if len(df) else [model or "(unknown)"]
+    actual_model = models_used[0] if len(models_used) == 1 else "|".join(models_used)
     # ⚠️ 不呼叫 freeze.write_manifest：那會覆蓋 stage3 自己的 MANIFEST.json，
     # 破壞 DD-08 凍結鏈（與 stage2c 當初選擇獨立目錄是同一個理由）。
     # cluster_story 是 stage3 的**附加**產物、且含不可完全複現的LLM輸出，
     # 不納入 stage3 的雜湊驗證範圍，改自帶一份側錄。
+    paused = bool(df.attrs.get("paused", False))
+    n_new = int(df.attrs.get("n_new", len(df)))
     side = {"produced_at": pd.Timestamp.now().isoformat(timespec="seconds"),
-            "model": actual_model, "n_pairs": len(df),
+            "model": actual_model, "n_pairs": len(df), "n_new_this_run": n_new,
+            "resumed": bool(resume),
             "trees": list(trees), "level": LEVEL,
             "complementarity_cuts": C.COMPLEMENTARITY_CUTS,
-            "note": "LLM輸出不保證位元可複現，故不納入stage3 MANIFEST的雜湊驗證"}
+            # ⚠️ 部分完成必須記在側錄裡：否則下次看到這個檔案會誤以為84對全跑完了，
+            # 而它其實可能只有前30對——這種靜默的不完整正是本專案踩過的錯誤類型
+            "complete": not paused,
+            "paused_by_free_tier_quota": paused,
+            "note": "LLM輸出不保證位元可複現，故不納入stage3 MANIFEST的雜湊驗證"
+                    + ("。⚠️ 本次因免費額度不足中途暫停，資料不完整" if paused else "")}
     (paths.STAGE3 / "cluster_story_meta.json").write_text(
         json.dumps(side, ensure_ascii=False, indent=2), encoding="utf-8")
-    log(f"→ cluster_story.parquet  {len(df)} 對, {p.stat().st_size/1024:.0f} KB")
+    log(f"→ cluster_story.parquet  累計{len(df)}對（本次新增{n_new}對）, "
+        f"{p.stat().st_size/1024:.0f} KB"
+        + ("  ⚠️ 不完整（額度暫停）" if paused else ""))
     return df
 
 
@@ -292,12 +372,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--limit", type=int, help="只跑前N對（試水溫用）")
     ap.add_argument("--dry-run", action="store_true", help="只印prompt，不呼叫API、不花錢")
     ap.add_argument("--model", help="覆寫模型（預設讀 config.ini 的 cluster_story_model）")
+    ap.add_argument("--resume", action="store_true",
+                    help="接續跑：讀既有cluster_story.parquet，跳過已完成的pair，"
+                         "只跑剩下的（--limit在此時代表本次最多再打幾對新的）")
     a = ap.parse_args(argv)
 
     if a.dry_run:
-        build(trees=a.trees, limit=a.limit, dry_run=True, model=a.model)
+        build(trees=a.trees, limit=a.limit, dry_run=True, model=a.model, resume=a.resume)
         return 0
-    df = run(trees=a.trees, limit=a.limit, model=a.model)
+    df = run(trees=a.trees, limit=a.limit, model=a.model, resume=a.resume)
     _report(df)
     return 0
 

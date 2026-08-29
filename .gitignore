@@ -318,6 +318,12 @@ secrets.json
 
 # Unpublished thesis reference material — must never be committed
 /參考資料/
+
+# 他人未公開發表的論文全文（學長姊論文等），僅供本研究參考，不可公開散布
+郭鎧菘_結合量化交易與多代理人決策之金融交易框架初探.pdf
+*論文*.pdf
+余姵穎*.pdf
+郭鎧菘*.pdf
 # 研究部凍結產物（衍生資料，可由 pipeline 重建）
 # 例外：保留 MANIFEST.json 作為可複現性佐證（小檔，含 git SHA 與輸入指紋）
 _frozen/**

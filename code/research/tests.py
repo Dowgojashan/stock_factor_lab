@@ -657,6 +657,76 @@ def t_cluster_story_contract_with_mocked_llm():
     C.validate(df, C.CLUSTER_STORY, strict_columns=True)
 
 
+@test
+def t_cluster_story_resume_skips_completed_pairs():
+    """cluster_story --resume：讀既有部分產物時，已完成的pair要跳過、只打剩下的，
+    且最終合併結果要涵蓋「舊的+新的」而非只有新的（否則resume=整批重來，等於
+    白做H-23的部分保存）。用 resume_path 指向temp檔，不碰production路徑。
+    """
+    import tempfile
+    from pathlib import Path
+    from unittest import mock
+    from . import cluster_story as CS
+
+    fake = ({"mechanism_note": "m", "complement_note": "c", "caveat": "v"},
+            {"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150})
+
+    with tempfile.TemporaryDirectory() as td:
+        prev_path = Path(td) / "cluster_story.parquet"
+
+        # 第一段：假裝已經跑過2對（XM_normal只有limit=2的量）
+        with mock.patch.object(CS, "_call_llm", return_value=fake), \
+             mock.patch("utils.config.Config.get_openai_api_key", return_value="sk-fake"), \
+             mock.patch("utils.config.Config.get_openai_model", return_value="fake-model"):
+            df1 = CS.build(trees=("XM_normal",), limit=2, log=lambda *a, **k: None)
+        assert len(df1) == 2
+        df1.to_parquet(prev_path, compression="zstd", index=False)
+        done_before = {(r.tree_id, r.cluster_a, r.cluster_b) for r in df1.itertuples()}
+
+        # 第二段：resume，追蹤 _call_llm 實際被叫了幾次
+        calls: list[tuple] = []
+
+        def _tracking_call_llm(prompt, model, api_key, **kw):
+            calls.append(prompt)
+            return fake
+
+        with mock.patch.object(CS, "_call_llm", side_effect=_tracking_call_llm), \
+             mock.patch("utils.config.Config.get_openai_api_key", return_value="sk-fake"), \
+             mock.patch("utils.config.Config.get_openai_model", return_value="fake-model"):
+            df2 = CS.build(trees=("XM_normal",), resume=True, resume_path=prev_path,
+                          log=lambda *a, **k: None)
+
+        assert len(df2) > len(df1), "resume後的累計對數必須比之前多（否則沒有真的接續跑下去）"
+        got_pairs = {(r.tree_id, r.cluster_a, r.cluster_b) for r in df2.itertuples()}
+        assert done_before <= got_pairs, "resume前已完成的pair必須原樣保留在最終結果裡"
+        assert len(calls) == len(df2) - len(df1), (
+            "本次新增的列數應該剛好等於本次真正打LLM的次數——若對不上，"
+            "代表resume要嘛重打了已完成的pair、要嘛漏跑了該跑的pair")
+        # 主鍵（tree_id,level,cluster_a,cluster_b）不得重複——若resume把已完成的pair
+        # 又重打一次，這裡會直接因主鍵重複而raise，是比字串比對更可靠的防線
+        C.validate(df2, C.CLUSTER_STORY, strict_columns=True)
+
+
+@test
+def t_cluster_story_resume_missing_file_falls_back_to_fresh():
+    """cluster_story --resume：找不到既有檔案時要優雅退回全新執行，不能整個炸掉。"""
+    import tempfile
+    from pathlib import Path
+    from unittest import mock
+    from . import cluster_story as CS
+
+    fake = ({"mechanism_note": "m", "complement_note": "c", "caveat": "v"},
+            {"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150})
+    with tempfile.TemporaryDirectory() as td:
+        missing_path = Path(td) / "does_not_exist.parquet"
+        with mock.patch.object(CS, "_call_llm", return_value=fake), \
+             mock.patch("utils.config.Config.get_openai_api_key", return_value="sk-fake"), \
+             mock.patch("utils.config.Config.get_openai_model", return_value="fake-model"):
+            df = CS.build(trees=("XM_normal",), limit=2, resume=True,
+                         resume_path=missing_path, log=lambda *a, **k: None)
+    assert len(df) == 2
+
+
 # ------------------------------------------------------------ 階段1 標記（W-08）
 
 @test
@@ -988,13 +1058,19 @@ def t_ops_t10_happy_path_parses_story():
         "choices": [{"message": {"content": __import__("json").dumps(fake_story, ensure_ascii=False)}}],
         "usage": {"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150},
     })
+    # 模型改用免費名單內的（原本 "fake-model" 會被新的免費額度煞車擋在送出請求之前，
+    # 那不是這項測試要驗的東西）；並 mock 掉 log_usage，避免測試把假用量寫進真實帳本
+    from utils import openai_quota as OQ
     with mock.patch("requests.post", return_value=fake_resp), \
          mock.patch.object(Config, "get_openai_api_key", return_value="sk-fake"), \
-         mock.patch.object(Config, "get_openai_model", return_value="fake-model"):
+         mock.patch.object(Config, "get_openai_model", return_value="gpt-5-mini"), \
+         mock.patch.object(OQ, "log_usage") as mock_log:
         r = T.t10_generate_return_story_text(tw)
     assert r["story"] == fake_story
     assert r["strategy_uid"] == tw
-    assert r["model"] == "fake-model"
+    # 用量必須有被記帳（監督機制的重點：每次真的呼叫都要留下紀錄）
+    assert mock_log.called, "T10 呼叫成功後必須寫入用量帳本"
+    assert r["model"] == "gpt-5-mini"
     assert r["usage"]["total_tokens"] == 150
     assert "靠少數股" in r["raw_verdict"]
 
@@ -1010,10 +1086,34 @@ def t_ops_t10_quota_exhausted_propagates():
     fake_resp = _fake_openai_response(429, {
         "error": {"message": "You exceeded your current quota",
                   "type": "insufficient_quota", "code": "insufficient_quota"}})
+    # 用免費名單內的模型，讓請求真的送得出去——本測試驗的是「OpenAI 回報額度用盡」
+    # 這條路徑（QuotaExhaustedError），不是我們自己的免費額度煞車（FreeTierExhaustedError），
+    # 兩者是不同的錯誤、不同的意義，不可混為一談
     with mock.patch("requests.post", return_value=fake_resp), \
          mock.patch.object(Config, "get_openai_api_key", return_value="sk-fake"), \
-         mock.patch.object(Config, "get_openai_model", return_value="fake-model"):
+         mock.patch.object(Config, "get_openai_model", return_value="gpt-5-mini"):
         expect_raises(OQ.QuotaExhaustedError, T.t10_generate_return_story_text, tw)
+
+
+@test
+def t_ops_t10_free_tier_gate_blocks_paid_model():
+    """T10：模型不在每日免費額度名單時，必須在**送出請求之前**就擋下。
+
+    這是使用者2026-08-29定的規則——「盡量用免費的，超過再決定要不要花錢」，
+    所以靜默改用付費模型跑下去正好違反意圖。驗證方式：mock requests.post，
+    若它被呼叫到就代表煞車失效（錢已經花出去了）。
+    """
+    from unittest import mock
+    from ops import tools as T
+    from utils.config import Config
+    from utils import openai_quota as OQ
+    tw, _ = _ops_examples()
+    with mock.patch("requests.post") as mock_post, \
+         mock.patch.object(Config, "get_openai_api_key", return_value="sk-fake"), \
+         mock.patch.object(Config, "get_openai_model", return_value="gpt-5.6-terra"):
+        expect_raises(OQ.FreeTierExhaustedError, T.t10_generate_return_story_text, tw)
+    assert not mock_post.called, \
+        "付費模型必須在送出請求前就被擋下，requests.post 不該被呼叫到（否則錢已經花了）"
 
 
 @test
