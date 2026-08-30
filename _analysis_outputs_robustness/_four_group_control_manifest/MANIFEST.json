@@ -1,0 +1,43 @@
+{
+  "stage": "four_group_control",
+  "produced_at": "2026-08-30T01:24:55",
+  "git_sha": "7904459",
+  "params": {
+    "m_per_cluster": 5,
+    "n_random_draws": 200,
+    "random_seed": 42
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage3_isoos\\cluster_assign_IS.parquet",
+      "sha256": "fd4122a0b67aa0dbe80c4eb8340f1c13612dc12d50fb154d6e5d18ad0cc837bf",
+      "bytes": 222804,
+      "rows": 30079
+    },
+    {
+      "path": "_frozen\\stage3_isoos\\cluster_meta_IS.parquet",
+      "sha256": "bec8097ef471382a01dbda95a3c9411ee41f1421b93d5f628d0869f1543fa4b1",
+      "bytes": 21846,
+      "rows": 922
+    },
+    {
+      "path": "_frozen\\stage1\\returns_monthly.parquet",
+      "sha256": "c449417668b6ff2ad58ecd475141e6a1f8dafb79b9600412056bd06bd7394cb3",
+      "bytes": 35729254,
+      "rows": 4547404
+    },
+    {
+      "path": "_analysis_outputs_robustness\\effective_number_of_bets.csv",
+      "sha256": "91730cf71df34b9d22295ab1af00290a30d2115d9b1168bb6022bf3e19f5fabc",
+      "bytes": 291
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_analysis_outputs_robustness\\four_group_control.csv",
+      "sha256": "28244ee31443e07f7b1e1fcbffb6933df6e78fb3c3c1baa7ed994bcbcc7ba786",
+      "bytes": 4114
+    }
+  ],
+  "notes": "H-12：四組對照(A_hrp/B_all/C_random/D_top_cagr)，挑選依據只用IS窗資訊，IS/OOS各自評估CAGR/MDD/Sharpe/ENB。B組ENB沿用H-09全時間窗數字，未按期間重算。"
+}

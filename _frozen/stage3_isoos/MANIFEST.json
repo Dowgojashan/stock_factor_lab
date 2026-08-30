@@ -1,0 +1,115 @@
+{
+  "stage": "stage3_hrp_isoos",
+  "produced_at": "2026-08-29T23:02:31",
+  "git_sha": "7904459",
+  "params": {
+    "is_windows": {
+      "TW": [
+        "2007-01",
+        "2018-12"
+      ],
+      "US": [
+        "2002-01",
+        "2018-12"
+      ],
+      "XM": [
+        "2007-01",
+        "2018-12"
+      ]
+    },
+    "oos_window": [
+      "2019-01",
+      "2025-12"
+    ],
+    "trees_built": [
+      "TW_normal_IS",
+      "US_normal_IS",
+      "XM_normal_IS"
+    ],
+    "linkage_method_chosen": {
+      "TW": "ward",
+      "US": "ward",
+      "XM": "ward"
+    }
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage1\\returns_monthly.parquet",
+      "sha256": "c449417668b6ff2ad58ecd475141e6a1f8dafb79b9600412056bd06bd7394cb3",
+      "bytes": 35729254,
+      "rows": 4547404
+    },
+    {
+      "path": "_frozen\\stage1\\returns_meta.parquet",
+      "sha256": "4a7dd7dc4e9cabd38e4bd04dfec742e1df99b7bc3a0f62216ad08deacf4e0010",
+      "bytes": 181944,
+      "rows": 15810
+    },
+    {
+      "path": "_frozen\\stage1\\strategy_marks.parquet",
+      "sha256": "4b81d7fb55665f465dbfc394c027b764c0805c373d32a719b4b2b6c3c59e4b03",
+      "bytes": 544970,
+      "rows": 15810
+    },
+    {
+      "path": "_frozen\\stage0\\candidate_index.parquet",
+      "sha256": "b308a282f48511117739a3d3215dd00601a03c8247a9693edaad1644de57a8e2",
+      "bytes": 1453737,
+      "rows": 15810
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_frozen\\stage3_isoos\\cluster_assign_IS.parquet",
+      "sha256": "fd4122a0b67aa0dbe80c4eb8340f1c13612dc12d50fb154d6e5d18ad0cc837bf",
+      "bytes": 222804,
+      "rows": 30079
+    },
+    {
+      "path": "_frozen\\stage3_isoos\\cluster_meta_IS.parquet",
+      "sha256": "bec8097ef471382a01dbda95a3c9411ee41f1421b93d5f628d0869f1543fa4b1",
+      "bytes": 21846,
+      "rows": 922
+    },
+    {
+      "path": "_frozen\\stage3_isoos\\isoos_corr_comparison.parquet",
+      "sha256": "a2fa241da51cecd6d2a9ead57d2e9a295fd9b77f190864d8df0e9de8641587b6",
+      "bytes": 8790,
+      "rows": 39
+    },
+    {
+      "path": "_frozen\\stage3_isoos\\cluster_corr_matrix_IS_TW_normal_IS.parquet",
+      "sha256": "2c0125b9dcbf39529563f723dc2012b8bea5ea9b6e014cfaccf7bc684bddb711",
+      "bytes": 5518,
+      "rows": 6
+    },
+    {
+      "path": "_frozen\\stage3_isoos\\linkage_IS_TW_normal_IS.npy",
+      "sha256": "e59b8e569f56126de7242105eec32cb80ed2cad84346d5ded0841fa87250074d",
+      "bytes": 213824
+    },
+    {
+      "path": "_frozen\\stage3_isoos\\cluster_corr_matrix_IS_US_normal_IS.parquet",
+      "sha256": "7efa9ef5df8be6e03dead32abf16a8bde81954b329e8db658c9f80363b393609",
+      "bytes": 6235,
+      "rows": 7
+    },
+    {
+      "path": "_frozen\\stage3_isoos\\linkage_IS_US_normal_IS.npy",
+      "sha256": "93e30c99697030adeceb61c71f3c3c37a9f00db151a2c0c588623b59dad9d35a",
+      "bytes": 267616
+    },
+    {
+      "path": "_frozen\\stage3_isoos\\cluster_corr_matrix_IS_XM_normal_IS.parquet",
+      "sha256": "cf3452082f0454699e70630a8106b25478d170bfd46cc13edf3b84f23a6b72cd",
+      "bytes": 3491,
+      "rows": 3
+    },
+    {
+      "path": "_frozen\\stage3_isoos\\linkage_IS_XM_normal_IS.npy",
+      "sha256": "2eeef71e7c81c95f2d52a7520ada52bab9871562de2af1356b719475eab5e2f6",
+      "bytes": 481376
+    }
+  ],
+  "notes": "H-11 v2：IS窗建樹凍結群定義，OOS窗只重算同一批群的相關係數（不重新分群）。完全獨立於_frozen/stage3/的主線六棵樹（全時間窗），不共用檔名/MANIFEST。"
+}

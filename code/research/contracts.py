@@ -61,6 +61,21 @@ HRP_WINDOWS = {
 #: 穩健性對照窗（台股樹另跑一次，比較群結構 ARI）
 HRP_ROBUSTNESS_WINDOW_TW = ("2003-01", "2025-12")
 
+#: H-11（2026-08-29 使用者定案 v2）：IS/OOS 切分點，只用於 stage3_hrp_isoos.py，
+#: **不影響** `HRP_WINDOWS`（第9節主線六棵樹的既有全時間窗，繼續原樣保留、不動）。
+#: 原提案（依市場各自涵蓋COVID/2022熊市選窗）已撤銷——那是先看歷史再回頭挑窗口，
+#: 等於用上帝視角選OOS。v2改用「兩市場OOS用同一段絕對日曆時間」：不管各自窗口
+#: 多長，OOS一律是2019-01~2025-12；IS佔比因此隨市場窗口長度自然不同（TW/XM
+#: 63.2%、US 70.8%），這是窗口長度天生不同的結果，不是選擇性挑出來的。
+#: 只做normal樹（crisis樹樣本太小，H-14/H-16已定案不切IS/OOS）。
+HRP_IS_WINDOWS = {
+    "TW": ("2007-01", "2018-12"),   # 144月／63.2%，IS起點與HRP_WINDOWS相同（共同窗起點不變）
+    "US": ("2002-01", "2018-12"),   # 204月／70.8%
+    "XM": ("2007-01", "2018-12"),   # 144月／63.2%
+}
+#: OOS對三市場都相同（同一段絕對日曆時間）
+HRP_OOS_WINDOW = ("2019-01", "2025-12")   # 84月，三市場皆同
+
 #: 五分類因子表（研究部 v9 / GateC C-2）
 FACTOR_TYPE_MAP = {
     **{f: "估值型" for f in ("PB", "PS", "P_IC", "EV_S", "EV_EBITDA", "FCF_P", "FCF_OI", "PE")},
@@ -582,6 +597,30 @@ CLUSTER_STORY = Schema(
 )
 
 
+#: H-08（2026-08-30）：單群身份的 LLM 解釋（新產出，非cluster_story）。cluster_story
+#: 只做「兩群為什麼互補」，這裡回答「這一群本身到底是什麼意思」——老師原話「才知道
+#: 什麼時候用哪一個」，也是銜接S-01（群→總經介面）的素材來源。
+#: 輸入全部來自H-06（cluster_profile_quant，定量時間型態）+ cluster_story的
+#: _cluster_profiles（橫斷面成分側寫）+ co_fail_regimes（危機期關聯，供參考不代表
+#: 選群決策依據，H-15已定案）。跟cluster_story同一套抗幻覺鐵則，額外多一條：
+#: **不推論「適合什麼總經環境」**——那是S-01/S-02之後決策層的工作，這裡只做客觀
+#: 身份描述，避免在總經知識缺席的情況下編造適配性因果。
+CLUSTER_IDENTITY = Schema(
+    name="cluster_identity",
+    primary_key=["tree_id", "level", "cluster_id"],
+    columns=[
+        Column("tree_id", "cat", allowed=TREE_IDS),
+        Column("level", "cat", allowed=("L1",)),   # 只做L1，跟H-06/H-07/cluster_story同樣理由
+        Column("cluster_id", "int"),
+        Column("identity_label", "str"),      # LLM：一句話身份標籤
+        Column("mechanism_note", "str"),      # LLM：這群為什麼長這樣（成分驅動）
+        Column("performance_pattern", "str"), # LLM：績效隨時間的型態（H-06時間序列驅動）
+        Column("caveat", "str"),              # LLM：此描述的限制（群內異質性等）
+        Column("model", "str"),
+    ],
+)
+
+
 #: H-06（2026-08-28）：群的定量特徵表，老師具體要求的角度——「某幾年固定賺錢、
 #: 某幾年賠錢」「季度或年份的獲利表現是不是不太一樣」。純程式算、無LLM，供論文
 #: 直接呈現，也是之後 H-08（單群LLM解釋）的輸入素材。只在 L1 算（給LLM讀/論文
@@ -648,6 +687,136 @@ CLUSTER_PROFILE_QUANT = Schema(
         Column("annual_ret_mean", "float"),
         Column("annual_ret_std", "float", nullable=True),
         Column("quarterly_ret_std", "float", nullable=True),
+    ],
+)
+
+
+#: H-09（2026-08-29）：有效獨立賭注數（Effective Number of Bets），一棵normal樹一列。
+#: 回答老師「HRP到底幫你少了多少東西」，也是「免費午餐」大小的理論上限。
+#: 方法見 hrp.effective_number_of_bets()（PCA熵版，Meucci 2009/López de Prado 2016）。
+#: 只做normal樹（crisis樹樣本量太小，見effective_bets.py docstring）。
+EFFECTIVE_BETS = Schema(
+    name="effective_bets",
+    primary_key=["tree_id"],
+    columns=[
+        Column("tree_id", "cat", allowed=TREE_IDS),
+        Column("tree_key", "cat", allowed=("TW", "US", "XM")),
+        Column("n_strategies", "int", ge=1),
+        Column("enb_raw", "float", ge=1),          # 理論上ENB下限為1（全部完美相關）
+        Column("n_clusters_l1", "int", ge=1),
+        Column("enb_clusters", "float", ge=1),
+        Column("redundancy_ratio", "float", ge=1, nullable=True),
+        Column("k_vs_enb_raw", "float", ge=0, nullable=True),
+        Column("cluster_independence", "float", ge=0, nullable=True),
+    ],
+)
+
+
+#: H-10（2026-08-29）：群內代表策略挑選規則，一群一列。`m_target`/`max_share_of_avg`
+#: 是自由參數（每次跑可能不同），主鍵故意不含它們——**同一次跑**（同一個 `m`）內
+#: 每群只會出現一列，跨不同`m`的跑是分開的CSV檔（檔名帶m），不會混進同一張表裡。
+CLUSTER_REPRESENTATIVES = Schema(
+    name="cluster_representatives",
+    primary_key=["tree_id", "level", "cluster_id"],
+    columns=[
+        Column("tree_id", "cat", allowed=TREE_IDS),
+        Column("level", "cat", allowed=("L1",)),
+        Column("cluster_id", "int"),
+        Column("n_members", "int", ge=1),
+        Column("m_target", "int", ge=1),
+        Column("n_picked", "int", ge=1),
+        Column("n_backfilled", "int", ge=0),
+        Column("picked_uids", "str"),
+        Column("naive_top_m_uids", "str"),
+        Column("avg_intra_corr_cluster", "float", nullable=True),
+        Column("avg_pairwise_corr_picked", "float", nullable=True),
+        Column("avg_pairwise_corr_naive", "float", nullable=True),
+        Column("co_fail_peers", "str", nullable=True),   # 警示欄位，非篩選依據（H-15）
+    ],
+)
+
+
+# ============================================================================
+# H-11 · IS/OOS（stage3_hrp_isoos.py，2026-08-29）
+# ============================================================================
+
+#: IS窗建的樹，tree_id 額外加 `_IS` 後綴跟主線六棵樹（TREE_IDS）區隔——
+#: **完全獨立的命名空間、獨立的輸出目錄**，不會跟 `_frozen/stage3/` 的正式產物混淆。
+ISOOS_TREE_IDS = ("TW_normal_IS", "US_normal_IS", "XM_normal_IS")
+
+CLUSTER_ASSIGN_ISOOS = Schema(
+    name="cluster_assign_isoos",
+    primary_key=[PK, "tree_id"],
+    columns=[
+        Column(PK, "str"),
+        Column("tree_id", "cat", allowed=ISOOS_TREE_IDS),
+        Column("cluster_L1", "int"),
+        Column("cluster_L3", "int"),
+    ],
+)
+
+CLUSTER_META_ISOOS = Schema(
+    name="cluster_meta_isoos",
+    primary_key=["tree_id", "level", "cluster_id"],
+    columns=[
+        Column("tree_id", "cat", allowed=ISOOS_TREE_IDS),
+        Column("level", "cat", allowed=("L1", "L3")),
+        Column("cluster_id", "int"),
+        Column("n_members", "int", ge=1),
+        Column("avg_intra_corr", "float", nullable=True),
+        Column("representative_uid", "str"),
+    ],
+)
+
+#: H-13 的核心素材：同一批群（IS窗定義、凍結），群間相關係數在 IS 窗跟 OOS 窗
+#: 各算一次，比較是否維持同樣的（低）相關——老師原話：「in sample都很低，可是
+#: out sample會不會還是很低」。群定義完全不變，唯一差的是拿哪一段月份的報酬去算相關。
+ISOOS_CORR_COMPARISON = Schema(
+    name="isoos_corr_comparison",
+    primary_key=["tree_id", "level", "cluster_a", "cluster_b"],
+    columns=[
+        Column("tree_id", "cat", allowed=ISOOS_TREE_IDS),
+        Column("level", "cat", allowed=("L1",)),   # 只在L1做，跟cluster_story/H-06/H-07同樣理由
+        Column("cluster_a", "int"),
+        Column("cluster_b", "int"),
+        Column("corr_is", "float", ge=-1, le=1),
+        Column("corr_oos", "float", ge=-1, le=1, nullable=True),   # OOS月數不足時可能算不出
+        Column("delta", "float", nullable=True),                  # corr_oos - corr_is
+        Column("complementarity_is", "cat", allowed=("高", "中", "低")),
+        Column("complementarity_oos", "cat", allowed=("高", "中", "低"), nullable=True),
+        Column("complementarity_stable", "bool", nullable=True),   # IS/OOS互補程度判定是否一致
+    ],
+)
+
+
+#: H-12（2026-08-30）：四組對照實驗——老師的驗證題「選30多支 vs 狂灑下去會不會一樣」。
+#: A=HRP跨群選代表／B=全部灑／C=隨機同樣數量（200次抽樣彙總）／D=純CAGR前N名／
+#: E=純Calmar前N名（不設多樣性限制，2026-08-30新增，用來把「品質指標選擇」跟
+#: 「多樣性限制」兩件事拆開看——A跟D的差異同時混了兩個因素，E只變品質指標不變
+#: 多樣性限制，D跟E只變多樣性限制不變品質指標，兩兩對照才能拆解出各自的貢獻）。
+#: 一列＝一棵樹×一組。`_std`欄位只有C組（200次抽樣）有值，其餘組是單一次結果、無變異可談。
+FOUR_GROUP_CONTROL = Schema(
+    name="four_group_control",
+    primary_key=["tree_key", "group"],
+    columns=[
+        Column("tree_key", "cat", allowed=("TW", "US", "XM")),
+        Column("group", "cat", allowed=("A_hrp", "B_all", "C_random", "D_top_cagr", "E_top_calmar")),
+        Column("n_members", "int", ge=1),
+        Column("n_draws", "int", ge=1),
+        Column("is_cagr", "float", nullable=True), Column("is_cagr_std", "float", nullable=True),
+        Column("is_mdd", "float", nullable=True), Column("is_mdd_std", "float", nullable=True),
+        Column("is_sharpe", "float", nullable=True), Column("is_sharpe_std", "float", nullable=True),
+        Column("is_enb", "float", nullable=True), Column("is_enb_std", "float", nullable=True),
+        Column("oos_cagr", "float", nullable=True), Column("oos_cagr_std", "float", nullable=True),
+        Column("oos_mdd", "float", nullable=True), Column("oos_mdd_std", "float", nullable=True),
+        Column("oos_sharpe", "float", nullable=True), Column("oos_sharpe_std", "float", nullable=True),
+        Column("oos_enb", "float", nullable=True), Column("oos_enb_std", "float", nullable=True),
+        # 集中度診斷（2026-08-30新增）：2026-08-30初版跑完後，D組在美股/跨市場的
+        # OOS「勝利」被查出其實是選到單一群的集中賭注，不是真的分散——這兩欄
+        # 把當時要手動debug才查得到的事實，變成每次跑都自動看得到的欄位。
+        Column("n_clusters_covered", "int", ge=1, nullable=True),   # 這組成員橫跨幾個IS群
+        Column("max_cluster_share", "float", ge=0, le=1, nullable=True),  # 最大單一群佔比
+        Column("note", "str", nullable=True),
     ],
 )
 
@@ -804,5 +973,7 @@ ALL_SCHEMAS = {s.name: s for s in (CANDIDATE_INDEX, RETURNS_MONTHLY, RETURNS_MET
                                    MACRO_RAW, MACRO_HISTORY, REGIME_TABLE, REGIME_CONSISTENCY,
                                    CLUSTER_ASSIGN, CLUSTER_META, CO_FAIL_REGIMES, STRATEGY_MARKS,
                                    REGIME_PERFORMANCE, MACRO_PERFORMANCE, STRATEGY_MAP,
-                                   CLUSTER_STORY, CLUSTER_ANNUAL_RETURNS, CLUSTER_QUARTERLY_RETURNS,
-                                   CLUSTER_PROFILE_QUANT)}
+                                   CLUSTER_STORY, CLUSTER_IDENTITY, CLUSTER_ANNUAL_RETURNS, CLUSTER_QUARTERLY_RETURNS,
+                                   CLUSTER_PROFILE_QUANT, EFFECTIVE_BETS, CLUSTER_REPRESENTATIVES,
+                                   CLUSTER_ASSIGN_ISOOS, CLUSTER_META_ISOOS, ISOOS_CORR_COMPARISON,
+                                   FOUR_GROUP_CONTROL)}

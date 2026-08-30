@@ -1,0 +1,59 @@
+{
+  "stage": "effective_bets",
+  "produced_at": "2026-08-29T19:39:00",
+  "git_sha": "7904459",
+  "params": {
+    "trees": [
+      "TW_normal",
+      "US_normal",
+      "XM_normal"
+    ],
+    "method": "PCA熵版ENB（Meucci 2009/López de Prado 2016）"
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage1\\returns_monthly.parquet",
+      "sha256": "c449417668b6ff2ad58ecd475141e6a1f8dafb79b9600412056bd06bd7394cb3",
+      "bytes": 35729254,
+      "rows": 4547404
+    },
+    {
+      "path": "_frozen\\stage1\\returns_meta.parquet",
+      "sha256": "4a7dd7dc4e9cabd38e4bd04dfec742e1df99b7bc3a0f62216ad08deacf4e0010",
+      "bytes": 181944,
+      "rows": 15810
+    },
+    {
+      "path": "_frozen\\stage1\\strategy_marks.parquet",
+      "sha256": "4b81d7fb55665f465dbfc394c027b764c0805c373d32a719b4b2b6c3c59e4b03",
+      "bytes": 544970,
+      "rows": 15810
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_corr_matrix_TW_normal.parquet",
+      "sha256": "858b98bfa807ccece580d715615a5d1421d675fb5903548c46e64ce80c8b0fc4",
+      "bytes": 5518,
+      "rows": 6
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_corr_matrix_US_normal.parquet",
+      "sha256": "61a4a6ed77d18a4999b5b8cf4656a12ec06f829bf8882d03e95e0be718ea0cc5",
+      "bytes": 6235,
+      "rows": 7
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_corr_matrix_XM_normal.parquet",
+      "sha256": "aacd4812e84ecb9d03cb8ec93c8ddd3e104f11939f70334fe9203859d03f6bd1",
+      "bytes": 3491,
+      "rows": 3
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_analysis_outputs_robustness\\effective_number_of_bets.csv",
+      "sha256": "91730cf71df34b9d22295ab1af00290a30d2115d9b1168bb6022bf3e19f5fabc",
+      "bytes": 291
+    }
+  ],
+  "notes": "H-09：有效獨立賭注數，只做normal樹（crisis樣本量太小、H-14已限定描述性用途）"
+}

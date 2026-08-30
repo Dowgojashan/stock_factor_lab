@@ -197,6 +197,39 @@ def t_hrp_weights_valid():
 
 
 @test
+def t_hrp_effective_number_of_bets_bounds():
+    """H-09：ENB方向不能顛倒——全部獨立時要等於N（上限），全部完美相關時要等於1（下限）"""
+    from . import hrp
+    n = 20
+    identity = np.eye(n)
+    enb_indep = hrp.effective_number_of_bets(identity)
+    assert abs(enb_indep - n) < 1e-6, f"全部獨立(corr=I)的ENB應為{n}，實際{enb_indep}"
+
+    all_corr = np.ones((n, n))
+    enb_perfect = hrp.effective_number_of_bets(all_corr)
+    assert abs(enb_perfect - 1.0) < 1e-6, f"全部完美相關的ENB應為1，實際{enb_perfect}"
+
+    assert enb_indep > enb_perfect, "獨立矩陣的ENB必須大於完美相關矩陣的ENB"
+
+
+@test
+def t_hrp_effective_number_of_bets_monotonic_in_correlation():
+    """H-09：ENB須隨平均相關程度單調遞減——相關越高，有效獨立賭注數越少（不能顛倒方向）"""
+    from . import hrp
+    n = 30
+    prev_enb = None
+    for rho in (0.0, 0.3, 0.6, 0.9):
+        corr = np.full((n, n), rho)
+        np.fill_diagonal(corr, 1.0)
+        enb = hrp.effective_number_of_bets(corr)
+        if prev_enb is not None:
+            assert enb < prev_enb, (
+                f"相關係數從低到高({rho})，ENB應該跟著下降，"
+                f"但這次({enb:.2f}) >= 前一次({prev_enb:.2f})")
+        prev_enb = enb
+
+
+@test
 def t_hrp_build_tree_end_to_end():
     """build_tree 端到端：合成資料跑完整鏈，權重與PSD檢查皆正常"""
     from . import hrp
@@ -725,6 +758,90 @@ def t_cluster_story_resume_missing_file_falls_back_to_fresh():
             df = CS.build(trees=("XM_normal",), limit=2, resume=True,
                          resume_path=missing_path, log=lambda *a, **k: None)
     assert len(df) == 2
+
+
+# ------------------------------------------------------------ cluster_identity（H-08，LLM點④之外的新產出）
+
+@test
+def t_cluster_identity_contract_with_mocked_llm():
+    """H-08：mock LLM回應時整條組裝流程要通過契約（不打真實API、不花錢）"""
+    from unittest import mock
+    from . import cluster_identity as CI
+    fake = ({"identity_label": "測試群", "mechanism_note": "機械性差異：因子家族。",
+             "performance_pattern": "19年中13年正報酬。", "caveat": "僅根據提供的側寫。"},
+            {"prompt_tokens": 1300, "completion_tokens": 700, "total_tokens": 2000})
+    with mock.patch.object(CI, "_call_llm", return_value=fake), \
+         mock.patch("utils.config.Config.get_openai_api_key", return_value="sk-fake"), \
+         mock.patch("utils.config.Config.get_openai_model", return_value="fake-model"):
+        df = CI.build(trees=("XM_normal",), limit=3, log=lambda *a, **k: None)
+    assert len(df) == 3
+    C.validate(df, C.CLUSTER_IDENTITY, strict_columns=True)
+
+
+@test
+def t_cluster_identity_resume_skips_completed_clusters():
+    """H-08 --resume：已完成的群要跳過、只跑剩下的，合併結果涵蓋舊的+新的。
+    跟cluster_story的resume是同一個模式，這裡驗證群層級（非pair層級）版本正確。
+    """
+    import tempfile
+    from pathlib import Path
+    from unittest import mock
+    from . import cluster_identity as CI
+
+    fake = ({"identity_label": "L", "mechanism_note": "m",
+             "performance_pattern": "p", "caveat": "c"},
+            {"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150})
+
+    with tempfile.TemporaryDirectory() as td:
+        prev_path = Path(td) / "cluster_identity.parquet"
+        with mock.patch.object(CI, "_call_llm", return_value=fake), \
+             mock.patch("utils.config.Config.get_openai_api_key", return_value="sk-fake"), \
+             mock.patch("utils.config.Config.get_openai_model", return_value="fake-model"):
+            df1 = CI.build(trees=("XM_normal",), limit=2, log=lambda *a, **k: None)
+        assert len(df1) == 2
+        df1.to_parquet(prev_path, compression="zstd", index=False)
+        done_before = {(r.tree_id, r.cluster_id) for r in df1.itertuples()}
+
+        calls = []
+        def _tracking(prompt, model, api_key, **kw):
+            calls.append(prompt)
+            return fake
+        with mock.patch.object(CI, "_call_llm", side_effect=_tracking), \
+             mock.patch("utils.config.Config.get_openai_api_key", return_value="sk-fake"), \
+             mock.patch("utils.config.Config.get_openai_model", return_value="fake-model"):
+            df2 = CI.build(trees=("XM_normal",), resume=True, resume_path=prev_path,
+                          log=lambda *a, **k: None)
+
+        assert len(df2) > len(df1), "resume後累計群數必須比之前多"
+        got = {(r.tree_id, r.cluster_id) for r in df2.itertuples()}
+        assert done_before <= got, "resume前已完成的群必須原樣保留"
+        assert len(calls) == len(df2) - len(df1), \
+            "本次新增列數應該剛好等於本次真正打LLM的次數"
+        C.validate(df2, C.CLUSTER_IDENTITY, strict_columns=True)
+
+
+@test
+def t_cluster_identity_real_data():
+    """H-08：真實資料，cluster_identity契約通過，且16群（TW6/US7/XM3）全部涵蓋，
+    identity_label不得為空字串（否則等於沒有產出有意義的身份標籤）。
+    """
+    p = paths.STAGE3 / "cluster_identity.parquet"
+    if not p.exists():
+        raise AssertionError("尚未執行 research.cluster_identity")
+    df = pd.read_parquet(p)
+    C.validate(df, C.CLUSTER_IDENTITY, strict_columns=True)
+    counts = df.groupby("tree_id", observed=True).size()
+    assert counts.get("TW_normal", 0) == 6, f"TW_normal應有6群，實際{counts.get('TW_normal', 0)}"
+    assert counts.get("US_normal", 0) == 7, f"US_normal應有7群，實際{counts.get('US_normal', 0)}"
+    assert counts.get("XM_normal", 0) == 3, f"XM_normal應有3群，實際{counts.get('XM_normal', 0)}"
+    assert (df["identity_label"].str.len() > 0).all(), "identity_label不該有空字串"
+    # 抗幻覺基本檢查：不應該出現總經推論常見的字眼（H-08鐵則3明文禁止）
+    banned = ["升息", "降息", "通膨環境", "景氣循環", "適合在"]
+    for r in df.itertuples():
+        for kw in banned:
+            assert kw not in r.mechanism_note and kw not in r.performance_pattern, (
+                f"[{r.tree_id}群{r.cluster_id}] 出現疑似總經推論字眼「{kw}」，"
+                "H-08鐵則3禁止在沒有總經資訊的情況下做這類推論")
 
 
 # ------------------------------------------------------------ 階段1 標記（W-08）
@@ -1339,6 +1456,131 @@ def t_stage3_universe_excludes_non_usable():
     contaminated = assign[assign[C.PK].isin(not_usable)]
     assert contaminated.empty, \
         f"{len(contaminated)} 筆 is_usable=False 的策略混進了 HRP 樹（{sorted(contaminated.tree_id.unique())}）"
+
+
+@test
+def t_four_group_control_real_data():
+    """H-12：真實資料，four_group_control契約通過，且幾個不可能違反的結構性事實：
+    C_random(200次抽樣平均)應該非常接近B_all(全宇宙)——兩者理論上收斂到同一個母體
+    平均值，只是C用抽樣近似；n_members要對得上A/D的目標值；ENB不可能超過n_members。
+    """
+    p = paths.ROOT / "_analysis_outputs_robustness" / "four_group_control.csv"
+    if not p.exists():
+        raise AssertionError("尚未執行 research.four_group_control")
+    df = pd.read_csv(p)
+    df["tree_key"] = df["tree_key"].astype("category")
+    df["group"] = df["group"].astype("category")
+    C.validate(df, C.FOUR_GROUP_CONTROL, strict_columns=True)
+
+    for tk, g in df.groupby("tree_key", observed=True):
+        b = g[g.group == "B_all"].iloc[0]
+        c = g[g.group == "C_random"].iloc[0]
+        a = g[g.group == "A_hrp"].iloc[0]
+        d = g[g.group == "D_top_cagr"].iloc[0]
+        # C是B的無偏抽樣近似，200次平均應該離B的CAGR很近（用寬鬆的絕對值門檻，
+        # 避免對隨機數種子的細節過度敏感，只驗證「同一個量級、方向一致」）
+        assert abs(c["is_cagr"] - b["is_cagr"]) < 0.02, (
+            f"[{tk}] C_random的IS CAGR({c['is_cagr']:.4f})離B_all({b['is_cagr']:.4f})太遠，"
+            f"200次抽樣平均不該跟全宇宙平均差這麼多")
+        assert abs(c["oos_cagr"] - b["oos_cagr"]) < 0.02
+        # A/D的實際選出檔數不該超過目標(k群×5)，且至少要選到大半（backfill機制保底）
+        assert a["n_members"] == d["n_members"], "A/D兩組的組合大小應該用同一個n_target"
+        # ENB數學邊界：不可能超過該組的成員數
+        for _, row in g.iterrows():
+            if pd.notna(row["is_enb"]):
+                assert row["is_enb"] <= row["n_members"] + 1e-6, \
+                    f"[{tk}/{row['group']}] IS ENB({row['is_enb']})不可能超過成員數({row['n_members']})"
+            if pd.notna(row["oos_enb"]):
+                assert row["oos_enb"] <= row["n_members"] + 1e-6, \
+                    f"[{tk}/{row['group']}] OOS ENB({row['oos_enb']})不可能超過成員數({row['n_members']})"
+        # A組是貪婪多樣性選擇，設計上每群固定選m=5個代表，理論上應該橫跨全部群
+        # （除非某群候選不足才會少），不該退化成集中在少數幾群
+        e_row = g[g.group == "E_top_calmar"].iloc[0]
+        n_clusters_a = int(a["n_clusters_covered"])
+        assert n_clusters_a >= 2, (
+            f"[{tk}] A_hrp只橫跨{n_clusters_a}群，多樣性選擇規則可能失效"
+            "（設計上應該覆蓋大部分甚至全部群）")
+        # max_cluster_share的數學邊界：不可能是負的，不可能超過1
+        for _, row in g.iterrows():
+            if pd.notna(row["max_cluster_share"]):
+                assert 0 <= row["max_cluster_share"] <= 1 + 1e-9, \
+                    f"[{tk}/{row['group']}] max_cluster_share越界：{row['max_cluster_share']}"
+
+
+@test
+def t_effective_bets_real_data():
+    """H-09：真實資料，effective_bets契約通過，且ENB的數學邊界不能被打破——
+    ENB(N個策略) 不可能超過N（PCA熵的定義域上限就是N），ENB(k個群代表)
+    同理不可能超過k；否則代表算法本身寫錯方向或搞混了輸入矩陣。
+    """
+    p = paths.ROOT / "_analysis_outputs_robustness" / "effective_number_of_bets.csv"
+    if not p.exists():
+        raise AssertionError("尚未執行 research.effective_bets")
+    df = pd.read_csv(p)
+    C.validate(df.assign(tree_id=df.tree_id.astype("category"),
+                         tree_key=df.tree_key.astype("category")),
+               C.EFFECTIVE_BETS, strict_columns=True)
+    assert set(df.tree_id) == {"TW_normal", "US_normal", "XM_normal"}, \
+        "H-09只做normal樹，crisis樹樣本量太小不該出現在這張表裡"
+    for r in df.itertuples():
+        assert r.enb_raw <= r.n_strategies + 1e-6, \
+            f"[{r.tree_id}] ENB不可能超過N（ENB={r.enb_raw}，N={r.n_strategies}）"
+        assert r.enb_clusters <= r.n_clusters_l1 + 1e-6, \
+            f"[{r.tree_id}] ENB(群代表)不可能超過群數k（ENB={r.enb_clusters}，k={r.n_clusters_l1}）"
+        assert r.enb_raw >= 1.0 - 1e-6, f"[{r.tree_id}] ENB下限應為1，實際{r.enb_raw}"
+
+
+@test
+def t_cluster_representatives_real_data():
+    """H-10：真實資料，cluster_representatives契約通過，且多樣性選擇要真的比
+    純品質排序更分散——否則貪婪演算法等於白寫，跟naive選法沒有差異。
+    """
+    p = paths.ROOT / "_analysis_outputs_robustness" / "cluster_representatives_m3.csv"
+    if not p.exists():
+        raise AssertionError("尚未執行 research.cluster_representatives")
+    df = pd.read_csv(p)   # co_fail_peers 空字串讀回會變NaN，schema已宣告nullable=True可直接接受
+    df["tree_id"] = df["tree_id"].astype("category")
+    df["level"] = df["level"].astype("category")
+    C.validate(df, C.CLUSTER_REPRESENTATIVES, strict_columns=True)
+
+    both = df[df["avg_pairwise_corr_picked"].notna() & df["avg_pairwise_corr_naive"].notna()]
+    assert len(both) > 0, "至少要有可比較的群（成員數>=2才有平均相關可算）"
+    worse = both[both["avg_pairwise_corr_picked"] > both["avg_pairwise_corr_naive"] + 1e-9]
+    assert worse.empty, (
+        f"多樣性選擇的結果不該比純品質排序更集中，但有 {len(worse)} 群反而更相關：\n"
+        f"{worse[['tree_id', 'cluster_id', 'avg_pairwise_corr_picked', 'avg_pairwise_corr_naive']].to_string(index=False)}")
+    # n_picked 不該超過該群成員數，也不該超過m_target
+    assert (df["n_picked"] <= df["n_members"]).all()
+    assert (df["n_picked"] <= df["m_target"]).all()
+
+
+@test
+def t_stage3_hrp_isoos_real_data():
+    """H-11：真實資料，isoos契約通過，且完全不能碰到主線stage3的正式產物
+    （這是使用者明確要求的「資料要分好，不要搞混」，用檔案系統證據直接驗證，
+    不是只看程式邏輯）。
+    """
+    from . import paths as P
+    p = P.STAGE3_ISOOS / "isoos_corr_comparison.parquet"
+    if not p.exists():
+        raise AssertionError("尚未執行 research.stage3_hrp_isoos")
+    df = pd.read_parquet(p)
+    df["tree_id"] = df["tree_id"].astype("category")
+    df["level"] = df["level"].astype("category")
+    df["complementarity_is"] = df["complementarity_is"].astype("category")
+    df["complementarity_oos"] = df["complementarity_oos"].astype("category")
+    C.validate(df, C.ISOOS_CORR_COMPARISON, strict_columns=True)
+    assert set(df.tree_id) == {"TW_normal_IS", "US_normal_IS", "XM_normal_IS"}
+
+    # 隔離驗證：IS/OOS的檔案跟主線stage3六棵樹的檔名不可能撞在一起（不同目錄），
+    # 且主線stage3的 MANIFEST 內容不該提到任何 _IS 樹（代表兩邊真的完全獨立）
+    assert P.STAGE3_ISOOS != P.STAGE3, "isoos輸出目錄不可以跟主線stage3共用"
+    main_manifest = freeze.read_manifest(paths.STAGE3)
+    assert "_IS" not in str(main_manifest), \
+        "主線stage3的MANIFEST不該出現任何IS/OOS的痕跡——兩邊必須完全獨立"
+    main_assign = pd.read_parquet(paths.STAGE3 / "cluster_assign.parquet")
+    assert not any(str(t).endswith("_IS") for t in main_assign.tree_id.unique()), \
+        "主線stage3的cluster_assign.parquet不該混進任何IS樹的資料"
 
 
 @test

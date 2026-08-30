@@ -29,6 +29,9 @@ STAGE1 = FROZEN / "stage1"
 STAGE2 = FROZEN / "stage2"
 STAGE3 = FROZEN / "stage3"
 STAGE4 = FROZEN / "stage4"
+#: H-11（2026-08-29）IS/OOS 產物——**獨立於 STAGE3 的目錄**，不共用檔名、不共用
+#: MANIFEST，避免跟主線六棵樹（全時間窗）的既有正式產物混淆或被誤覆蓋。
+STAGE3_ISOOS = FROZEN / "stage3_isoos"
 
 MARKETS = ("TW", "US")
 VARIANT = "openSec"          # 採用的正式設計（研究部 v9 定案）

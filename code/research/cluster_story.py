@@ -64,9 +64,12 @@ LEVEL = "L1"          # 與 cluster_corr_matrix / co_fail_regimes 的粒度一�
 RESERVE_RATIO = 0.05
 
 #: 單次呼叫的預估 token 數，供**呼叫前**的額度檢查用。
-#: 2026-08-25 實測 84 對共 prompt 112,861 + completion 43,046 ≈ 每對 1,856 tok，
-#: 取整數並留一點餘裕。這只是煞車用的估計值，實際用量以回應的 usage 為準。
-EST_TOKENS_PER_CALL = 2_000
+#: 🔄 2026-08-30（H-24換模型後重測）：gpt-5 實測3對 XM_normal（含1對「低」互補、
+#: 2對「中」）平均每對3,567 tok（prompt~1,370／completion~2,197），比舊模型sol
+#: 的每對1,856 tok高出約92%——gpt-5的回覆明顯更詳盡。取4,000留餘裕。
+#: 這只是煞車用的估計值，實際用量以回應的 usage 為準；84對全量預估約
+#: 84×3,567≈30萬tok，仍遠低於gpt-5標準池1M/日的額度。
+EST_TOKENS_PER_CALL = 4_000
 
 
 def _complementarity(corr: float) -> str:
