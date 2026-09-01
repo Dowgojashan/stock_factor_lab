@@ -28,9 +28,8 @@ import time
 import numpy as np
 import pandas as pd
 
-from . import contracts as C
 from . import hrp, paths
-from . import stage3_hrp as S3
+from . import stage3_hrp as S3   # 資料準備一律走 S3.rebuild_tree_returns()，見該函式docstring
 
 DEFAULT_TREES = ("TW_normal", "US_normal", "XM_normal")
 K_MIN, K_MAX = 3, 20
@@ -39,29 +38,12 @@ K_MIN, K_MAX = 3, 20
 def _rebuild_dist_matrix(tree_id: str, log=print) -> tuple[np.ndarray, np.ndarray, pd.Index]:
     """重算某棵樹的距離矩陣（corr_to_distance），linkage 直接讀凍結檔，不重算。
 
-    跟 stage3_hrp.py 的 _build_tree() 走同一段資料準備（同一份 usable_pool、
-    同一段共同窗），corr 應與建樹當下逐位元一致——linkage 是拿同一個 corr 建的，
-    不會對不起來。
+    資料準備（usable過濾／共同窗／排除零變異數）一律走
+    `stage3_hrp.rebuild_tree_returns()` 這個單一事實來源，故 corr 與建樹當下逐位元
+    一致——linkage 是拿同一個 corr 建的，不會對不起來。2026-08-30 code review 前
+    這裡有一份逐行複製品，跟 `effective_bets._tree_corr` 各自維護，見該函式docstring。
     """
-    tree_key, kind = tree_id.rsplit("_", 1)
-    months_long = pd.read_parquet(paths.STAGE1 / "returns_monthly.parquet")
-    meta = pd.read_parquet(paths.STAGE1 / "returns_meta.parquet")
-    marks = pd.read_parquet(paths.STAGE1 / "strategy_marks.parquet")
-    usable = set(marks.loc[marks.is_usable, C.PK])
-    meta = meta[meta.strategy_uid.isin(usable)]
-
-    window_start, window_end = C.HRP_WINDOWS[tree_key]
-    uids = S3._tree_universe(tree_key, window_start, meta)
-    if kind == "normal":
-        wide = S3._pivot_window(months_long, uids, window_start, window_end)
-    else:
-        crisis_months = S3._load_crisis_months(tree_key)
-        wide = S3._pivot_months(months_long, uids, crisis_months)
-
-    std0 = wide.std(axis=1) == 0
-    if std0.any():
-        wide = wide.loc[~std0]
-
+    wide = S3.rebuild_tree_returns(tree_id, log)
     corr = np.corrcoef(wide.to_numpy(dtype=np.float64))
     dist = hrp.corr_to_distance(corr)
     link = np.load(paths.STAGE3 / f"linkage_{tree_id}.npy")

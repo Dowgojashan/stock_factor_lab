@@ -147,6 +147,60 @@ def _load_crisis_months(tree_key: str) -> pd.PeriodIndex:
     return pd.PeriodIndex(sorted(months), freq="M")
 
 
+def _drop_zero_variance(wide: pd.DataFrame, log=print) -> tuple[pd.DataFrame, int]:
+    """排除該窗內完全沒有報酬波動的策略（會讓 corrcoef 整列產生 NaN）。
+
+    normal 樹（228/288月）極少見；crisis 樹（17~26月）樣本少，較可能出現。
+    抽成函式是為了讓 `_build_tree`（建樹當下）與 `rebuild_tree_returns`（事後重建）
+    **共用同一條排除規則**——這兩處若各寫一份，日後改了其中一個門檻，重建出來的
+    矩陣就跟當初建樹用的不一樣，而且不會報錯。回傳 (過濾後的wide, 被排除的檔數)。
+    """
+    std0 = wide.std(axis=1) == 0
+    n = int(std0.sum())
+    if n:
+        log(f"  ⚠️ 排除 {n} 個零變異數策略（此窗內完全無報酬波動，corrcoef 會產生 NaN）")
+        wide = wide.loc[~std0]
+    return wide, n
+
+
+def rebuild_tree_returns(tree_id: str, log=print) -> pd.DataFrame:
+    """重建某棵樹**當初建樹時實際用的**報酬矩陣（策略×月，已排除零變異數列）。
+
+    ⚠️ **這是「重建某棵樹的輸入」的單一事實來源**（2026-08-30 code review 抽出）。
+    在此之前，`effective_bets._tree_corr()` 與 `cluster_count_selection.
+    _rebuild_dist_matrix()` 各自維護了一份逐行相同的複製品——那種重複最危險的
+    地方不是多打幾行字，而是**以後只要有人改了其中一邊的過濾規則（usable 定義、
+    共同窗取法、零變異數排除），另一邊會靜默沿用舊規則，兩邊算出的相關矩陣就
+    不再是同一個東西，而且不會報錯**，只會讓 H-03（群數選擇）與 H-09（ENB）
+    悄悄建立在不同的資料上。
+
+    步驟必須與 `run()` + `_build_tree()` 開頭完全一致：
+      usable_pool 過濾 → DD-03 共同窗（crisis 樹改取危機月份子集）→ 排除零變異數。
+    呼叫端自行決定要拿它算 corr、dist 還是別的東西。
+
+    ⚠️ 本函式**不做** `freeze.verify_inputs`——它讀 STAGE1 的凍結產物，但驗證屬於
+    「跑一支完整流程前」的職責，應由呼叫端的 `run()` 負責（各模組讀的上游集合不同，
+    在這裡硬驗會驗到呼叫端根本沒用到的東西）。
+    """
+    tree_key, kind = tree_id.rsplit("_", 1)
+    months_long = pd.read_parquet(paths.STAGE1 / "returns_monthly.parquet")
+    meta = pd.read_parquet(paths.STAGE1 / "returns_meta.parquet")
+    marks = pd.read_parquet(paths.STAGE1 / "strategy_marks.parquet")
+    usable = set(marks.loc[marks.is_usable, C.PK])
+    meta = meta[meta.strategy_uid.isin(usable)]
+
+    window_start, window_end = C.HRP_WINDOWS[tree_key]
+    uids = _tree_universe(tree_key, window_start, meta)
+    if kind == "normal":
+        wide = _pivot_window(months_long, uids, window_start, window_end)
+    else:
+        crisis_months = _load_crisis_months(tree_key)
+        wide = _pivot_months(months_long, uids, crisis_months)
+
+    wide, _ = _drop_zero_variance(wide, log)
+    return wide
+
+
 def _build_tree(tree_id: str, tree_key: str, wide: pd.DataFrame,
                 f_combo_map: pd.Series, log=print) -> dict:
     """給定已 pivot 好的報酬矩陣（策略×月，無NaN），跑完 HRP 全流程。
@@ -156,13 +210,8 @@ def _build_tree(tree_id: str, tree_key: str, wide: pd.DataFrame,
     """
     t0 = time.time()
 
-    # 零變異數策略（該窗內完全沒有報酬變化）會讓 corrcoef 產生 NaN，須先排除。
-    # normal 樹（228/288月）極少見；crisis 樹（17~26月）樣本少，較可能出現。
-    std0 = wide.std(axis=1) == 0
-    if std0.any():
-        log(f"  ⚠️ 排除 {int(std0.sum())} 個零變異數策略（此窗內完全無報酬波動，"
-            f"corrcoef 會產生 NaN）")
-        wide = wide.loc[~std0]
+    # 排除規則與 rebuild_tree_returns 共用同一個函式，見 _drop_zero_variance docstring
+    wide, n_dropped_zero_var = _drop_zero_variance(wide, log)
 
     uids = wide.index
     log(f"  報酬矩陣 {wide.shape}（策略×月）")
@@ -252,7 +301,7 @@ def _build_tree(tree_id: str, tree_key: str, wide: pd.DataFrame,
         "tree_id": tree_id, "tree_key": tree_key, "assign": assign, "cluster_meta": cluster_meta,
         "corr_l1": corr_mats["L1"], "link": link, "method": method,
         "cophenetic": coph, "psd_min_eig": min_eig, "ari_l3": ari,
-        "n_strategies": len(uids), "n_dropped_zero_var": int(std0.sum()),
+        "n_strategies": len(uids), "n_dropped_zero_var": n_dropped_zero_var,
         "n_months": returns.shape[1], "seconds": dt,
         "method_comparison": {m: {k: v for k, v in r.items() if k != "link"}
                               for m, r in results.items()},

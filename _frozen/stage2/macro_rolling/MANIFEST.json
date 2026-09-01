@@ -1,0 +1,49 @@
+{
+  "stage": "macro_rolling_window",
+  "produced_at": "2026-09-01T01:34:58",
+  "git_sha": "be3282f",
+  "params": {
+    "window_months": 60
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage2\\macro\\macro_raw.parquet",
+      "sha256": "2281a2d4a1970be285214de62cc9b8d483eb2ccce0e202fbe8f611cfdd122a82",
+      "bytes": 29441,
+      "rows": 2968
+    },
+    {
+      "path": "_frozen\\stage2\\macro\\macro_history_TW.parquet",
+      "sha256": "9e28aafe288abf76b03688283425e2e388636f1778cf6846ab68620e0b69b2bf",
+      "bytes": 28651,
+      "rows": 312
+    },
+    {
+      "path": "_frozen\\stage2\\macro\\macro_history_US.parquet",
+      "sha256": "cd6f5fb152407cdab5f44d1e1b10c17d82bff4dc4529c164c00b5b760bb57ea5",
+      "bytes": 36128,
+      "rows": 312
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_frozen\\stage2\\macro_rolling\\macro_history_rolling_TW.parquet",
+      "sha256": "7854205b766c206ba75e65e91b93c3d796077fb8a489d1448f012bddef7438cc",
+      "bytes": 35186,
+      "rows": 312
+    },
+    {
+      "path": "_frozen\\stage2\\macro_rolling\\macro_history_rolling_US.parquet",
+      "sha256": "bc11b6056b196500540598b26811bf5f0e52a3146dbab315b6d6d49da050b059",
+      "bytes": 38146,
+      "rows": 312
+    },
+    {
+      "path": "_frozen\\stage2\\macro_rolling\\macro_clock_comparison.parquet",
+      "sha256": "859bdc7e4843fdd44cf9886b1eccea081331bb5ec4c7f89ecaaebed5b37b3a64",
+      "bytes": 5533,
+      "rows": 624
+    }
+  ],
+  "notes": "H-18②（軸線二）：總經z-score/投資時鐘四格的滾動窗（無look-ahead）版本，跟既有全樣本凍結版比較差距。獨立於_frozen/stage2/macro/，不覆寫主線。"
+}

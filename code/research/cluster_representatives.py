@@ -161,6 +161,11 @@ def build(trees=DEFAULT_TREES, m: int = 3, max_share_of_avg: float = 1.0,
 
 def run(trees=DEFAULT_TREES, m: int = 3, max_share_of_avg: float = 1.0,
        log=print) -> pd.DataFrame:
+    # STAGE1 兩份 manifest 也要驗——本模組透過 `_tree_corr()`（借用 effective_bets 的）
+    # 讀 returns_monthly/returns_meta/strategy_marks，2026-08-30 code review 補上，
+    # 理由同 effective_bets.run() 的註解。
+    freeze.verify_inputs(paths.STAGE1)
+    freeze.verify_inputs(paths.STAGE1 / "_marks")
     freeze.verify_inputs(paths.STAGE3)
     freeze.verify_inputs(paths.STAGE4)
     out = build(trees=trees, m=m, max_share_of_avg=max_share_of_avg, log=log)

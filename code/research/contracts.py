@@ -432,6 +432,24 @@ MACRO_HISTORY = Schema(
 )
 
 
+#: H-18②（2026-09-01，軸線二·總經）：既有 `MACRO_HISTORY` 的 z-score／投資時鐘
+#: 邊界是拿2000-2025全樣本算一次凍結的——早期月份的分類「偷看」了後期資料。
+#: 這張表比較「全樣本凍結版」vs「5年滾動窗版」（每月只用過去5年資料算），
+#: 量化兩者的clock_cell分類差多少，這個差距本身就是H-18要的論文內容。
+MACRO_CLOCK_COMPARISON = Schema(
+    name="macro_clock_comparison",
+    primary_key=["market", "month"],
+    columns=[
+        Column("market", "cat", allowed=MARKETS),
+        Column("month", "period"),
+        Column("frozen_clock_cell", "cat", allowed=CLOCK_CELLS, nullable=True),
+        Column("rolling_clock_cell", "cat", allowed=CLOCK_CELLS, nullable=True),
+        # None：滾動窗尚未累積滿5年資料，兩邊無法比較（不是「不同」，是「還不能算」）
+        Column("match", "bool", nullable=True),
+    ],
+)
+
+
 # ============================================================================
 # 階段 2a · Regime Dating（W-10）
 # ============================================================================
@@ -616,6 +634,119 @@ CLUSTER_IDENTITY = Schema(
         Column("mechanism_note", "str"),      # LLM：這群為什麼長這樣（成分驅動）
         Column("performance_pattern", "str"), # LLM：績效隨時間的型態（H-06時間序列驅動）
         Column("caveat", "str"),              # LLM：此描述的限制（群內異質性等）
+        Column("model", "str"),
+    ],
+)
+
+
+#: S-01（2026-08-31）：群→總經決策層的介面。方向C 的接縫——H-08 產出的「群身份
+#: 描述」必須是總經層能消費的結構化格式，不能只是一段自由文字。
+#:
+#: 🔴 **為什麼不直接把 cluster_identity 的四個欄位全部餵過去（S-03 的具體落實）**：
+#: `cluster_identity.py` 的 prompt 是**一次性把全部側寫（含觀察期間/最佳年/最差年
+#: 等實際年份）餵給同一個LLM呼叫**，`identity_label`/`mechanism_note`
+#: /`performance_pattern`/`caveat` 四個輸出欄位共用同一個上下文——即使實測16群裡
+#: `performance_pattern`（16/16）與`caveat`（多數）明確引用了真實年份（如「最佳年
+#: 2009」），`identity_label`/`mechanism_note`目前沒有外洩年份，**也只是這次運氣好，
+#: 不是架構上保證**：LLM在生成這兩欄時技術上仍拿得到年份資訊，只是schema描述引導它
+#: 不要用。跟本專案一路的原則（「不給LLM有機會誤用的資訊，而非事後信任它不會誤用」，
+#: 見cluster_story/T10的抗幻覺設計）不一致，故不能直接當作決策層的正式介面。
+#:
+#: **定案做法**：只收 `cluster_identity.identity_label`（短句、風險最低，仍搭配下方
+#: 測試做逐群年份比對當第二道防線）；`mechanism_note`/`performance_pattern`/`caveat`
+#: **一律不納入**——S-02 若需要更豐富的LLM文字脈絡，須另外設計一個「輸入內容從頭
+#: 就不含任何年份/日期」的專屬prompt，不可重用cluster_identity的既有輸出。
+#: 其餘欄位全部來自 `CLUSTER_PROFILE_QUANT`（純程式算，非LLM），**排除掉四個帶
+#: 日曆年份的欄位**（window_start_year／window_end_year／best_year／worst_year）——
+#: 對應的報酬幅度（best_year_ret／worst_year_ret）保留，因為那是純數值統計、
+#: 沒有日曆錨點，不會讓LLM反推出「這是哪一年」。
+CLUSTER_MACRO_INTERFACE = Schema(
+    name="cluster_macro_interface",
+    primary_key=["tree_id", "level", "cluster_id"],
+    columns=[
+        Column("tree_id", "cat", allowed=TREE_IDS),
+        Column("level", "cat", allowed=("L1",)),
+        Column("cluster_id", "int"),
+        Column("identity_label", "str"),
+        Column("n_members", "int", ge=1),
+        Column("pct_TW", "float", ge=0, le=1),
+        Column("pct_US", "float", ge=0, le=1),
+        Column("top1_factor_type", "str", nullable=True),
+        Column("top1_factor_type_pct", "float", ge=0, le=1, nullable=True),
+        Column("top1_F1", "str", nullable=True),
+        Column("top1_F1_pct", "float", ge=0, le=1, nullable=True),
+        Column("top1_C_source", "str", nullable=True),
+        Column("top1_C_source_pct", "float", ge=0, le=1, nullable=True),
+        Column("pct_v1", "float", ge=0, le=1),
+        Column("CAGR_median", "float"),
+        Column("MDD_median", "float"),
+        Column("smallcap_share_median", "float", ge=0, le=1),
+        Column("avg_intra_corr", "float", nullable=True),
+        Column("n_years", "int", ge=1),
+        Column("n_years_positive", "int", ge=0),
+        Column("pct_years_positive", "float", ge=0, le=1),
+        Column("best_year_ret", "float"),      # 幅度保留，年份本身不給（S-03）
+        Column("worst_year_ret", "float"),     # 同上
+        Column("annual_ret_mean", "float"),
+        Column("annual_ret_std", "float", nullable=True),
+        Column("quarterly_ret_std", "float", nullable=True),
+    ],
+)
+
+
+#: S-02（2026-08-31）：群的投資時鐘四格條件式績效——決策層資訊源設計的核心素材。
+#: 純程式算（把 `macro_performance.parquet` 的策略層級數字，用跟
+#: `stage3_hrp._cluster_meta_and_corr`／H-06 同一套「群代表=成員簡單平均」邏輯
+#: 彙整到群層級），**沒有LLM**。
+#:
+#: 🔴 **為什麼需要這張表，而不是直接把 CLUSTER_MACRO_INTERFACE 的 CAGR_median 等
+#: 欄位當決策依據**：那些是「這個群整體表現好不好」的**無條件**統計量，若決策層
+#: 直接看到「群X的CAGR中位數23.5%」，幾乎必然導向「總是選CAGR最高的群」——這正是
+#: H-10/H-12已經證實的陷阱在總經決策層的翻版（H-12實測：無多樣性限制的純品質
+#: 排序在US/XM會塌縮成集中在單一群的賭注，見H-12結果）。本表提供的是**條件式**
+#: 資訊——「這個群在『過熱』時平均月報酬是多少」，決策層要做的判斷才有意義：
+#: 拿當下總經狀態對應的clock_cell去查表，而不是無條件地選歷史最強的群。
+#:
+#: clock_cell（復甦/過熱/停滯性通膨/衰退）是**投資時鐘的regime分類，不是日曆
+#: 年份**，符合S-03「決策層看不到日期」的要求。
+CLUSTER_MACRO_CONDITIONAL = Schema(
+    name="cluster_macro_conditional",
+    primary_key=["tree_id", "level", "cluster_id", "clock_cell"],
+    columns=[
+        Column("tree_id", "cat", allowed=TREE_IDS),
+        Column("level", "cat", allowed=("L1",)),
+        Column("cluster_id", "int"),
+        Column("clock_cell", "cat", allowed=CLOCK_CELLS),
+        Column("n_members_with_data", "int", ge=0),
+        Column("avg_ret_mean", "float", nullable=True),    # 群內成員avg_ret的平均
+        Column("avg_ret_median", "float", nullable=True),
+        Column("win_ratio_mean", "float", nullable=True, ge=0, le=1),
+        Column("pct_high_confidence", "float", nullable=True, ge=0, le=1),
+    ],
+)
+
+
+#: S-07（2026-08-31）：LLM決策層（`decision_layer_arms.llm_decision`）的重複執行
+#: 穩定度。同一輸入（同一組總經狀態+候選群素材）重複呼叫N次，量化決策一致性——
+#: 也是方向D（抗幻覺）的實證素材，見開發待辦追蹤.md S-07。一列＝一個(tree_id,
+#: market,clock_cell)情境的N次重複結果彙總。
+DECISION_REPEATABILITY = Schema(
+    name="decision_repeatability",
+    primary_key=["tree_id", "market", "clock_cell"],
+    columns=[
+        Column("tree_id", "cat", allowed=TREE_IDS),
+        Column("market", "cat", allowed=MARKETS),
+        Column("clock_cell", "cat", allowed=CLOCK_CELLS),
+        Column("n_repeats", "int", ge=2),
+        Column("exact_match_rate", "float", ge=0, le=1),   # 眾數結果佔全部次數的比例
+        Column("mean_pairwise_jaccard", "float", ge=0, le=1),
+        # nullable=True：內容可能是空字串（完全不穩定時core為空、完全穩定時fringe為空），
+        # 空字串經CSV往返讀寫後會變成NaN（pandas.read_csv預設na_values含空字串），
+        # 2026-08-31 code review 抓到的真實bug——同類問題H-10的co_fail_peers已踩過一次。
+        Column("stable_core", "str", nullable=True),        # 每次都選中的群，"|"分隔
+        Column("unstable_fringe", "str", nullable=True),    # 只有部分次數選中的群，"|"分隔
+        Column("rule_in_llm_rate", "float", ge=0, le=1),  # A_rule的選擇是否每次都被LLM包含
+        Column("all_runs", "str"),           # 逐次結果，供事後稽核，如"[1,3]|[1,2]|[1,3]..."
         Column("model", "str"),
     ],
 )
@@ -970,10 +1101,13 @@ STRATEGY_MAP = Schema(
 
 
 ALL_SCHEMAS = {s.name: s for s in (CANDIDATE_INDEX, RETURNS_MONTHLY, RETURNS_META,
-                                   MACRO_RAW, MACRO_HISTORY, REGIME_TABLE, REGIME_CONSISTENCY,
+                                   MACRO_RAW, MACRO_HISTORY, MACRO_CLOCK_COMPARISON,
+                                   REGIME_TABLE, REGIME_CONSISTENCY,
                                    CLUSTER_ASSIGN, CLUSTER_META, CO_FAIL_REGIMES, STRATEGY_MARKS,
                                    REGIME_PERFORMANCE, MACRO_PERFORMANCE, STRATEGY_MAP,
-                                   CLUSTER_STORY, CLUSTER_IDENTITY, CLUSTER_ANNUAL_RETURNS, CLUSTER_QUARTERLY_RETURNS,
+                                   CLUSTER_STORY, CLUSTER_IDENTITY, CLUSTER_MACRO_INTERFACE,
+                                   CLUSTER_MACRO_CONDITIONAL, DECISION_REPEATABILITY,
+                                   CLUSTER_ANNUAL_RETURNS, CLUSTER_QUARTERLY_RETURNS,
                                    CLUSTER_PROFILE_QUANT, EFFECTIVE_BETS, CLUSTER_REPRESENTATIVES,
                                    CLUSTER_ASSIGN_ISOOS, CLUSTER_META_ISOOS, ISOOS_CORR_COMPARISON,
                                    FOUR_GROUP_CONTROL)}

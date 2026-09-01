@@ -1,7 +1,7 @@
 {
   "stage": "four_group_control",
-  "produced_at": "2026-08-30T01:24:55",
-  "git_sha": "7904459",
+  "produced_at": "2026-08-30T23:29:30",
+  "git_sha": "be3282f",
   "params": {
     "m_per_cluster": 5,
     "n_random_draws": 200,

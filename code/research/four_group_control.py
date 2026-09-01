@@ -120,12 +120,22 @@ def _portfolio_series(wide: pd.DataFrame, members: list[str]) -> pd.Series:
 def _small_enb(wide: pd.DataFrame, members: list[str]) -> float:
     """子集（<=數十檔）的有效獨立賭注數，直接對子集自己的相關矩陣做特徵分解——
     矩陣小(<=35x35)，不需要B組那種昂貴的全宇宙特徵分解。
+
+    ⚠️ **必須先排除零變異數成員**（2026-08-30 code review 補上的防禦）：該窗內
+    完全沒有報酬波動的策略會讓 `np.corrcoef` 整列產生 NaN，特徵分解跟著回 NaN，
+    ENB 就靜默變成 NaN——`stage3_hrp._build_tree` 與 `effective_bets._tree_corr`
+    都有做這個排除，但本模組的 `_pivot_is`/`_pivot_oos` 沒有（它們要保留這些成員
+    給組合報酬計算：零波動策略的0報酬是真實的，不該從報酬裡拿掉），所以排除只能
+    做在這裡。實測目前三棵樹的IS/OOS窗都沒有零變異數策略，這是防禦不是修既有錯。
     """
     avail = [m for m in members if m in wide.index]
     if len(avail) < 2:
         return 1.0
-    sub = wide.loc[avail].to_numpy(dtype=np.float64)
-    corr = np.corrcoef(sub)
+    sub_df = wide.loc[avail]
+    sub_df = sub_df.loc[sub_df.std(axis=1) > 0]
+    if len(sub_df) < 2:
+        return 1.0
+    corr = np.corrcoef(sub_df.to_numpy(dtype=np.float64))
     return hrp.effective_number_of_bets(corr)
 
 
@@ -213,6 +223,9 @@ def _pick_group_c_draws(universe: list[str], n_target: int, n_draws: int, seed: 
 # ============================================================================
 
 def build(trees=TREES, log=print) -> pd.DataFrame:
+    # STAGE1 也要驗——本模組讀 returns_monthly 算IS/OOS報酬矩陣。2026-08-30
+    # code review 補上，理由同 effective_bets.run() 的註解（DD-08 一致性）。
+    freeze.verify_inputs(paths.STAGE1)
     freeze.verify_inputs(paths.STAGE3_ISOOS)
     assign_is = pd.read_parquet(paths.STAGE3_ISOOS / "cluster_assign_IS.parquet")
     meta_is = pd.read_parquet(paths.STAGE3_ISOOS / "cluster_meta_IS.parquet")

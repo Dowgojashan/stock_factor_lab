@@ -50,30 +50,13 @@ DEFAULT_TREES = ("TW_normal", "US_normal", "XM_normal")
 
 
 def _tree_corr(tree_id: str, log=print) -> tuple[np.ndarray, pd.Index]:
-    """重建某棵樹的完整N×N相關矩陣。跟 cluster_count_selection._rebuild_dist_matrix
-    走同一段資料準備（同一份usable_pool、同一段共同窗），只是這裡要的是corr本身
-    而非距離矩陣，corr在建樹當下應與 stage3_hrp.py 逐位元一致。
+    """重建某棵樹的完整N×N相關矩陣。
+
+    資料準備（usable過濾／共同窗／排除零變異數）一律走
+    `stage3_hrp.rebuild_tree_returns()` 這個單一事實來源——2026-08-30 code review
+    前這裡有一份逐行複製品，跟 `cluster_count_selection` 各自維護，見該函式docstring。
     """
-    tree_key, kind = tree_id.rsplit("_", 1)
-    months_long = pd.read_parquet(paths.STAGE1 / "returns_monthly.parquet")
-    meta = pd.read_parquet(paths.STAGE1 / "returns_meta.parquet")
-    marks = pd.read_parquet(paths.STAGE1 / "strategy_marks.parquet")
-    usable = set(marks.loc[marks.is_usable, C.PK])
-    meta = meta[meta.strategy_uid.isin(usable)]
-
-    window_start, window_end = C.HRP_WINDOWS[tree_key]
-    uids = S3._tree_universe(tree_key, window_start, meta)
-    if kind == "normal":
-        wide = S3._pivot_window(months_long, uids, window_start, window_end)
-    else:
-        crisis_months = S3._load_crisis_months(tree_key)
-        wide = S3._pivot_months(months_long, uids, crisis_months)
-
-    std0 = wide.std(axis=1) == 0
-    if std0.any():
-        log(f"  ⚠️ 排除 {int(std0.sum())} 個零變異數策略（同stage3_hrp.py的排除規則）")
-        wide = wide.loc[~std0]
-
+    wide = S3.rebuild_tree_returns(tree_id, log)
     t0 = time.time()
     corr = np.corrcoef(wide.to_numpy(dtype=np.float64))
     log(f"[{tree_id}] 重建相關矩陣 {corr.shape}｜{time.time()-t0:.0f}s")
@@ -113,6 +96,13 @@ OUT_DIR = paths.ROOT / "_analysis_outputs_robustness"
 
 
 def run(trees=DEFAULT_TREES, log=print) -> pd.DataFrame:
+    # ⚠️ 三個 manifest 都要驗：`_tree_corr()` 讀 STAGE1 根目錄（returns_monthly/
+    # returns_meta，屬 stage1_scan）與 STAGE1/_marks（strategy_marks），STAGE3 則是
+    # cluster_corr_matrix。2026-08-30 code review 補上——原本只驗 STAGE3，等於讀了
+    # 兩份未經雜湊驗證的凍結輸入，違反 DD-08「下游執行前先驗上游」的設計（stage3_hrp
+    # 與 stage3_hrp_isoos 都有驗，只有這裡漏掉，是不一致而非有意為之）。
+    freeze.verify_inputs(paths.STAGE1)
+    freeze.verify_inputs(paths.STAGE1 / "_marks")
     freeze.verify_inputs(paths.STAGE3)
     out = compute(trees=trees, log=log)
     for col in ("tree_id", "tree_key"):

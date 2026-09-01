@@ -135,6 +135,66 @@ def t_macro_lag_no_lookahead():
 
 
 @test
+def t_macro_rolling_zscore_no_lookahead():
+    """H-18②：合成資料驗證滾動窗z-score真的沒有偷看未來——構造一段前後統計性質
+    明顯不同的序列（前段均值0變異數1，後段均值大幅偏移+變異數放大），驗證
+    「後段」發生之前的滾動z-score，數值上不會被後段的統計性質影響。
+    這是no-lookahead性質的直接實證，不是只測型別/欄位對不對。
+    """
+    from . import macro_rolling_window as MRW
+    rng = np.random.default_rng(0)
+    window = 12
+    n_before, n_after = 30, 30
+    before = rng.normal(0, 1, n_before)
+    after = rng.normal(50, 10, n_after)   # 統計性質劇烈改變的後段
+    idx = pd.period_range("2000-01", periods=n_before + n_after, freq="M")
+    df = pd.DataFrame({"growth": np.concatenate([before, after])}, index=idx)
+    df.index.name = "month"
+
+    # apply_zscore_rolling對AXES裡「不在df.columns的軸」會自動跳過，這裡的df
+    # 只放growth一欄，不需要額外mock掉其他三個軸（inflation/rate_level/rate_direction）
+    out = MRW.apply_zscore_rolling(df, window=window)
+
+    # 前段最後一個月（第n_before-1個索引，尚未看到after段），z-score應該只反映
+    # before段的統計性質，數值應落在合理範圍（絕對值不會突然被後段的均值50拉走）
+    last_before_z = out["growth_z"].iloc[n_before - 1]
+    assert abs(last_before_z) < 5, (
+        f"前段最後一個月的滾動z-score={last_before_z}，數值異常大，"
+        "懷疑偷看了後段的統計性質")
+    # 前window-1個月因為滾動窗不滿，應該是NaN
+    assert out["growth_z"].iloc[:window - 1].isna().all(), \
+        f"前{window-1}個月的資料不滿一個完整窗，應該是NaN（min_periods={window}未生效）"
+    assert pd.notna(out["growth_z"].iloc[window - 1]), \
+        f"第{window}個月資料已滿一個完整窗，應該要有值"
+
+
+@test
+def t_macro_rolling_real_data():
+    """H-18②：真實資料，macro_clock_comparison契約通過，且比對邏輯本身正確——
+    抽查幾筆，確認match欄位真的等於frozen跟rolling的clock_cell是否相同。
+    """
+    p = paths.STAGE2 / "macro_rolling" / "macro_clock_comparison.parquet"
+    if not p.exists():
+        raise AssertionError("尚未執行 research.macro_rolling_window")
+    df = pd.read_parquet(p)
+    df["market"] = df["market"].astype("category")
+    df["frozen_clock_cell"] = df["frozen_clock_cell"].astype("category")
+    df["rolling_clock_cell"] = df["rolling_clock_cell"].astype("category")
+    C.validate(df, C.MACRO_CLOCK_COMPARISON, strict_columns=True)
+
+    both_valid = df["frozen_clock_cell"].notna() & df["rolling_clock_cell"].notna()
+    valid = df[both_valid]
+    assert len(valid) > 0, "至少要有一些月份兩邊都能分類，否則無從比較"
+    recomputed_match = (valid["frozen_clock_cell"] == valid["rolling_clock_cell"])
+    assert (valid["match"].astype(bool) == recomputed_match).all(), \
+        "match欄位跟frozen/rolling clock_cell直接比較的結果對不起來"
+    # 至少要有一筆兩邊不同的（否則滾動窗版本形同白做，也違反直覺——已知真實
+    # 資料裡差異率接近5成，這裡只做「不是0」的寬鬆檢查，避免測試綁死確切比例）
+    assert (~valid["match"].astype(bool)).any(), \
+        "滾動窗版跟凍結版分類完全一致，不符合已知的真實查證結果，需要重新檢查"
+
+
+@test
 def t_macro_spec_complete():
     """四個概念軸台美都要有指標，且每個都有官方來源"""
     from .macro_spec import SPEC, AXES
@@ -844,6 +904,251 @@ def t_cluster_identity_real_data():
                 "H-08鐵則3禁止在沒有總經資訊的情況下做這類推論")
 
 
+# ------------------------------------------------------------ cluster_macro_interface（S-01）
+
+@test
+def t_cluster_macro_interface_real_data():
+    """S-01：真實資料，契約通過，16群全涵蓋，且兩道防線都要驗證：
+    ①schema層級——四個帶日曆年份的欄位(window_start/end_year、best/worst_year)
+      物理上不存在於這張表（strict_columns=True已經會擋，這裡額外顯式檢查一次，
+      因為這條規則是S-03安全性的核心，值得比其他schema測試更明確）
+    ②內容層級——identity_label（唯一保留的LLM文字欄位）不得包含「這個特定群」
+      自己在cluster_profile_quant裡的真實年份數字。用該群自己的實際年份精確比對，
+      不是泛用的年份正則（避免member數量剛好落在19xx/20xx區間造成的假陽性，
+      這是2026-08-31開發時實測踩過的坑）。
+    """
+    p = paths.STAGE3 / "cluster_macro_interface.parquet"
+    if not p.exists():
+        raise AssertionError("尚未執行 research.cluster_macro_interface")
+    df = pd.read_parquet(p)
+    df["tree_id"] = df["tree_id"].astype("category")
+    df["level"] = df["level"].astype("category")
+    C.validate(df, C.CLUSTER_MACRO_INTERFACE, strict_columns=True)
+
+    counts = df.groupby("tree_id", observed=True).size()
+    assert counts.get("TW_normal", 0) == 6
+    assert counts.get("US_normal", 0) == 7
+    assert counts.get("XM_normal", 0) == 3
+
+    banned_cols = ("window_start_year", "window_end_year", "best_year", "worst_year")
+    for col in banned_cols:
+        assert col not in df.columns, (
+            f"帶日曆年份的欄位「{col}」不該出現在總經介面表——S-03明文禁止流入決策層")
+
+    quant = pd.read_parquet(paths.STAGE3 / "cluster_profile_quant.parquet")
+    quant = quant.set_index(["tree_id", "level", "cluster_id"])
+    for r in df.itertuples():
+        q = quant.loc[(r.tree_id, r.level, r.cluster_id)]
+        for real_year in (q.window_start_year, q.window_end_year, q.best_year, q.worst_year):
+            assert str(int(real_year)) not in r.identity_label, (
+                f"[{r.tree_id}群{r.cluster_id}] identity_label包含該群真實年份"
+                f"{real_year}的字串——即使identity_label目前是空字串以外唯一保留的"
+                f"LLM欄位，也不該外洩具體日曆年份（S-03）")
+
+
+# ------------------------------------------------------------ macro_decision_input（S-02）
+
+@test
+def t_macro_decision_input_real_data():
+    """S-02：真實資料，cluster_macro_conditional契約通過，16群×4格＝64列，
+    且群代表口徑要跟H-06/stage3_hrp一致（成員簡單平均）。
+    """
+    p = paths.STAGE3 / "cluster_macro_conditional.parquet"
+    if not p.exists():
+        raise AssertionError("尚未執行 research.macro_decision_input")
+    df = pd.read_parquet(p)
+    df["tree_id"] = df["tree_id"].astype("category")
+    df["level"] = df["level"].astype("category")
+    df["clock_cell"] = df["clock_cell"].astype("category")
+    C.validate(df, C.CLUSTER_MACRO_CONDITIONAL, strict_columns=True)
+    assert len(df) == 16 * 4, f"應為16群×4格=64列，實際{len(df)}"
+    for cell in ("復甦", "過熱", "停滯性通膨", "衰退"):
+        assert cell in set(df.clock_cell), f"缺少clock_cell={cell}"
+
+
+@test
+def t_macro_state_snapshot_never_leaks_month():
+    """S-02：`macro_state_snapshot()`的回傳值絕對不能包含呼叫時傳入的month字串
+    本身，也不能有任何鍵叫month/date/year——這是S-03「決策層不給日期」的具體
+    程式落實，不是只有文件寫寫。
+    """
+    from . import macro_decision_input as MDI
+    snap = MDI.macro_state_snapshot("TW", "2025-12")
+    assert "month" not in snap and "date" not in snap and "year" not in snap
+    assert "2025" not in str(snap.values()), "回傳值不該包含查詢用的年份字串"
+    assert set(snap) == {"growth_z", "inflation_z", "rate_level_z",
+                         "rate_direction_z", "clock_cell"}
+
+
+@test
+def t_group_decision_context_excludes_unconditional_performance():
+    """S-02：`group_decision_context()`不得洩漏無條件績效欄位（CAGR_median等）
+    ——這是本模組最核心的設計決策（見模組docstring），若這裡失守，決策層就會
+    退化成H-10/H-12已經證實有陷阱的「無條件挑歷史最強群」。同時驗證回傳值裡
+    的數值都是原生Python型別（int/float/str/dict/None），可以被json.dumps()
+    直接序列化——2026-08-31開發時實測抓到numpy.int64塞進payload導致
+    json.dumps()直接炸掉的真實bug，已修正，這裡鎖住回歸。
+    """
+    import json
+    from . import macro_decision_input as MDI
+    ctx = MDI.group_decision_context("TW_normal", 1)
+    for banned in ("CAGR_median", "MDD_median", "annual_ret_mean", "annual_ret_std",
+                  "quarterly_ret_std", "best_year_ret", "worst_year_ret",
+                  "n_years_positive", "pct_years_positive", "tree_id", "cluster_id"):
+        assert banned not in ctx, f"「{banned}」不該出現在決策層看到的群素材裡"
+    assert "conditional_performance" in ctx and len(ctx["conditional_performance"]) == 4
+    json.dumps(ctx, ensure_ascii=False)   # 不加 default=str 也要能序列化成功
+
+
+# ------------------------------------------------------------ decision_layer_arms（S-05）
+
+@test
+def t_decision_layer_arm_a_matches_conditional_table():
+    """S-05 A_rule：真實資料，規則基準必須真的是「該clock_cell下avg_ret_median
+    最高」——不是隨便挑，用cluster_macro_conditional.parquet直接反查驗證。
+    """
+    from . import decision_layer_arms as DLA
+    cond = pd.read_parquet(paths.STAGE3 / "cluster_macro_conditional.parquet")
+    for tree_id, cell in (("TW_normal", "復甦"), ("US_normal", "過熱"), ("XM_normal", "衰退")):
+        picked = DLA.rule_based_decision(tree_id, cell, top_n=1)
+        assert len(picked) == 1
+        sub = cond[(cond.tree_id == tree_id) & (cond.clock_cell == cell)].dropna(
+            subset=["avg_ret_median"])
+        expected = int(sub.loc[sub["avg_ret_median"].idxmax(), "cluster_id"])
+        assert picked[0] == expected, (
+            f"[{tree_id}/{cell}] A_rule選了群{picked[0]}，但真正avg_ret_median最高"
+            f"的是群{expected}")
+
+
+@test
+def t_decision_layer_arm_c_returns_all_clusters():
+    """S-05 C_all：真實資料，必須回傳該樹**全部**L1群、不看總經狀態，且結果穩定
+    （呼叫兩次一致，因為它本來就不該依賴任何隨機性或外部狀態）。
+    """
+    from . import decision_layer_arms as DLA
+    assign = pd.read_parquet(paths.STAGE3 / "cluster_assign.parquet")
+    for tree_id in ("TW_normal", "US_normal", "XM_normal"):
+        expected = sorted(assign[assign.tree_id == tree_id]["cluster_L1"].unique().tolist())
+        got1 = DLA.equal_weight_all_decision(tree_id)
+        got2 = DLA.equal_weight_all_decision(tree_id)
+        assert got1 == expected == got2
+
+
+@test
+def t_decision_layer_arm_b_contract_with_mocked_llm():
+    """S-05 B_llm：mock LLM回應時整條組裝流程要通過（不打真實API、不花錢），
+    且prompt組裝出的月份字串不能外洩進macro_state（S-03，跟S-02的規則一致）。
+    """
+    from unittest import mock
+    from . import decision_layer_arms as DLA
+    fake = ({"selected_clusters": [1], "rationale": "群1條件式績效最高。",
+             "caveat": "各群差距不大。"},
+            {"prompt_tokens": 2000, "completion_tokens": 800, "total_tokens": 2800})
+    with mock.patch.object(DLA, "_call_llm", return_value=fake), \
+         mock.patch("utils.config.Config.get_openai_api_key", return_value="sk-fake"), \
+         mock.patch("utils.config.Config.get_openai_model", return_value="fake-model"):
+        decision = DLA.llm_decision("XM_normal", "TW", "2025-12")
+    assert decision["selected_clusters"] == [1]
+    # prompt 本身也要驗證日期沒有外洩（跟 t_macro_state_snapshot_never_leaks_month
+    # 同樣的關切，這裡驗證的是「組裝進最終prompt字串」這一步沒有意外把month塞回去）
+    macro_state = DLA.macro_state_snapshot("TW", "2025-12")
+    group_ctx = {cid: DLA.group_decision_context("XM_normal", cid)
+                for cid in DLA.equal_weight_all_decision("XM_normal")}
+    prompt = DLA.build_prompt("XM_normal", macro_state, group_ctx)
+    assert "2025" not in prompt, "prompt組裝結果不該包含查詢用的年份字串"
+
+
+@test
+def t_decision_layer_compare_snapshot_dry_run_structure():
+    """S-05：真實資料，compare_snapshot 在 dry_run 模式下（不花錢）結構要完整——
+    A_rule/C_all 是真實計算結果，B_llm 因dry_run是空清單，三者的鍵都要存在。
+    """
+    from . import decision_layer_arms as DLA
+    result = DLA.compare_snapshot("XM_normal", "TW", "2025-12", dry_run=True,
+                                  log=lambda *a, **k: None)
+    assert set(("tree_id", "market", "clock_cell", "macro_state", "A_rule",
+              "B_llm", "C_all")) <= set(result)
+    assert len(result["A_rule"]) == 1
+    assert result["C_all"] == [1, 2, 3]
+    assert result["B_llm"] == []   # dry-run 不花錢，不是真的決策結果
+
+
+# ------------------------------------------------------------ decision_repeatability（S-07）
+
+@test
+def t_decision_repeatability_math_mocked():
+    """S-07：mock掉真正的LLM呼叫（不花錢），手算一組已知答案的序列，驗證
+    exact_match_rate/mean_pairwise_jaccard/stable_core/unstable_fringe/
+    rule_in_llm_rate 這五個統計量算得對——這些是S-07的核心交付物，算錯了
+    整份穩定度報告就沒有意義。
+    """
+    from unittest import mock
+    from . import decision_layer_arms as DLA
+    from . import decision_repeatability as DR
+
+    # 手算：5次結果 [1,3][1,3][1,3][1,3][1,2,3]
+    #   眾數是{1,3}，出現4/5次 → exact_match_rate=0.8
+    #   核心(交集)={1,3}；聯集={1,2,3}；邊緣(聯集-核心)={2}
+    #   A_rule=[1]（top1），全部5次都有包含1 → rule_in_llm_rate=1.0
+    #   pairwise jaccard：C(5,2)=10對，其中4對是{1,3}vs{1,3}=1.0(共6對，因為4個相同集合兩兩配對=C(4,2)=6對)
+    #     另外4對是{1,3}vs{1,2,3}=2/3，加總算出mean
+    sequence = [[1, 3], [1, 3], [1, 3], [1, 3], [1, 2, 3]]
+    calls = iter(sequence)
+
+    def _fake_llm_decision(tree_id, market, month, *, model=None, dry_run=False, log=print):
+        return {"selected_clusters": next(calls), "rationale": "r", "caveat": "c"}
+
+    with mock.patch.object(DR, "llm_decision", side_effect=_fake_llm_decision), \
+         mock.patch.object(DR, "rule_based_decision", return_value=[1]), \
+         mock.patch.object(DR, "macro_state_snapshot",
+                          return_value={"clock_cell": "復甦", "growth_z": 0.0,
+                                       "inflation_z": 0.0, "rate_level_z": 0.0,
+                                       "rate_direction_z": 0.0}):
+        result = DR.repeatability_check("TW_normal", "TW", "2025-12", n_repeats=5,
+                                        log=lambda *a, **k: None)
+
+    assert result["exact_match_rate"] == 0.8
+    assert result["stable_core"] == "1|3"
+    assert result["unstable_fringe"] == "2"
+    assert result["rule_in_llm_rate"] == 1.0
+    # 手算pairwise jaccard：6對(1,3)組合jaccard=1.0，4對跟{1,2,3}比較jaccard=2/3
+    expected_jaccard = (6 * 1.0 + 4 * (2 / 3)) / 10
+    assert abs(result["mean_pairwise_jaccard"] - round(expected_jaccard, 4)) < 1e-3
+
+
+@test
+def t_decision_repeatability_real_data():
+    """S-07：真實資料，contract通過，且rule_in_llm_rate跟all_runs欄位互相對得起來
+    ——不是各自獨立算的兩個數字，同一份底層資料算出來的東西不該互相矛盾。
+    """
+    p = paths.ROOT / "_analysis_outputs_robustness" / "decision_repeatability.csv"
+    if not p.exists():
+        raise AssertionError("尚未執行 research.decision_repeatability")
+    # ⚠️ stable_core/unstable_fringe 必須明講 dtype=str：這兩欄存的是"|"分隔的群id
+    # 清單，但當清單剛好只有1個元素時（例如"4"），字串長得跟純數字一樣，若欄位裡
+    # 剛好每一列都是空值或單一數字，pandas的CSV型別推斷會把整欄判成float64而非
+    # object——2026-08-31開發時實測踩到的真實bug（不是理論風險，US/TW兩列的
+    # unstable_fringe剛好都只有1個元素）。空字串讀回仍會變NaN，schema已宣告
+    # nullable=True。
+    df = pd.read_csv(p, dtype={"stable_core": str, "unstable_fringe": str})
+    df["tree_id"] = df["tree_id"].astype("category")
+    df["market"] = df["market"].astype("category")
+    df["clock_cell"] = df["clock_cell"].astype("category")
+    C.validate(df, C.DECISION_REPEATABILITY, strict_columns=True)
+    assert len(df) == 3
+    import ast
+    for r in df.itertuples():
+        assert 0 <= r.exact_match_rate <= 1
+        assert 0 <= r.mean_pairwise_jaccard <= 1
+        assert r.n_repeats >= 2
+        runs = [set(ast.literal_eval(s)) for s in r.all_runs.split("|")]
+        assert len(runs) == r.n_repeats, "all_runs記錄的次數要跟n_repeats一致"
+        core = set.intersection(*runs)
+        stable_core = "" if pd.isna(r.stable_core) else r.stable_core
+        assert core == set(int(x) for x in stable_core.split("|") if x), (
+            f"[{r.tree_id}] stable_core跟all_runs反推出的交集對不起來")
+
+
 # ------------------------------------------------------------ 階段1 標記（W-08）
 
 @test
@@ -1505,6 +1810,40 @@ def t_four_group_control_real_data():
             if pd.notna(row["max_cluster_share"]):
                 assert 0 <= row["max_cluster_share"] <= 1 + 1e-9, \
                     f"[{tk}/{row['group']}] max_cluster_share越界：{row['max_cluster_share']}"
+
+
+@test
+def t_rebuild_tree_returns_is_single_source_of_truth():
+    """回歸測試（2026-08-30 code review）：`effective_bets._tree_corr` 與
+    `cluster_count_selection._rebuild_dist_matrix` 曾經各自維護一份逐行相同的
+    資料準備複製品（usable過濾／共同窗／排除零變異數）。那種重複最危險的不是
+    多打幾行字，而是**改了其中一邊、另一邊靜默沿用舊規則，兩邊的相關矩陣不再
+    是同一個東西且不會報錯**——H-03（群數選擇）與 H-09（ENB）會悄悄建立在不同
+    資料上。已抽成 `stage3_hrp.rebuild_tree_returns()` 單一事實來源。
+
+    此測試鎖住兩件事：①兩個呼叫端拿到的 uid 集合與相關矩陣完全一致
+    ②`rebuild_tree_returns` 重建的矩陣，其形狀與凍結 linkage 隱含的葉節點數吻合
+    （linkage 有 N-1 列合併記錄，N 即當初建樹時的策略數）——若資料準備規則跟
+    建樹當下不一致，這裡會直接對不起來。
+    """
+    from . import effective_bets as EB
+    from . import cluster_count_selection as CCS
+    from . import stage3_hrp as S3
+
+    tree_id = "XM_normal"    # 挑最大的那棵，最容易暴露不一致
+    quiet = lambda *a, **k: None
+    corr_eb, idx_eb = EB._tree_corr(tree_id, quiet)
+    dist_ccs, link, idx_ccs = CCS._rebuild_dist_matrix(tree_id, quiet)
+
+    assert list(idx_eb) == list(idx_ccs), \
+        "兩個呼叫端拿到的策略集合/順序必須完全一致（否則相關矩陣不可比）"
+    # dist 是 corr 的確定性函式，反推回去必須吻合
+    assert np.allclose(dist_ccs, S3.hrp.corr_to_distance(corr_eb), atol=1e-12), \
+        "兩個呼叫端算出的矩陣不一致——資料準備已經分岔了"
+    # 與凍結 linkage 的葉節點數對帳：linkage 有 N-1 列
+    assert link.shape[0] + 1 == len(idx_eb), (
+        f"重建的策略數({len(idx_eb)})與凍結linkage隱含的葉節點數"
+        f"({link.shape[0] + 1})不符——資料準備規則已與建樹當下不一致")
 
 
 @test

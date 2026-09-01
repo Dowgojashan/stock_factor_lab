@@ -1,7 +1,7 @@
 {
   "stage": "effective_bets",
-  "produced_at": "2026-08-29T19:39:00",
-  "git_sha": "7904459",
+  "produced_at": "2026-08-31T00:54:56",
+  "git_sha": "be3282f",
   "params": {
     "trees": [
       "TW_normal",
