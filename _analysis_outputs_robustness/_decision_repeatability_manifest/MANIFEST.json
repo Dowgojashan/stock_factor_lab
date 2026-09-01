@@ -1,7 +1,7 @@
 {
   "stage": "decision_repeatability",
-  "produced_at": "2026-08-31T17:45:17",
-  "git_sha": "be3282f",
+  "produced_at": "2026-09-01T10:35:53",
+  "git_sha": "9b338b3",
   "params": {
     "scenarios": [
       [
@@ -25,7 +25,7 @@
   "inputs": [
     {
       "path": "_frozen\\stage3\\cluster_macro_conditional.parquet",
-      "sha256": "bdedf89451fae856ba3f2dea2b65a4db69451a1d3a5b703c6793a3b8f000e619",
+      "sha256": "94e3f9950b5c4a4a565dbc82cb3a88ca829f289267f2b6655e15c624c08d086c",
       "bytes": 9132,
       "rows": 64
     },
@@ -39,8 +39,8 @@
   "outputs": [
     {
       "path": "_analysis_outputs_robustness\\decision_repeatability.csv",
-      "sha256": "b16b448c77a2cd6d51ee8456d39880e028d501d889cb20afe580ed5490c0d0da",
-      "bytes": 414
+      "sha256": "47e02a34c481dc5bb8132bbfa410643bcff9d9d24648e8dabc3eb36c4043551b",
+      "bytes": 413
     }
   ],
   "notes": "S-07：LLM決策層重複執行穩定度，方向C可信度與方向D抗幻覺的共同實證素材。"

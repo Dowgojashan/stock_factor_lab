@@ -142,8 +142,19 @@ def macro_state_snapshot(market: str, month: str) -> dict:
     `month` 是查表用的參數（供未來逐月 walk-forward 測試呼叫），刻意不放進回傳值——
     呼叫端若要記錄「這是哪個月的查詢」，須自行在函式呼叫之外另外保存，不能靠這個
     回傳值反查，否則等於繞了一圈還是把日期交給了下游。
+
+    ⚠️ 2026-09-01 code review 補上：本函式是S-05/S-07實際呼叫的入口（不透過
+    `run()`），先前完全沒有`freeze.verify_inputs`，違反DD-08「下游執行前先驗
+    上游」——`run()`裡的驗證只覆蓋它自己會用到的STAGE3/STAGE4主manifest，
+    不會被這個獨立函式呼叫到。
+
+    ⚠️ 2026-09-01（H-18②下游重跑）：改讀滾動窗版clock_cell（`macro_rolling_
+    window.py`），不是全樣本凍結版——理由見該模組docstring（凍結版早期月份的
+    分類其實用到了後期資料算出的z-score參數，是真實look-ahead）。
     """
-    mh = pd.read_parquet(paths.STAGE2 / "macro" / f"macro_history_{market}.parquet")
+    freeze.verify_inputs(paths.STAGE2 / "macro_rolling")
+    mh = pd.read_parquet(
+        paths.STAGE2 / "macro_rolling" / f"macro_history_rolling_{market}.parquet")
     row = mh[mh.month == pd.Period(month, "M")]
     if row.empty:
         raise ValueError(f"{market} 的 macro_history 查無 {month} 這個月份")
@@ -161,7 +172,15 @@ def macro_state_snapshot(market: str, month: str) -> dict:
 def group_decision_context(tree_id: str, cluster_id: int) -> dict:
     """給定群，回傳決策層看得到的完整素材：結構特徵 + identity_label（皆來自S-01，
     排除無條件績效欄位）+ 四格條件式績效（本模組新算）。
+
+    ⚠️ 2026-09-01 code review 補上：同`macro_state_snapshot`，這是S-05/S-07的
+    實際呼叫入口，先前沒有`freeze.verify_inputs`。`cluster_macro_interface.
+    parquet`／`cluster_macro_conditional.parquet`都是「附加」產物、各自有獨立
+    manifest（不進STAGE3主manifest，理由同`cluster_temporal_profile.py`），
+    故驗證要分別指到各自的子目錄，驗STAGE3主manifest驗不到這兩個檔案。
     """
+    freeze.verify_inputs(paths.STAGE3 / "_macro_interface")
+    freeze.verify_inputs(paths.STAGE3 / "_macro_conditional")
     interface = pd.read_parquet(paths.STAGE3 / "cluster_macro_interface.parquet")
     row = interface[(interface.tree_id == tree_id) & (interface.cluster_id == cluster_id)]
     if row.empty:

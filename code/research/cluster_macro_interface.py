@@ -38,8 +38,14 @@ _EXCLUDED_QUANT_COLUMNS = ("window_start_year", "window_end_year", "best_year", 
 
 
 def build(log=print) -> pd.DataFrame:
-    freeze.verify_inputs(paths.STAGE3)
-    freeze.verify_inputs(paths.STAGE4)
+    # ⚠️ 2026-09-01 code review 修正：原本驗的是 paths.STAGE3（主manifest，管
+    # cluster_assign/cluster_meta等）跟 paths.STAGE4——但本函式實際讀的是
+    # cluster_identity.parquet（無正式manifest，見下方說明）跟
+    # cluster_profile_quant.parquet（manifest在STAGE3/_temporal_profile子目錄，
+    # H-06另開的），兩個都不在原本驗證的範圍內，等於驗了兩個不相干的東西、
+    # 真正該驗的都漏掉了。cluster_identity.parquet是LLM輸出，用側錄
+    # meta.json（非freeze manifest）記錄完整性，本函式無法用freeze驗證它。
+    freeze.verify_inputs(paths.STAGE3 / "_temporal_profile")
 
     identity = pd.read_parquet(paths.STAGE3 / "cluster_identity.parquet")[
         ["tree_id", "level", "cluster_id", "identity_label"]]

@@ -1813,6 +1813,61 @@ def t_four_group_control_real_data():
 
 
 @test
+def t_complementarity_granularity_real_data():
+    """H-25：真實資料，契約通過，且鎖住這項分析真正要主張的三件事。
+
+    ①**粒度效應存在**：XM跨市場配對在L3的高互補比例必須遠高於L1（L1是0%）——
+      這是「L1沒有高互補是聚合效應、不是策略真的沒互補性」的直接證據。
+    ②**不是小群雜訊**：同市場配對是天然對照組（群大小/月份數同量級），
+      在同一個層級下高互補比例必須遠低於跨市場。若雜訊是主因，同市場也該
+      一起噴出大量假高互補。
+    ③**結論不靠納入小群撐著**：把門檻拉到只納入成員數>=20的群，①②仍須成立。
+
+    這三條同時鎖住了「不該為了讓L1出現高互補而調 COMPLEMENTARITY_CUTS」這個
+    決策——真正的問題在粒度，不在門檻。
+    """
+    p = paths.ROOT / "_analysis_outputs_robustness" / "complementarity_granularity_summary.csv"
+    if not p.exists():
+        raise AssertionError("尚未執行 research.complementarity_granularity")
+    df = pd.read_csv(p)
+    for col in ("tree_id", "level", "pair_type"):
+        df[col] = df[col].astype("category")
+    C.validate(df, C.COMPLEMENTARITY_GRANULARITY, strict_columns=True)
+
+    def _row(level, pair_type, mm, tree="XM_normal"):
+        s = df[(df.tree_id == tree) & (df.level == level)
+              & (df.pair_type == pair_type) & (df.min_members == mm)]
+        assert len(s) == 1, f"查不到唯一的 {tree}/{level}/{pair_type}/min={mm}"
+        return s.iloc[0]
+
+    for mm in (1, 20):
+        cross_l1 = _row("L1", "cross", mm)
+        cross_l3 = _row("L3", "cross", mm)
+        same_l3 = _row("L3", "same", mm)
+
+        # ① 粒度效應：L1 跨市場 0 對高互補，L3 必須有實質比例
+        assert cross_l1.n_high == 0, (
+            f"L1跨市場出現{cross_l1.n_high}對高互補，跟本分析的前提（L1沒有高互補）"
+            "矛盾——若分群或門檻改過，這項分析的敘事要重寫")
+        assert cross_l3.pct_high > 0.4, (
+            f"[min={mm}] L3跨市場高互補只有{cross_l3.pct_high:.1%}，"
+            "粒度效應不成立，報告裡「免費午餐藏在細粒度」的主張站不住")
+
+        # ② 同市場對照組：同一層級下必須遠低於跨市場
+        assert same_l3.pct_high < 0.10, (
+            f"[min={mm}] L3同市場高互補達{same_l3.pct_high:.1%}，"
+            "對照組失效——無法排除「小群估計雜訊」這個替代解釋")
+        assert cross_l3.pct_high > same_l3.pct_high * 5, (
+            f"[min={mm}] L3跨市場({cross_l3.pct_high:.1%})沒有明顯高於"
+            f"同市場({same_l3.pct_high:.1%})，市場邊界效應不成立")
+
+    # ③ 判定門檻必須仍是未改動的原值——這項分析的整個論點就是「門檻不用改」
+    assert C.COMPLEMENTARITY_CUTS == {"高": 0.5, "中": 0.8}, (
+        f"COMPLEMENTARITY_CUTS 已被改成 {C.COMPLEMENTARITY_CUTS}；"
+        "H-25 的結論（問題在粒度不在門檻）與報告敘述都須重新檢視")
+
+
+@test
 def t_rebuild_tree_returns_is_single_source_of_truth():
     """回歸測試（2026-08-30 code review）：`effective_bets._tree_corr` 與
     `cluster_count_selection._rebuild_dist_matrix` 曾經各自維護一份逐行相同的

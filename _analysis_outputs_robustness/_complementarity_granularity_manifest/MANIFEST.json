@@ -1,0 +1,52 @@
+{
+  "stage": "complementarity_granularity",
+  "produced_at": "2026-09-01T14:07:27",
+  "git_sha": "9b338b3",
+  "params": {
+    "trees": [
+      "TW_normal",
+      "US_normal",
+      "XM_normal"
+    ],
+    "levels": [
+      "L1",
+      "L3"
+    ],
+    "min_members_grid": [
+      1,
+      5,
+      20
+    ],
+    "complementarity_cuts": {
+      "高": 0.5,
+      "中": 0.8
+    }
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage3\\cluster_assign.parquet",
+      "sha256": "ca3c56a47b8b3da494155d62e6c58acfb4428714fa04fea82cf41689b49a3ae5",
+      "bytes": 295416,
+      "rows": 60158
+    },
+    {
+      "path": "_frozen\\stage1\\returns_monthly.parquet",
+      "sha256": "c449417668b6ff2ad58ecd475141e6a1f8dafb79b9600412056bd06bd7394cb3",
+      "bytes": 35729254,
+      "rows": 4547404
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_analysis_outputs_robustness\\complementarity_granularity_summary.csv",
+      "sha256": "1e0119a84df83b885bde34fcd29f4aba152294aaf2ed8926224f8d11cc9a85b2",
+      "bytes": 3148
+    },
+    {
+      "path": "_analysis_outputs_robustness\\complementarity_granularity_pairs.csv",
+      "sha256": "0e505e0e46b02d25703837d537186d764620018f2ab03f30a2f307d585c2f09a",
+      "bytes": 8544997
+    }
+  ],
+  "notes": "H-25：互補性的分群粒度效應。L1沒有高互補配對是聚合效應不是門檻問題，同市場配對當對照組排除小群雜訊解釋。理由見模組docstring。"
+}

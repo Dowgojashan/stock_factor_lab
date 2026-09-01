@@ -109,7 +109,13 @@ def repeatability_check(tree_id: str, market: str, month: str, *, n_repeats: int
 
 def run(scenarios=DEFAULT_SCENARIOS, n_repeats: int = DEFAULT_N_REPEATS,
        model: str | None = None, log=print) -> pd.DataFrame:
-    freeze.verify_inputs(paths.STAGE3)
+    # ⚠️ 2026-09-01 code review 修正：原本這裡驗 paths.STAGE3（主manifest），
+    # 但本模組透過 repeatability_check → rule_based_decision/llm_decision 實際
+    # 讀的是 cluster_macro_conditional.parquet／cluster_macro_interface.parquet
+    # （附加產物，manifest在各自子目錄）跟 macro_history（STAGE2/macro），
+    # 完全不在STAGE3主manifest涵蓋範圍——驗了不相干的東西。這三處下游函式
+    # 2026-09-01已補上各自正確的verify_inputs（見decision_layer_arms.py／
+    # macro_decision_input.py），這裡不需要重複驗證，改由呼叫鏈本身保證。
     rows = [repeatability_check(t, m, mo, n_repeats=n_repeats, model=model, log=log)
            for t, m, mo in scenarios]
     df = pd.DataFrame(rows)

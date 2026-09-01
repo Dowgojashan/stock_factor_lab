@@ -1,7 +1,7 @@
 {
   "stage": "stage4_strategy_map",
-  "produced_at": "2026-08-28T11:46:43",
-  "git_sha": "94d7021",
+  "produced_at": "2026-09-01T10:23:44",
+  "git_sha": "9b338b3",
   "params": {
     "regime_fit_min_months": 3,
     "macro_confidence_cuts": {
@@ -60,23 +60,23 @@
       "rows": 29
     },
     {
-      "path": "_frozen\\stage2\\macro\\macro_history_TW.parquet",
-      "sha256": "9e28aafe288abf76b03688283425e2e388636f1778cf6846ab68620e0b69b2bf",
-      "bytes": 28651,
+      "path": "_frozen\\stage2\\macro_rolling\\macro_history_rolling_TW.parquet",
+      "sha256": "7854205b766c206ba75e65e91b93c3d796077fb8a489d1448f012bddef7438cc",
+      "bytes": 35186,
       "rows": 312
     },
     {
-      "path": "_frozen\\stage2\\macro\\macro_history_US.parquet",
-      "sha256": "cd6f5fb152407cdab5f44d1e1b10c17d82bff4dc4529c164c00b5b760bb57ea5",
-      "bytes": 36128,
+      "path": "_frozen\\stage2\\macro_rolling\\macro_history_rolling_US.parquet",
+      "sha256": "bc11b6056b196500540598b26811bf5f0e52a3146dbab315b6d6d49da050b059",
+      "bytes": 38146,
       "rows": 312
     }
   ],
   "outputs": [
     {
       "path": "_frozen\\stage4\\strategy_map.parquet",
-      "sha256": "cd5d07710575eb249eec73a60ef44f3dc347c50d014bd6bd18b945ea517da66b",
-      "bytes": 3985944,
+      "sha256": "e3a8671e4a0f629a40f66dafcdefa92aab4fc3b908b2ce74d891838c0bfcaa9b",
+      "bytes": 3987517,
       "rows": 15810
     },
     {
@@ -87,10 +87,10 @@
     },
     {
       "path": "_frozen\\stage4\\macro_performance.parquet",
-      "sha256": "15ca18e96d13e70a653a019880ad510aa7422915f9de2094bc454d58dcee6839",
-      "bytes": 919656,
+      "sha256": "a95262ccd953e3f7123d9ab52f74069a66ff5c5d9b4a48064a712b448153872b",
+      "bytes": 883869,
       "rows": 63240
     }
   ],
-  "notes": "彙整層，不重算既有產物；②③④⑤(returns/clusters/macro/regime)引用階段1/2/3的既有凍結目錄，不複製。②returns/=stage1/returns_monthly.parquet、③clusters/=stage3/*、④macro/=stage2/macro/*、⑤regime/=stage2/regime+consistency/*。return_story四道安檢與cluster_story(LLM點③)未做，理由見模組開頭"
+  "notes": "彙整層，不重算既有產物；②③④⑤(returns/clusters/macro/regime)引用階段1/2/3的既有凍結目錄，不複製。②returns/=stage1/returns_monthly.parquet、③clusters/=stage3/*、④macro/=stage2/macro_rolling/*（H-18②起改讀滾動窗版，非stage2/macro/凍結版，理由見模組開頭）、⑤regime/=stage2/regime+consistency/*。return_story四道安檢與cluster_story(LLM點③)未做，理由見模組開頭"
 }

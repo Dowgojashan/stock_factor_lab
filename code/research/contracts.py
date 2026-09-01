@@ -920,6 +920,40 @@ ISOOS_CORR_COMPARISON = Schema(
 )
 
 
+#: H-25（2026-09-01）：互補性的**分群粒度效應**。
+#:
+#: 背景：H-03 把 L1 群數從寫死的 8 改成輪廓係數決定（TW6/US7/XM3）之後，
+#: 39 對 L1 群對裡**沒有任何一對達到「高互補」**（相關<0.5），而舊 k=8 時代
+#: XM_normal 有 5 對高互補。查證後確認**不是策略真的沒有互補性、也不是門檻要改**，
+#: 而是分群粒度變粗造成的**聚合效應**：群代表＝成員報酬的簡單平均，平均的成員愈多，
+#: 個別策略的特異成分互相抵消得愈徹底，代表序列就愈趨近該市場的大盤，
+#: 跨市場相關自然被推高。舊 k=8 的 5 對高互補全部來自同一個 305 檔的小群，
+#: k=3 後那 305 檔被併進 6,679 檔的全台股群裡。
+#:
+#: 本表就是這個效應的量化：同一批策略、同一段共同窗、同一套判定門檻，
+#: 只改變分群層級（L1 粗 vs L3 細），比較跨市場／同市場配對的互補分布。
+#: **同市場配對是天然的對照組**——群大小與月份數跟跨市場配對同量級，
+#: 可排除「小群估計雜訊」這個替代解釋。
+COMPLEMENTARITY_GRANULARITY = Schema(
+    name="complementarity_granularity",
+    primary_key=["tree_id", "level", "min_members", "pair_type"],
+    columns=[
+        Column("tree_id", "cat", allowed=TREE_IDS),
+        Column("level", "cat", allowed=("L1", "L3")),
+        Column("min_members", "int", ge=1),      # 納入統計的群最小成員數（穩健性用）
+        Column("pair_type", "cat", allowed=("same", "cross")),
+        Column("n_clusters", "int", ge=0),
+        Column("n_pairs", "int", ge=0),
+        Column("corr_min", "float", ge=-1, le=1, nullable=True),
+        Column("corr_median", "float", ge=-1, le=1, nullable=True),
+        Column("corr_max", "float", ge=-1, le=1, nullable=True),
+        Column("n_high", "int", ge=0),           # 相關 < COMPLEMENTARITY_CUTS["高"]
+        Column("n_mid", "int", ge=0),
+        Column("n_low", "int", ge=0),
+        Column("pct_high", "float", ge=0, le=1, nullable=True),
+    ],
+)
+
 #: H-12（2026-08-30）：四組對照實驗——老師的驗證題「選30多支 vs 狂灑下去會不會一樣」。
 #: A=HRP跨群選代表／B=全部灑／C=隨機同樣數量（200次抽樣彙總）／D=純CAGR前N名／
 #: E=純Calmar前N名（不設多樣性限制，2026-08-30新增，用來把「品質指標選擇」跟
@@ -1110,4 +1144,4 @@ ALL_SCHEMAS = {s.name: s for s in (CANDIDATE_INDEX, RETURNS_MONTHLY, RETURNS_MET
                                    CLUSTER_ANNUAL_RETURNS, CLUSTER_QUARTERLY_RETURNS,
                                    CLUSTER_PROFILE_QUANT, EFFECTIVE_BETS, CLUSTER_REPRESENTATIVES,
                                    CLUSTER_ASSIGN_ISOOS, CLUSTER_META_ISOOS, ISOOS_CORR_COMPARISON,
-                                   FOUR_GROUP_CONTROL)}
+                                   FOUR_GROUP_CONTROL, COMPLEMENTARITY_GRANULARITY)}

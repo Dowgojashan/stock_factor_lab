@@ -6,7 +6,8 @@
         `_frozen/stage1/strategy_marks.parquet`（等級/is_usable）
         `_frozen/stage1/returns_monthly.parquet`（regime_fit／macro_fit 的原料）
         `_frozen/stage2/regime/regime_table_{market}.parquet`（2a）
-        `_frozen/stage2/macro/macro_history_{market}.parquet`（2b）
+        `_frozen/stage2/macro_rolling/macro_history_rolling_{market}.parquet`（H-18②滾動窗版，
+        2026-09-01起改用；理由見下方⚠️）
         `_frozen/stage3/cluster_assign.parquet` + `co_fail_regimes.parquet`（階段3）
 輸出 → `_frozen/stage4/strategy_map.parquet`（① 主表，一列一策略）
         `_frozen/stage4/regime_performance.parquet`（regime_fit 的完整數字）
@@ -37,6 +38,15 @@
 ⚠️ **macro_fit 信心分級門檻同樣是本階段的解讀**（GateC「信心門檻n：待資料
    看分布定」，`contracts.MACRO_CONFIDENCE_CUTS`）：n>=12（一年）=高、
    n>=6=中、其餘=低。
+
+⚠️ **2026-09-01（H-18②下游重跑）：macro_fit 改讀滾動窗版 clock_cell**——
+   原本讀 `stage2/macro/macro_history_{market}.parquet`（全樣本凍結標準化，
+   有真實look-ahead：早期月份的分類用到了後期資料算出的z-score參數，見
+   `macro_rolling_window.py`模組docstring）。改讀 `stage2/macro_rolling/
+   macro_history_rolling_{market}.parquet`（每月只用過去5年/60個月資料算，
+   `min_periods=window`嚴格要求滿窗）。`regime_fit`／HRP投影不受影響
+   （不吃clock_cell），只有`macro_best_cell`/`macro_performance`/
+   下游`cluster_macro_conditional`鏈路改變。
 
 ⚠️ **cluster_L1/L2/L3/co_fail_peers 只投影「該策略自己市場的常態樹」**——
    每個策略同時屬於最多 4 棵樹（自己市場的 normal/crisis + XM 的
@@ -89,8 +99,11 @@ def _regime_month_labels(market: str) -> pd.Series:
 
 
 def _macro_month_cells(market: str) -> pd.Series:
-    """該市場全部月份 → 投資時鐘四格，index=Period[M]（缺值月份自然不在裡面）。"""
-    mh = pd.read_parquet(paths.STAGE2 / "macro" / f"macro_history_{market}.parquet")
+    """該市場全部月份 → 投資時鐘四格，index=Period[M]（缺值月份自然不在裡面）。
+    2026-09-01起讀滾動窗版（H-18②），不是全樣本凍結版——理由見模組開頭。
+    """
+    mh = pd.read_parquet(
+        paths.STAGE2 / "macro_rolling" / f"macro_history_rolling_{market}.parquet")
     mh = mh.dropna(subset=["clock_cell"])
     return pd.Series(mh.clock_cell.values, index=mh.month.values)
 
@@ -253,7 +266,7 @@ def build(log=print) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     freeze.verify_inputs(paths.STAGE1)
     freeze.verify_inputs(paths.STAGE1 / "_marks")
     freeze.verify_inputs(paths.STAGE2 / "regime")
-    freeze.verify_inputs(paths.STAGE2 / "macro")
+    freeze.verify_inputs(paths.STAGE2 / "macro_rolling")   # H-18②起改讀滾動窗版
     freeze.verify_inputs(paths.STAGE3)
 
     log("載入 candidate_index / strategy_scan / strategy_marks / returns_monthly …")
@@ -327,14 +340,16 @@ def run(log=print) -> pd.DataFrame:
                paths.STAGE3 / "cluster_assign.parquet",
                paths.STAGE3 / "co_fail_regimes.parquet"]
               + [paths.STAGE2 / "regime" / f"regime_table_{m}.parquet" for m in C.MARKETS]
-              + [paths.STAGE2 / "macro" / f"macro_history_{m}.parquet" for m in C.MARKETS],
+              + [paths.STAGE2 / "macro_rolling" / f"macro_history_rolling_{m}.parquet"
+                for m in C.MARKETS],
         outputs=outs,
         params={"regime_fit_min_months": C.REGIME_FIT_MIN_MONTHS,
                "macro_confidence_cuts": C.MACRO_CONFIDENCE_CUTS,
                "co_fail_level": CO_FAIL_LEVEL},
         notes="彙整層，不重算既有產物；②③④⑤(returns/clusters/macro/regime)引用"
               "階段1/2/3的既有凍結目錄，不複製。②returns/=stage1/returns_monthly.parquet、"
-              "③clusters/=stage3/*、④macro/=stage2/macro/*、⑤regime/=stage2/regime+consistency/*。"
+              "③clusters/=stage3/*、④macro/=stage2/macro_rolling/*（H-18②起改讀滾動窗版，"
+              "非stage2/macro/凍結版，理由見模組開頭）、⑤regime/=stage2/regime+consistency/*。"
               "return_story四道安檢與cluster_story(LLM點③)未做，理由見模組開頭",
     )
     log(f"\n→ strategy_map.parquet  {len(strategy_map):,} 列, {(paths.STAGE4/'strategy_map.parquet').stat().st_size/1024:.0f} KB")

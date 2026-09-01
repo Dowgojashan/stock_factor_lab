@@ -43,7 +43,7 @@ import sys
 import pandas as pd
 
 from . import contracts as C
-from . import paths
+from . import freeze, paths
 from .macro_decision_input import group_decision_context, macro_state_snapshot
 
 RESERVE_RATIO = 0.05
@@ -96,6 +96,10 @@ _DECISION_SCHEMA = {
 
 def rule_based_decision(tree_id: str, clock_cell: str, top_n: int = 1) -> list[int]:
     """固定查表規則：該clock_cell下條件式avg_ret_median最高的top_n個群。"""
+    # ⚠️ 2026-09-01 code review 補上：本模組先前完全沒有freeze驗證。
+    # cluster_macro_conditional.parquet是附加產物，manifest在獨立子目錄，
+    # 不在STAGE3主manifest涵蓋範圍內。
+    freeze.verify_inputs(paths.STAGE3 / "_macro_conditional")
     cond = pd.read_parquet(paths.STAGE3 / "cluster_macro_conditional.parquet")
     sub = cond[(cond.tree_id == tree_id) & (cond.clock_cell == clock_cell)]
     sub = sub.dropna(subset=["avg_ret_median"]).sort_values("avg_ret_median", ascending=False)
@@ -107,6 +111,7 @@ def rule_based_decision(tree_id: str, clock_cell: str, top_n: int = 1) -> list[i
 # ============================================================================
 
 def equal_weight_all_decision(tree_id: str) -> list[int]:
+    freeze.verify_inputs(paths.STAGE3)   # cluster_assign.parquet 在STAGE3主manifest內
     assign = pd.read_parquet(paths.STAGE3 / "cluster_assign.parquet")
     return sorted(assign[assign.tree_id == tree_id]["cluster_L1"].unique().tolist())
 
