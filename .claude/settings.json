@@ -135,7 +135,10 @@
       "Bash(/d/git/stock_factor_lab/.venv/Scripts/python.exe -X utf8 -c ' *)",
       "Bash(PYTHONIOENCODING=utf-8 \"/d/git/stock_factor_lab/.venv/Scripts/python.exe\" -m utils.openai_quota --selftest)",
       "Bash(python -m py_compile ops/tools.py research/cluster_story.py ../utils/openai_quota.py)",
-      "Bash(PYTHONIOENCODING=utf-8 \"/d/git/stock_factor_lab/.venv/Scripts/python.exe\" -m utils.openai_quota --usage)"
+      "Bash(PYTHONIOENCODING=utf-8 \"/d/git/stock_factor_lab/.venv/Scripts/python.exe\" -m utils.openai_quota --usage)",
+      "Bash(PYTHONIOENCODING=utf-8 timeout 180 python -c ' *)",
+      "Bash(PYTHONIOENCODING=utf-8 timeout 400 python -c ' *)",
+      "Bash(PYTHONIOENCODING=utf-8 python -c ' *)"
     ]
   }
 }
