@@ -954,6 +954,38 @@ COMPLEMENTARITY_GRANULARITY = Schema(
     ],
 )
 
+#: H-25b（2026-09-02）：免費午餐清單——把「免費午餐藏在小而特化的群 × 另一個市場」
+#: 這句話落實成**具體可指認的群**。一列＝XM_normal 樹的一個 L3 群。
+#:
+#: `pct_high_complement` 是關鍵欄位：該群跟**對面市場**的候選群裡，有多少比例達到
+#: 高互補（相關 < COMPLEMENTARITY_CUTS["高"]）。=1.0 代表「跟對面市場每一群配都
+#: 能吃到分散效果」，是配置時最有價值的群。
+#:
+#: ⚠️ 只在 XM_normal 做——TW_normal/US_normal 樹內全是同市場配對，沒有跨市場對象，
+#: 這張表在那兩棵樹上沒有意義。
+FREE_LUNCH_SHORTLIST = Schema(
+    name="free_lunch_shortlist",
+    primary_key=["tree_id", "level", "cluster_id"],
+    columns=[
+        Column("tree_id", "cat", allowed=TREE_IDS),
+        Column("level", "cat", allowed=("L3",)),
+        Column("cluster_id", "int"),
+        Column("market", "cat", allowed=MARKETS),
+        Column("n_members", "int", ge=1),
+        Column("top_F1", "str"),               # 前兩大一階因子及佔比
+        Column("top_C_source", "str"),         # 前兩大條件訊號來源及佔比
+        Column("pct_v1", "float", ge=0, le=1),
+        Column("CAGR_median", "float"),
+        Column("MDD_median", "float", le=0),
+        Column("n_cross_partners", "int", ge=0),      # 對面市場的候選群數
+        Column("n_high_complement", "int", ge=0),
+        Column("pct_high_complement", "float", ge=0, le=1),
+        Column("min_cross_corr", "float", ge=-1, le=1),
+        Column("best_partner_cluster", "int"),
+        Column("universal", "bool"),           # pct_high_complement == 1.0
+    ],
+)
+
 #: H-12（2026-08-30）：四組對照實驗——老師的驗證題「選30多支 vs 狂灑下去會不會一樣」。
 #: A=HRP跨群選代表／B=全部灑／C=隨機同樣數量（200次抽樣彙總）／D=純CAGR前N名／
 #: E=純Calmar前N名（不設多樣性限制，2026-08-30新增，用來把「品質指標選擇」跟
@@ -1144,4 +1176,5 @@ ALL_SCHEMAS = {s.name: s for s in (CANDIDATE_INDEX, RETURNS_MONTHLY, RETURNS_MET
                                    CLUSTER_ANNUAL_RETURNS, CLUSTER_QUARTERLY_RETURNS,
                                    CLUSTER_PROFILE_QUANT, EFFECTIVE_BETS, CLUSTER_REPRESENTATIVES,
                                    CLUSTER_ASSIGN_ISOOS, CLUSTER_META_ISOOS, ISOOS_CORR_COMPARISON,
-                                   FOUR_GROUP_CONTROL, COMPLEMENTARITY_GRANULARITY)}
+                                   FOUR_GROUP_CONTROL, COMPLEMENTARITY_GRANULARITY,
+                                   FREE_LUNCH_SHORTLIST)}

@@ -135,6 +135,84 @@ def summarize(pairs: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+#: 免費午餐清單只在跨市場樹做，且只看夠大的群（小群相關估計雜訊大，見 MIN_MEMBERS_GRID
+#: 的穩健性掃描——成員>=20 時跨市場高互補仍有 62.6%，結論不靠小群撐著）。
+SHORTLIST_TREE = "XM_normal"
+SHORTLIST_LEVEL = "L3"
+SHORTLIST_MIN_MEMBERS = 20
+
+
+def _cluster_profiles(tree_id: str, level: str) -> pd.DataFrame:
+    """L3 群的成分側寫（市場／因子／估值濾網／績效），供免費午餐清單指認用。"""
+    a = pd.read_parquet(paths.STAGE3 / "cluster_assign.parquet")
+    a = a[a.tree_id == tree_id]
+    idx = pd.read_parquet(paths.STAGE0 / "candidate_index.parquet")
+    m = a.merge(idx, on=C.PK, how="left")
+
+    def _top2(s: pd.Series) -> str:
+        v = s.fillna("無").value_counts(normalize=True)
+        return "/".join(f"{i}{p:.0%}" for i, p in v.head(2).items())
+
+    g = m.groupby(f"cluster_{level}")
+    return pd.DataFrame({
+        "n_members": g.size(),
+        "market": g["market"].agg(lambda s: s.mode().iloc[0]),
+        "top_F1": g["F1_factor"].agg(_top2),
+        "top_C_source": g["C_source"].agg(_top2),
+        "pct_v1": g["V"].agg(lambda s: float((s == "v1").mean())),
+        "CAGR_median": g["CAGR"].median(),
+        "MDD_median": g["max_drawdown"].median(),
+    })
+
+
+def free_lunch_shortlist(pairs: pd.DataFrame, log=print) -> pd.DataFrame:
+    """把「免費午餐藏在小而特化的群 × 另一個市場」落實成具體可指認的群清單。
+
+    對 XM_normal 樹每一個夠大的 L3 群，算它跟**對面市場**的候選群裡有多少比例
+    達到高互補。`pct_high_complement == 1.0`（欄位 `universal`）代表「跟對面市場
+    每一群配都能吃到分散」，是配置時最有價值的群。
+    """
+    prof = _cluster_profiles(SHORTLIST_TREE, SHORTLIST_LEVEL)
+    prof = prof[prof.n_members >= SHORTLIST_MIN_MEMBERS]
+
+    x = pairs[(pairs.tree_id == SHORTLIST_TREE) & (pairs.level == SHORTLIST_LEVEL)
+             & (pairs.pair_type == "cross")
+             & (pairs.n_members_a >= SHORTLIST_MIN_MEMBERS)
+             & (pairs.n_members_b >= SHORTLIST_MIN_MEMBERS)]
+    high_cut = C.COMPLEMENTARITY_CUTS["高"]
+
+    n_by_mkt = prof.market.value_counts()
+    rows = []
+    for cid, r in prof.iterrows():
+        own = x[(x.cluster_a == cid) | (x.cluster_b == cid)]
+        if own.empty:
+            continue
+        best = own.loc[own["corr"].idxmin()]
+        partner = int(best.cluster_b if best.cluster_a == cid else best.cluster_a)
+        # 對面市場的候選群數＝對方市場的群數（本群不在其中，不需扣自己）
+        n_partners = int(n_by_mkt[[k for k in n_by_mkt.index if k != r.market][0]])
+        n_high = int((own["corr"] < high_cut).sum())
+        rows.append({
+            "tree_id": SHORTLIST_TREE, "level": SHORTLIST_LEVEL, "cluster_id": int(cid),
+            "market": r.market, "n_members": int(r.n_members),
+            "top_F1": r.top_F1, "top_C_source": r.top_C_source,
+            "pct_v1": float(r.pct_v1),
+            "CAGR_median": float(r.CAGR_median), "MDD_median": float(r.MDD_median),
+            "n_cross_partners": n_partners, "n_high_complement": n_high,
+            "pct_high_complement": n_high / n_partners,
+            "min_cross_corr": float(best["corr"]), "best_partner_cluster": partner,
+            "universal": bool(n_high == n_partners),
+        })
+    df = pd.DataFrame(rows)
+    df["tree_id"] = df["tree_id"].astype("category")
+    df["level"] = df["level"].astype("category")
+    df["market"] = df["market"].astype("category")
+    log(f"  免費午餐清單：{len(df)} 群（成員>={SHORTLIST_MIN_MEMBERS}），"
+        f"其中 universal（跟對面市場每一群都高互補）{int(df.universal.sum())} 群")
+    return df.sort_values(["market", "pct_high_complement", "CAGR_median"],
+                         ascending=[True, False, False]).reset_index(drop=True)
+
+
 def run(log=print) -> tuple[pd.DataFrame, pd.DataFrame]:
     freeze.verify_inputs(paths.STAGE1)
     freeze.verify_inputs(paths.STAGE3)
@@ -151,25 +229,35 @@ def run(log=print) -> tuple[pd.DataFrame, pd.DataFrame]:
     C.validate(summary, C.COMPLEMENTARITY_GRANULARITY, strict_columns=True)
     log(f"\n✓ complementarity_granularity 契約通過（{len(summary)} 列）")
 
+    shortlist = free_lunch_shortlist(pairs, log)
+    C.validate(shortlist, C.FREE_LUNCH_SHORTLIST, strict_columns=True)
+    log(f"✓ free_lunch_shortlist 契約通過（{len(shortlist)} 群）")
+
     out_dir = paths.ROOT / "_analysis_outputs_robustness"
     out_dir.mkdir(parents=True, exist_ok=True)
     p_sum = out_dir / "complementarity_granularity_summary.csv"
     p_pairs = out_dir / "complementarity_granularity_pairs.csv"
+    p_short = out_dir / "free_lunch_shortlist.csv"
     summary.to_csv(p_sum, index=False, encoding="utf-8-sig")
     pairs.to_csv(p_pairs, index=False, encoding="utf-8-sig")
+    shortlist.to_csv(p_short, index=False, encoding="utf-8-sig")
 
     freeze.write_manifest(
         "complementarity_granularity", out_dir / "_complementarity_granularity_manifest",
         inputs=[paths.STAGE3 / "cluster_assign.parquet",
-               paths.STAGE1 / "returns_monthly.parquet"],
-        outputs=[p_sum, p_pairs],
+               paths.STAGE1 / "returns_monthly.parquet",
+               paths.STAGE0 / "candidate_index.parquet"],
+        outputs=[p_sum, p_pairs, p_short],
         params={"trees": list(TREES), "levels": list(LEVELS),
                "min_members_grid": list(MIN_MEMBERS_GRID),
-               "complementarity_cuts": C.COMPLEMENTARITY_CUTS},
+               "complementarity_cuts": C.COMPLEMENTARITY_CUTS,
+               "shortlist_tree": SHORTLIST_TREE, "shortlist_level": SHORTLIST_LEVEL,
+               "shortlist_min_members": SHORTLIST_MIN_MEMBERS},
         notes="H-25：互補性的分群粒度效應。L1沒有高互補配對是聚合效應不是門檻問題，"
-              "同市場配對當對照組排除小群雜訊解釋。理由見模組docstring。",
+              "同市場配對當對照組排除小群雜訊解釋。H-25b：免費午餐清單，把結論落實成"
+              "具體可指認的群。理由見模組docstring。",
     )
-    log(f"→ {p_sum}\n→ {p_pairs}")
+    log(f"→ {p_sum}\n→ {p_pairs}\n→ {p_short}")
     return pairs, summary
 
 
@@ -207,11 +295,34 @@ def _report(pairs: pd.DataFrame, summary: pd.DataFrame, log=print) -> None:
                 f"  →  L3 中位{b.corr_median:.3f}/高互補{b.pct_high:.1%}")
 
 
+def _report_shortlist(log=print) -> None:
+    p = (paths.ROOT / "_analysis_outputs_robustness" / "free_lunch_shortlist.csv")
+    df = pd.read_csv(p)
+    uni = df[df.universal]
+    log("\n" + "=" * 78)
+    log(f"H-25b · 免費午餐清單（{SHORTLIST_TREE}／{SHORTLIST_LEVEL}／成員>={SHORTLIST_MIN_MEMBERS}）")
+    log("=" * 78)
+    log(f"候選群 {len(df)}（TW {int((df.market=='TW').sum())}／US {int((df.market=='US').sum())}）"
+        f"｜跟對面市場**每一群**都高互補的群：{len(uni)}")
+    for mk in ("TW", "US"):
+        g = uni[uni.market == mk]
+        if g.empty:
+            continue
+        log(f"\n【{mk} 側 {len(g)} 群】")
+        log(f"{'群':>5}{'檔數':>5}  {'主力因子':<24}{'條件訊號':<20}"
+            f"{'v1':>5}{'CAGR':>7}{'MDD':>7}{'最低跨市場相關':>10}")
+        for r in g.sort_values("CAGR_median", ascending=False).itertuples():
+            log(f"{r.cluster_id:>5}{r.n_members:>5}  {r.top_F1:<24}{r.top_C_source:<20}"
+                f"{r.pct_v1:>5.0%}{r.CAGR_median:>7.1%}{r.MDD_median:>7.1%}"
+                f"{r.min_cross_corr:>10.3f}（對群{r.best_partner_cluster}）")
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="research.complementarity_granularity")
     ap.parse_args(argv)
     pairs, summary = run()
     _report(pairs, summary)
+    _report_shortlist()
     return 0
 
 

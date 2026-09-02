@@ -1868,6 +1868,49 @@ def t_complementarity_granularity_real_data():
 
 
 @test
+def t_free_lunch_shortlist_real_data():
+    """H-25b：免費午餐清單契約通過，且鎖住這張表的三個定義性事實。
+
+    ①`universal` 欄位必須名符其實：標成 True 的群，n_high_complement 必須等於
+      n_cross_partners（跟對面市場每一群都高互補），不能是「幾乎全部」。
+    ②清單必須**同時有台美兩側**——免費午餐是配對關係，只有單邊等於沒有可配的對象。
+    ③每一群的 min_cross_corr 必須真的低於高互補門檻（否則它根本不該進清單），
+      且 best_partner_cluster 必須是對面市場的群。
+    """
+    p = paths.ROOT / "_analysis_outputs_robustness" / "free_lunch_shortlist.csv"
+    if not p.exists():
+        raise AssertionError("尚未執行 research.complementarity_granularity")
+    df = pd.read_csv(p)
+    for col in ("tree_id", "level", "market"):
+        df[col] = df[col].astype("category")
+    C.validate(df, C.FREE_LUNCH_SHORTLIST, strict_columns=True)
+
+    uni = df[df.universal]
+    assert len(uni) > 0, "清單裡沒有任何 universal 群，H-25b 的敘事不成立"
+    bad = uni[uni.n_high_complement != uni.n_cross_partners]
+    assert bad.empty, (
+        f"{len(bad)} 群標成universal但n_high_complement != n_cross_partners，"
+        f"欄位定義被破壞：\n{bad[['cluster_id', 'n_high_complement', 'n_cross_partners']]}")
+
+    mkts = set(uni.market.astype(str))
+    assert mkts == {"TW", "US"}, (
+        f"universal群只出現在 {mkts}——免費午餐是配對關係，單邊清單沒有可配的對象")
+
+    high_cut = C.COMPLEMENTARITY_CUTS["高"]
+    assert (uni.min_cross_corr < high_cut).all(), (
+        "有universal群的min_cross_corr沒有低於高互補門檻，自相矛盾")
+
+    # best_partner 必須在對面市場：用群id反查市場
+    mkt_of = df.set_index("cluster_id")["market"].astype(str).to_dict()
+    for r in uni.itertuples():
+        pm = mkt_of.get(r.best_partner_cluster)
+        if pm is not None:   # 夥伴可能因成員數門檻不在清單裡，有才驗
+            assert pm != str(r.market), (
+                f"群{r.cluster_id}({r.market})的best_partner群{r.best_partner_cluster}"
+                f"也是{pm}——跨市場配對不該配到同市場")
+
+
+@test
 def t_rebuild_tree_returns_is_single_source_of_truth():
     """回歸測試（2026-08-30 code review）：`effective_bets._tree_corr` 與
     `cluster_count_selection._rebuild_dist_matrix` 曾經各自維護一份逐行相同的

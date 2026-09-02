@@ -1,7 +1,7 @@
 {
   "stage": "complementarity_granularity",
-  "produced_at": "2026-09-01T14:07:27",
-  "git_sha": "9b338b3",
+  "produced_at": "2026-09-02T18:22:13",
+  "git_sha": "f9c1d96",
   "params": {
     "trees": [
       "TW_normal",
@@ -20,7 +20,10 @@
     "complementarity_cuts": {
       "高": 0.5,
       "中": 0.8
-    }
+    },
+    "shortlist_tree": "XM_normal",
+    "shortlist_level": "L3",
+    "shortlist_min_members": 20
   },
   "inputs": [
     {
@@ -34,6 +37,12 @@
       "sha256": "c449417668b6ff2ad58ecd475141e6a1f8dafb79b9600412056bd06bd7394cb3",
       "bytes": 35729254,
       "rows": 4547404
+    },
+    {
+      "path": "_frozen\\stage0\\candidate_index.parquet",
+      "sha256": "b308a282f48511117739a3d3215dd00601a03c8247a9693edaad1644de57a8e2",
+      "bytes": 1453737,
+      "rows": 15810
     }
   ],
   "outputs": [
@@ -46,7 +55,12 @@
       "path": "_analysis_outputs_robustness\\complementarity_granularity_pairs.csv",
       "sha256": "0e505e0e46b02d25703837d537186d764620018f2ab03f30a2f307d585c2f09a",
       "bytes": 8544997
+    },
+    {
+      "path": "_analysis_outputs_robustness\\free_lunch_shortlist.csv",
+      "sha256": "7a94955717f8e994c385ebe5678110087a70857bb9a489c46534e731ab523e20",
+      "bytes": 40941
     }
   ],
-  "notes": "H-25：互補性的分群粒度效應。L1沒有高互補配對是聚合效應不是門檻問題，同市場配對當對照組排除小群雜訊解釋。理由見模組docstring。"
+  "notes": "H-25：互補性的分群粒度效應。L1沒有高互補配對是聚合效應不是門檻問題，同市場配對當對照組排除小群雜訊解釋。H-25b：免費午餐清單，把結論落實成具體可指認的群。理由見模組docstring。"
 }
