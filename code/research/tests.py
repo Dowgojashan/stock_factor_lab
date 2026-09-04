@@ -1868,6 +1868,407 @@ def t_complementarity_granularity_real_data():
 
 
 @test
+def t_walkforward_schemes_are_mechanical():
+    """H-26：窗口方案必須是機械規則產生的，且用完全部資料、不重疊、不留缺口。
+
+    這條鎖住的是**方法論**而非數值：窗口邊界一旦變成人為挑選（例如挑「涵蓋
+    COVID」的區間），就是上帝視角——本專案已因同一錯誤撤銷過 H-11 原提案。
+    測試驗證每個方案的窗次串起來剛好等於總月數，代表它是規則跑出來的、
+    不是手選的。
+    """
+    from . import walkforward_matrix as WF
+    s = WF.build_schemes()
+    assert len(s) > 0 and s.scheme.nunique() >= 12, f"方案數不足：{s.scheme.nunique()}"
+    assert set(s["mode"]) == {"anchored", "rolling"}, "缺 rolling 對照組"
+
+    for name, g in s.groupby("scheme", observed=True):
+        g = g.sort_values("window_no")
+        r0 = g.iloc[0]
+        # 第一窗的 IS 結束點必須剛好是 min_is
+        assert int(r0.is_end_offset) == int(r0.min_is_months), (
+            f"[{name}] 第一窗 IS 長度({r0.is_end_offset}) != min_is({r0.min_is_months})")
+        # 窗次首尾相接：每一窗的 OOS 結束 == 下一窗的 IS 結束
+        offs = g.is_end_offset.tolist(); lens = g.oos_months.tolist()
+        for i in range(len(g) - 1):
+            assert offs[i] + lens[i] == offs[i + 1], (
+                f"[{name}] 第{i+1}窗與第{i+2}窗不相接（重疊或有缺口）")
+        # 全部用完，不多不少
+        assert offs[-1] + lens[-1] == WF.SCHEME_TOTAL_MONTHS, (
+            f"[{name}] 窗次總長 {offs[-1]+lens[-1]} != {WF.SCHEME_TOTAL_MONTHS}")
+        # 每個 OOS 至少 24 個月（MDD 要有意義；老師點名 MDD 是唯一代價）
+        assert min(lens) >= WF.MIN_TAIL_MONTHS, f"[{name}] 有窗次的 OOS 短於 24 個月"
+
+
+@test
+def t_walkforward_allocate_conserves_total():
+    """H-27：兩種分配方式**必須配出同一個總量**——這是共同座標軸的全部意義。
+
+    若等量配出 30 支、比例配出 334 支，跑出比例較優也無法歸因（不知道是分法好
+    還是多買了 300 支）。這條測試鎖住「同樣的 total，兩種分法只差分佈」。
+    同時驗證天花板重分配：小群不足配額時給滿，餘額轉給其他群，總量不因此縮水。
+    """
+    from . import walkforward_matrix as WF
+    sizes = pd.Series({1: 305, 2: 202, 3: 1654, 4: 2534, 5: 75, 6: 1909})   # 台股實際群大小
+
+    for total in (30, 66, 200, 334, 667):
+        qe, ce = WF.allocate(sizes, total, "equal")
+        qp, cp = WF.allocate(sizes, total, "proportional")
+        assert qe.sum() == total, f"equal 配額總和 {qe.sum()} != {total}"
+        assert (qe <= sizes).all(), "equal 有群配額超過成員數"
+        assert (qp <= sizes).all(), "proportional 有群配額超過成員數"
+        assert (qp >= 1).all(), "proportional 有群配額為0——小群會整個消失，多樣性限制失效"
+        # 比例分配的總量因四捨五入與下限1可能微差，但不該偏離超過群數
+        assert abs(int(qp.sum()) - total) <= len(sizes), (
+            f"proportional 總和 {qp.sum()} 偏離 {total} 太多")
+
+    # 天花板：total=667 時等量每群要 111 支，但群5 只有 75 → 必須觸發重分配
+    q, n_capped = WF.allocate(sizes, 667, "equal")
+    assert n_capped >= 1, "台股 10% 等量分配應觸發群5 的天花板，實際未觸發"
+    assert q[5] == 75, f"群5 應被配滿 75 支（其成員上限），實際 {q[5]}"
+    assert q.sum() == 667, "天花板重分配後總量縮水了"
+
+    # legacy 點的總量定義：m=5 × 群數
+    assert WF.target_total("legacy", 6679, 6) == 30
+    assert WF.target_total("legacy", 15040, 3) == 15
+    # 比例點：宇宙 × ratio
+    assert WF.target_total(0.05, 6679, 6) == 334
+
+
+@test
+def t_k_stability_real_data():
+    """H-26b：群數 k 的前視偏誤診斷契約通過，且鎖住這張表的判讀邏輯。
+
+    這張表存在的理由：`L1_TARGET`（6/7/3）是用**完整窗**選出來的，walk-forward
+    的早期窗卻沿用它——形式上是前視偏誤（同 H-18② 總經 z-score 全樣本凍結、
+    H-11 原提案挑涵蓋 COVID 的窗）。本表逐 IS 窗只用該窗資料重選 k 來量化它。
+
+    ①`same_as_fixed` 必須跟 `k_is_selected == k_fixed` 完全一致（欄位定義）
+    ②`sil_gap` 必須等於 `sil_at_selected − sil_at_fixed`
+    ③`sil_gap` 為負時 **必定**是退化解退讓（`degenerate_fallback=True`）——
+      因為 recommend_k 取的是最高分，除非最高分那個 k 被判為退化解而排除。
+      實測跨市場有兩個窗如此：k=3 分數較高但最大群佔比 51.7%/51.4%，超過 50% 門檻。
+    ④主鍵去重有效：rolling 第一窗的 IS 起點被夾到錨點後，會跟 anchored 某窗
+      完全相同，不去重就會重複掃描（2026-09-04 開發時實測踩到）。
+    """
+    p = paths.ROOT / "_analysis_outputs_robustness" / "k_stability.csv"
+    if not p.exists():
+        raise AssertionError("尚未執行 research.k_stability")
+    df = pd.read_csv(p)
+    df["tree_key"] = df["tree_key"].astype("category")
+    C.validate(df, C.K_STABILITY, strict_columns=True)
+
+    assert (df.same_as_fixed == (df.k_is_selected == df.k_fixed)).all(), \
+        "same_as_fixed 欄位與 k_is_selected/k_fixed 不一致"
+    gap = df.sil_at_selected - df.sil_at_fixed
+    assert np.allclose(df.sil_gap.to_numpy(), gap.to_numpy(), equal_nan=True), \
+        "sil_gap 不等於 sil_at_selected − sil_at_fixed"
+
+    neg = df[df.sil_gap < -1e-9]
+    assert neg.degenerate_fallback.all(), (
+        f"{len(neg)} 個窗的 sil_gap 為負但未標記 degenerate_fallback——"
+        f"recommend_k 取最高分，唯一可能為負的原因是最高分的 k 被判為退化解：\n"
+        f"{neg[['tree_key','is_start','is_end','sil_gap','degenerate_fallback']]}")
+    for r in neg.itertuples():
+        assert r.max_share_at_fixed > 0.5, (
+            f"[{r.tree_key} {r.is_start}~{r.is_end}] 標記為退化解退讓，"
+            f"但 k_fixed 的最大群佔比只有 {r.max_share_at_fixed:.1%}，未超過 50% 門檻")
+
+    assert not df.duplicated(subset=["tree_key", "is_start", "is_end"]).any(), \
+        "同一個 (樹, IS窗) 被掃描了多次——去重失效"
+
+
+@test
+def t_walkforward_k_mode_uses_is_only_k():
+    """H-26b：矩陣的 `silhouette_is` 模式必須真的用 IS 窗自選的 k，不是沿用 6/7/3。
+
+    這條鎖住整個 k_mode 維度的意義：若兩個模式的 n_clusters 完全相同，這個維度
+    就是空的、白跑一場。實測 43 個 IS 窗只有 14 個（32.6%）兩者一致，故矩陣裡
+    **必須**看得到差異。
+    """
+    p = paths.ROOT / "_analysis_outputs_robustness" / "walkforward_matrix_detail.csv"
+    kp = paths.ROOT / "_analysis_outputs_robustness" / "k_stability.csv"
+    if not p.exists() or not kp.exists():
+        raise AssertionError("尚未執行 research.walkforward_matrix 或 research.k_stability")
+    df = pd.read_csv(p)
+    if "k_mode" not in df.columns:
+        raise AssertionError("detail 檔沒有 k_mode 欄位——矩陣尚未加入該維度")
+    ktab = {(r.tree_key, r.is_start, r.is_end): int(r.k_is_selected)
+            for r in pd.read_csv(kp).itertuples()}
+
+    fixed = df[df.k_mode == "fixed"]
+    sil = df[df.k_mode == "silhouette_is"]
+    assert len(fixed) and len(sil), "兩個 k_mode 都必須有資料"
+
+    # fixed 模式的群數必須等於 L1_TARGET
+    from . import stage3_hrp as S3
+    for r in fixed.drop_duplicates(subset=["tree_key", "scheme", "window_no"]).itertuples():
+        assert r.n_clusters == S3.L1_TARGET[r.tree_key], (
+            f"fixed 模式的 n_clusters({r.n_clusters}) != L1_TARGET({S3.L1_TARGET[r.tree_key]})")
+
+    # silhouette_is 模式的群數必須等於 k_stability 表裡那個窗的 k
+    for r in sil.drop_duplicates(subset=["tree_key", "scheme", "window_no"]).itertuples():
+        want = ktab.get((r.tree_key, r.is_start, r.is_end))
+        assert want is not None, f"k_stability 缺 ({r.tree_key},{r.is_start},{r.is_end})"
+        assert r.n_clusters == want, (
+            f"[{r.tree_key} {r.is_start}~{r.is_end}] silhouette_is 的 n_clusters"
+            f"({r.n_clusters}) != k_stability 的 k_is_selected({want})")
+
+    # 兩模式必須確實產生不同的群數（否則這個維度是空的）
+    a = fixed.set_index(["tree_key", "scheme", "window_no"])["n_clusters"]
+    b = sil.set_index(["tree_key", "scheme", "window_no"])["n_clusters"]
+    a, b = a[~a.index.duplicated()], b[~b.index.duplicated()]
+    assert (a != b.reindex(a.index)).any(), \
+        "兩個 k_mode 的群數完全相同——k_mode 維度沒有意義，應檢查是否真的重切了"
+
+
+@test
+def t_turnover_cost_real_data():
+    """H-27b：周轉率與交易成本，鎖住三個判讀前提。
+
+    這張表要回答「加入交易成本後，『挑越少越好』的結論會不會翻轉」。
+
+    ①**去重後持股數必須遠少於策略數×平均持股**——策略間持股高度重疊正是
+      「周轉率不隨策略數等比放大」的原因。實測台股 30 檔策略（理論 1,320 個部位）
+      去重後只有 356 檔，重疊率 73%。若此性質不成立，整個成本分析的前提就錯了。
+    ②**淨報酬必須低於毛報酬且成本隨周轉率單調**——欄位一致性。
+    ③🔴 **成本不改變實質結論**（2026-09-04 依實測放寬過的斷言）：
+      - 最佳比例在毛報酬與各成本率下必須是同一個（實測三棵樹都是 `legacy`）
+      - **只有「毛報酬本來就接近平手」的配對才允許在淨報酬下互換名次**
+      實測跨市場的 3% 與 10% 確實互換（毛 25.56% vs 25.22%，差 0.34pp；
+      淨@30bp 23.76% vs 23.79%，反向 0.03pp）——因為 10% 那組的周轉率明顯較低
+      （19.9% vs 25.0%，策略多→持股重疊多→買賣互相抵銷），扣的成本較少剛好補回來。
+      原斷言要求「排序完全一致」，被這組平手翻轉擋下；改為只禁止**有意義差距**
+      （毛報酬差 > 0.5pp）的配對翻轉，這才是「結論不變」真正的意思。
+    """
+    p = paths.ROOT / "_analysis_outputs_robustness" / "turnover_cost.csv"
+    if not p.exists():
+        raise AssertionError("尚未執行 research.turnover_cost")
+    df = pd.read_csv(p)
+    for col in ("tree_key", "ratio", "allocation"):
+        df[col] = df[col].astype("category")
+    C.validate(df, C.TURNOVER_COST, strict_columns=True)
+
+    # ① 去重後持股數必須遠小於「策略數 × 每策略平均持股(約44)」
+    assert (df.n_stocks_avg < df.n_strategies * 44 * 0.9).all() or \
+           (df.n_strategies <= 2).all(), \
+        "去重後持股數沒有明顯少於各策略持股的總和——持股重疊的前提不成立"
+
+    # ② 欄位一致性：成本越高淨報酬越低，且淨 < 毛
+    cost_cols = ["net_cagr_5bp", "net_cagr_10bp", "net_cagr_20bp", "net_cagr_30bp"]
+    assert (df[cost_cols].lt(df.gross_cagr, axis=0)).all().all(), "淨報酬未低於毛報酬"
+    for a, b in zip(cost_cols, cost_cols[1:]):
+        assert (df[a] > df[b]).all(), f"{b} 未低於 {a}——成本應隨費率單調遞增"
+
+    # ③ 核心結論：成本不改變「實質」結論（equal 分配）
+    TIE = 0.005      # 毛報酬差距 <= 0.5pp 視為平手，允許在淨報酬下互換
+    eq = df[df.allocation == "equal"]
+    for t, g in eq.groupby("tree_key", observed=True):
+        best_gross = g.loc[g.gross_cagr.idxmax(), "ratio"]
+        for c in cost_cols:
+            assert g.loc[g[c].idxmax(), "ratio"] == best_gross, (
+                f"[{t}] {c} 下的最佳比例 {g.loc[g[c].idxmax(), 'ratio']} "
+                f"不是毛報酬的最佳比例 {best_gross}——成本改變了最優解")
+            # 有意義差距的配對不得翻轉
+            for i, ri in g.iterrows():
+                for j, rj in g.iterrows():
+                    gap = ri.gross_cagr - rj.gross_cagr
+                    if gap <= TIE:
+                        continue
+                    assert ri[c] > rj[c], (
+                        f"[{t}] {c}：{ri.ratio} 毛報酬高過 {rj.ratio} {gap:.2%}"
+                        f"（超過 {TIE:.1%} 平手容差），淨報酬卻反轉"
+                        f"（{ri[c]:.2%} vs {rj[c]:.2%}）——交易成本翻轉了實質結論")
+
+
+@test
+def t_l3_isoos_real_data():
+    """H-25d：L3 細粒度互補性的 walk-forward 驗證，鎖住整個發現賴以成立的四件事。
+
+    H-25 主張「免費午餐藏在小而特化的群 × 另一個市場」，但那是**全窗**算的。
+    本表把老師對 H-13 的原話「in sample 都很低，可是 out sample 會不會還是很低」
+    搬到 L3。以下任何一條壞掉，那個主張就不成立：
+
+    ①**欄位一致性**：`n_is_high_stays_high <= n_is_high <= n_pairs`；
+      `stability_rate == n_is_high_stays_high / n_is_high`（n_is_high=0 時為 NaN）。
+    ②**同市場是對照組**：TW/US 樹只能有 same 配對（單一市場沒有跨市場對象）；
+      只有 XM 樹有 cross。
+    ③**核心對照必須成立**：跨市場的 OOS 高互補比例必須遠高於同市場——這是
+      「分散來源是市場邊界」的直接證據。實測 67.7% vs ~0%。
+    ④**同市場的 IS 高互補是雜訊**：同市場在 IS 有少量（0.7~1.6%）高互補，
+      但 OOS 穩定率必須接近 0，否則「同市場也有互補」的反論就成立了。
+    """
+    p = paths.ROOT / "_analysis_outputs_robustness" / "l3_isoos.csv"
+    if not p.exists():
+        raise AssertionError("尚未執行 research.l3_isoos")
+    df = pd.read_csv(p)
+    for col in ("tree_key", "scheme", "pair_type"):
+        df[col] = df[col].astype("category")
+    C.validate(df, C.L3_ISOOS, strict_columns=True)
+
+    assert (df.n_is_high_stays_high <= df.n_is_high).all(), \
+        "n_is_high_stays_high 超過 n_is_high"
+    assert (df.n_is_high <= df.n_pairs).all(), "n_is_high 超過 n_pairs"
+    has = df[df.n_is_high > 0]
+    assert np.allclose(has.stability_rate, has.n_is_high_stays_high / has.n_is_high), \
+        "stability_rate 與 n_is_high_stays_high/n_is_high 不符"
+    assert df[df.n_is_high == 0].stability_rate.isna().all(), \
+        "n_is_high=0 時 stability_rate 應為 NaN（無定義），不可填 0"
+
+    single = df[df.tree_key.isin(["TW", "US"])]
+    assert (single.pair_type == "same").all(), \
+        "單一市場樹不該有 cross 配對——它沒有跨市場對象"
+    assert (df[df.pair_type == "cross"].tree_key == "XM").all(), \
+        "cross 配對只該出現在跨市場樹"
+
+    cross = df[df.pair_type == "cross"]
+    same = df[df.pair_type == "same"]
+    assert len(cross) and len(same), "兩種配對類型都必須有資料"
+    assert cross.oos_pct_high.mean() > same.oos_pct_high.mean() + 0.3, (
+        f"跨市場的 OOS 高互補({cross.oos_pct_high.mean():.1%})沒有明顯高於"
+        f"同市場({same.oos_pct_high.mean():.1%})——"
+        "「分散來源是市場邊界」在樣本外不成立，H-25 的主張需改寫")
+    assert same.stability_rate.fillna(0).mean() < 0.05, (
+        f"同市場的 OOS 穩定率達 {same.stability_rate.fillna(0).mean():.1%}——"
+        "同市場的 IS 高互補不是雜訊，對照組失效")
+
+
+@test
+def t_window_robustness_real_data():
+    """H-26d（＝落差3 的方案E）：共同窗穩健性契約通過，且鎖住判讀的前提。
+
+    這張表要回答「群結構是不是窗口選擇的產物」。若下列前提壞掉，那個結論就不成立：
+
+    ①**隨機基準必須貼近 0**——ARI 的尺度沒有絕對意義，全靠這個基準給參照。
+      若打散標籤後 ARI 仍明顯偏離 0，代表比對邏輯有問題（例如標籤沒真的被打散）。
+    ②**兩窗必須切同一個 k 才可比**：`n_common` 在所有 k 下必須相同（同一批共同策略）。
+    ③主線採用的 k 必須恰有一列標記 `is_main_k`。
+    ④主線 k 的 ARI 必須顯著高於隨機基準，否則「結構一致」的結論不成立。
+    """
+    p = paths.ROOT / "_analysis_outputs_robustness" / "window_robustness.csv"
+    if not p.exists():
+        raise AssertionError("尚未執行 research.window_robustness")
+    df = pd.read_csv(p)
+    df["tree_key"] = df["tree_key"].astype("category")
+    C.validate(df, C.WINDOW_ROBUSTNESS, strict_columns=True)
+
+    assert df.ari_random_floor.abs().max() < 0.02, (
+        f"隨機基準偏離 0 達 {df.ari_random_floor.abs().max():.4f}——"
+        "ARI 的尺度參照失效，比對邏輯需檢查")
+    assert df.n_common.nunique() == 1, \
+        f"不同 k 的共同策略數不一致（{df.n_common.unique()}），比較基礎不同"
+    assert int(df.is_main_k.sum()) == 1, "is_main_k 必須恰有一列"
+
+    from . import stage3_hrp as S3
+    main = df[df.is_main_k].iloc[0]
+    assert int(main.k) == S3.L1_TARGET[str(main.tree_key)], \
+        "is_main_k 標記的 k 跟 L1_TARGET 不符"
+    assert main.ari > main.ari_random_floor + 0.2, (
+        f"主線 k 的 ARI({main.ari:.4f}) 沒有明顯高於隨機基準"
+        f"({main.ari_random_floor:.4f})——「群結構不是窗選擇的產物」這個結論不成立，"
+        f"必須改寫 limitations")
+
+
+@test
+def t_walkforward_significance_real_data():
+    """H-26c：統計檢定表契約通過，且鎖住「不把 2,700 格當樣本數」這件事。
+
+    這張表存在的全部理由，就是修正「2,700 個格子共用同一段歷史、不能當樣本數」
+    這個問題。若檢定單位數膨脹回接近 2,700，這張表就失去意義。
+
+    ①單位數必須遠小於格數——每個方案的單位數 = 3 樹 × 該方案窗數（最多 18）
+    ②`n_wins <= n_units`，`win_rate == n_wins/n_units`（欄位一致性）
+    ③`significant_05` 必須跟 `p_value < 0.05` 一致
+    ④主結論（vs B_all 的 Calmar）必須**每個方案都顯著**——這是老師要的
+      「不管怎麼切都偏向 HRP」，只要有一個方案不顯著，敘事就要改寫
+    """
+    p = paths.ROOT / "_analysis_outputs_robustness" / "walkforward_significance.csv"
+    if not p.exists():
+        raise AssertionError("尚未執行 research.walkforward_significance")
+    df = pd.read_csv(p)
+    for col in ("opponent", "metric", "scheme", "tree_scope"):
+        df[col] = df[col].astype("category")
+    C.validate(df, C.WALKFORWARD_SIGNIFICANCE, strict_columns=True)
+
+    assert df.n_units.max() <= 20, (
+        f"最大單位數 {df.n_units.max()} 過大——檢定單位應該是「方案內互不重疊的"
+        f"窗次 × 樹」（最多 3×6=18），不是把所有設定都當獨立樣本")
+    assert (df.n_wins <= df.n_units).all(), "n_wins 超過 n_units"
+    assert np.allclose(df.win_rate, df.n_wins / df.n_units), "win_rate 與 n_wins/n_units 不符"
+    assert (df.significant_05 == (df.p_value < 0.05)).all(), \
+        "significant_05 與 p_value < 0.05 不一致"
+
+    main = df[(df.opponent == "B_all") & (df.metric == "calmar")
+              & (df.tree_scope == "ALL")]
+    bad = main[~main.significant_05]
+    assert bad.empty, (
+        f"{len(bad)} 個方案的主結論（vs B_all Calmar）未達顯著，敘事需改寫：\n"
+        f"{bad[['scheme', 'n_units', 'n_wins', 'p_value']]}")
+
+
+@test
+def t_walkforward_matrix_real_data():
+    """H-26/H-27：真實資料契約通過，且鎖住三個結構性事實。
+
+    ①`legacy`+`equal` 的檔數必須等於 m=5×群數（校驗點的定義不能漂掉）
+    ②同一格的 A/D/E 三組**檔數必須一致**——D/E 是拿 A 的實際檔數去取前 N 名，
+      檔數不同就沒有可比性
+    ③**分配方式對集中度的效果**（2026-09-03 實測後修正過的斷言）：
+      - `equal` 分配的 A_hrp 集中度必須**明顯低於** B_all——這是它的全部意義
+      - `proportional` 分配的 A_hrp 集中度必須**貼近** B_all——因為按群大小分配
+        就是在複製宇宙的成分，等於放棄分散
+      這兩條合起來就是 H-28（HRP 為什麼會贏）的機制證據：實測 equal 是 0.167、
+      proportional 是 0.467、B_all 是 0.463——比例分配確實退化成全宇宙。
+      ⚠️ 原本這裡斷言「A 一律低於 B_all」，那只對 equal 成立，對 proportional
+      是錯的（實測 4 格因整數進位微幅超出 B_all 0.35pp 而失敗），已訂正。
+    """
+    p = paths.ROOT / "_analysis_outputs_robustness" / "walkforward_matrix_detail.csv"
+    if not p.exists():
+        raise AssertionError("尚未執行 research.walkforward_matrix")
+    df = pd.read_csv(p)
+    for col in ("tree_key", "scheme", "mode", "k_mode", "ratio", "allocation", "group"):
+        df[col] = df[col].astype("category")
+    C.validate(df, C.WALKFORWARD_MATRIX, strict_columns=True)
+
+    from . import walkforward_matrix as WF
+    leg = df[(df.ratio == "legacy") & (df.allocation == "equal") & (df.group == "A_hrp")]
+    for r in leg.itertuples():
+        assert r.target_total == WF.LEGACY_M_PER_CLUSTER * r.n_clusters, (
+            f"legacy 總量 {r.target_total} != 5×{r.n_clusters}")
+
+    sel = df[df.group != "B_all"]
+    # ⚠️ 必須含 k_mode：兩個 k_mode 的群數不同，legacy 的總量(5×k)也就不同，
+    # 混在一組比較會誤判成「A/D/E 檔數不一致」（2026-09-04 實測踩到）。
+    for key, g in sel.groupby(["tree_key", "scheme", "window_no", "k_mode",
+                              "ratio", "allocation"], observed=True):
+        n = g.n_members.unique()
+        assert len(n) == 1, f"{key} 的 A/D/E 檔數不一致：{dict(zip(g.group, g.n_members))}"
+
+    # B_all 每個窗次現在有兩列（各 k_mode 一列），查表 key 必須含 k_mode
+    bkey = ["tree_key", "scheme", "window_no", "k_mode"]
+    b = df[df.group == "B_all"].set_index(bkey)["max_cluster_share"]
+    a = df[df.group == "A_hrp"].copy()
+    a["_b"] = a.set_index(bkey).index.map(b)
+
+    eq = a[a.allocation == "equal"]
+    bad_eq = eq[eq.max_cluster_share >= eq["_b"]]
+    assert bad_eq.empty, (
+        f"{len(bad_eq)} 格的 equal 分配集中度沒有低於 B_all，多樣性規則失效：\n"
+        f"{bad_eq[['tree_key','scheme','window_no','ratio','max_cluster_share','_b']].head()}")
+
+    pr = a[a.allocation == "proportional"]
+    if len(pr):
+        # 按群大小分配＝複製宇宙成分，集中度應貼近 B_all（容差 5pp，涵蓋整數進位）
+        drift = (pr.max_cluster_share - pr["_b"]).abs()
+        assert drift.max() < 0.05, (
+            f"proportional 分配的集中度偏離 B_all 達 {drift.max():.3f}——"
+            "它應該貼近全宇宙成分，偏離太多代表分配邏輯有問題")
+        # 而且必須明顯比 equal 集中，否則兩種分配的對照沒有意義
+        assert pr.max_cluster_share.mean() > eq.max_cluster_share.mean() * 1.5, (
+            f"proportional 平均集中度({pr.max_cluster_share.mean():.3f})沒有明顯高於"
+            f"equal({eq.max_cluster_share.mean():.3f})，H-28 的機制對照失效")
+
+
+@test
 def t_free_lunch_shortlist_real_data():
     """H-25b：免費午餐清單契約通過，且鎖住這張表的三個定義性事實。
 

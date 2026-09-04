@@ -214,7 +214,13 @@ def free_lunch_shortlist(pairs: pd.DataFrame, log=print) -> pd.DataFrame:
 
 
 def run(log=print) -> tuple[pd.DataFrame, pd.DataFrame]:
+    # ⚠️ 2026-09-04 code review 補上 STAGE0 與 STAGE1/_marks：
+    # `_cluster_profiles()` 讀 candidate_index（STAGE0），而
+    # `rebuild_tree_returns()` 內部讀 strategy_marks（在 STAGE1/_marks 的獨立
+    # manifest，不在 STAGE1 主 manifest 涵蓋範圍）——兩者原本都沒被驗證。
+    freeze.verify_inputs(paths.STAGE0)
     freeze.verify_inputs(paths.STAGE1)
+    freeze.verify_inputs(paths.STAGE1 / "_marks")
     freeze.verify_inputs(paths.STAGE3)
 
     all_pairs = []

@@ -1,0 +1,46 @@
+{
+  "stage": "l3_isoos",
+  "produced_at": "2026-09-04T19:53:56",
+  "git_sha": "a36ccbc",
+  "params": {
+    "level": "L3",
+    "min_members": 20,
+    "complementarity_cuts": {
+      "高": 0.5,
+      "中": 0.8
+    },
+    "l3_target": {
+      "TW": 218,
+      "US": 235,
+      "XM": 453
+    }
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage1\\returns_monthly.parquet",
+      "sha256": "c449417668b6ff2ad58ecd475141e6a1f8dafb79b9600412056bd06bd7394cb3",
+      "bytes": 35729254,
+      "rows": 4547404
+    },
+    {
+      "path": "_frozen\\stage1\\returns_meta.parquet",
+      "sha256": "4a7dd7dc4e9cabd38e4bd04dfec742e1df99b7bc3a0f62216ad08deacf4e0010",
+      "bytes": 181944,
+      "rows": 15810
+    },
+    {
+      "path": "_frozen\\stage1\\strategy_marks.parquet",
+      "sha256": "4b81d7fb55665f465dbfc394c027b764c0805c373d32a719b4b2b6c3c59e4b03",
+      "bytes": 544970,
+      "rows": 15810
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_analysis_outputs_robustness\\l3_isoos.csv",
+      "sha256": "5db800d97cee683ddfb0a2a8c2a96b530c64d0ebf30fd00a834e75caa99f246f",
+      "bytes": 24757
+    }
+  ],
+  "notes": "H-25d：L3 細粒度互補性的 walk-forward 驗證。群定義由 IS 窗凍結，OOS 只重算同一批群的相關（同 H-11 做法）。補 H-25 只有全窗、無 OOS 驗證的缺口。"
+}

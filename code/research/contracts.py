@@ -954,6 +954,198 @@ COMPLEMENTARITY_GRANULARITY = Schema(
     ],
 )
 
+#: H-26／H-27／H-21（2026-09-03）：anchored walk-forward × 精選比例 × 分配方式的
+#: 完整交叉矩陣。**2026-09-02 老師會議定案的畢業必考題主體。**
+#:
+#: 一列 = 一個 (樹 × 窗口方案 × 窗次 × 精選比例 × 分配方式 × 對照組) 的評估格。
+#: `B_all` 不受比例/分配影響，每窗只有一列（`ratio="all"`／`allocation="n/a"`）。
+#:
+#: 🔴 三個維度**刻意不預先挑選最優值**——先挑再驗證＝用同一批資料挑參數又驗證，
+#: 是上帝視角（本專案已因同一錯誤撤銷過 H-11 原提案）。老師明講精選比例是
+#: 「一個需要研究的對象的參數」＝實驗變數。結論看「A_hrp 在多少比例的格子裡贏」。
+#:
+#: `ratio` 的 `legacy` 是保留現行 m=5/群 的總量當校驗點（TW30/US35/XM15），
+#: 用來驗算新程式能否重現已報告給老師的 H-12 數字。
+WALKFORWARD_MATRIX = Schema(
+    name="walkforward_matrix",
+    primary_key=["tree_key", "scheme", "window_no", "k_mode", "ratio", "allocation", "group"],
+    columns=[
+        Column("tree_key", "cat", allowed=("TW", "US", "XM")),
+        Column("scheme", "str"),                       # A~L（anchored）／R（rolling）
+        Column("mode", "cat", allowed=("anchored", "rolling")),
+        #: H-26b：群數 k 的來源。`fixed`＝L1_TARGET（H-03 用完整窗選的 6/7/3，
+        #: 形式上有前視偏誤）；`silhouette_is`＝每個 IS 窗只用該窗資料重選（乾淨版）。
+        #: 兩者共用同一個 linkage，只是切的位置不同。實測前視偏誤**是實質的**——
+        #: 台股 15 個 IS 窗只有 4 個選出 k=6，且有一個窗在 k=6 的輪廓係數是負的。
+        Column("k_mode", "cat", allowed=("fixed", "silhouette_is")),
+        Column("window_no", "int", ge=1),
+        Column("n_windows", "int", ge=1),
+        Column("min_is_months", "int", ge=1),
+        Column("oos_len_months", "int", ge=1),
+        Column("is_start", "str"), Column("is_end", "str"),
+        Column("oos_start", "str"), Column("oos_end", "str"),
+        Column("n_is_months", "int", ge=1),
+        Column("n_oos_months", "int", ge=1),
+        Column("n_universe", "int", ge=1),
+        Column("n_clusters", "int", ge=1),
+        Column("ratio", "str"),                        # legacy／0.01…／all(B組)
+        Column("allocation", "str"),                   # equal／proportional／n/a(B組)
+        Column("group", "cat", allowed=("A_hrp", "B_all", "D_top_cagr", "E_top_calmar")),
+        Column("target_total", "int", ge=1),
+        #: 等量分配時有多少群撞到「配額 > 群成員數」的天花板（實測僅 TW/10%/equal 觸發）
+        Column("n_capped_clusters", "int", ge=0),
+        #: A 組因多樣性門檻太嚴而改用純品質補位的檔數（H-10 的 backfill 機制）
+        Column("n_backfilled", "int", ge=0),
+        Column("n_members", "int", ge=1),
+        Column("is_cagr", "float"), Column("is_mdd", "float", le=0),
+        Column("is_sharpe", "float", nullable=True),
+        Column("oos_cagr", "float"), Column("oos_mdd", "float", le=0),
+        Column("oos_sharpe", "float", nullable=True),
+        Column("oos_enb", "float", ge=0, nullable=True),   # 成員>400時不算，留NaN
+        Column("n_clusters_covered", "int", ge=0),
+        Column("max_cluster_share", "float", ge=0, le=1, nullable=True),
+    ],
+)
+
+#: H-26d（2026-09-04）：共同窗選擇的穩健性——即 `落差處理方案_v1.md` 落差3 規劃的
+#: 「方案 E」。`HRP_ROBUSTNESS_WINDOW_TW` 這個常數留了下來但**從未被執行過**
+#: （2026-09-04 code review 查全域搜尋確認零引用），本表是它的首次落實。
+#:
+#: 台股共同窗定在 2007-01 是個判斷（再往前每多一個月要犧牲大量策略）。本表用
+#: 2003-01 窗（只剩 3,272 檔、49%）重建一次，跟主線分群比對 ARI，回答
+#: 「群結構是不是窗口選擇的產物」。**兩邊切同一個 k**，否則 ARI 會同時混進
+#: 「窗不同」與「k 不同」兩個因素。`ari_random_floor` 是把標籤打散後的 ARI，
+#: 給讀者一個「0 附近長怎樣」的尺度參照。
+WINDOW_ROBUSTNESS = Schema(
+    name="window_robustness",
+    primary_key=["tree_key", "k"],
+    columns=[
+        Column("tree_key", "cat", allowed=("TW", "US", "XM")),
+        Column("k", "int", ge=2),
+        Column("n_common", "int", ge=1),      # 兩窗共同的策略數
+        Column("n_main", "int", ge=1),
+        Column("n_alt", "int", ge=1),
+        Column("ari", "float", ge=-1, le=1),
+        Column("ari_random_floor", "float", ge=-1, le=1),
+        Column("is_main_k", "bool"),          # 是否為主線採用的 L1_TARGET
+    ],
+)
+
+#: H-25d（2026-09-04）：L3 細粒度互補性的 walk-forward 驗證。
+#:
+#: 補 H-25 的缺口——H-25 查出「L1 沒有高互補是聚合效應，降到 L3 後跨市場有 62.6%
+#: 高互補」，但那全部用**完整窗**算，從未經 OOS 驗證。本表把老師對 H-13 的原話
+#: 「in sample 都很低，可是 out sample 會不會還是很低」從 L1 搬到 L3。
+#:
+#: 做法比照 H-11：**群定義只用 IS 窗決定並凍結，OOS 只用同一批群重算相關**。
+#: `stability_rate` ＝「IS 判定為高互補」的配對中，OOS 仍為高互補的比例。
+#: TW/US 樹只有同市場配對，是天然對照組。
+L3_ISOOS = Schema(
+    name="l3_isoos",
+    primary_key=["tree_key", "scheme", "window_no", "pair_type"],
+    columns=[
+        Column("tree_key", "cat", allowed=("TW", "US", "XM")),
+        Column("scheme", "str"),
+        Column("window_no", "int", ge=1),
+        Column("is_start", "str"), Column("is_end", "str"),
+        Column("oos_start", "str"), Column("oos_end", "str"),
+        Column("n_clusters", "int", ge=2),     # 成員>=門檻的 L3 群數
+        Column("pair_type", "cat", allowed=("same", "cross")),
+        Column("n_pairs", "int", ge=1),
+        Column("is_pct_high", "float", ge=0, le=1),
+        Column("oos_pct_high", "float", ge=0, le=1),
+        Column("corr_is_median", "float", ge=-1, le=1),
+        Column("corr_oos_median", "float", ge=-1, le=1),
+        Column("n_is_high", "int", ge=0),
+        Column("n_is_high_stays_high", "int", ge=0),
+        Column("stability_rate", "float", ge=0, le=1, nullable=True),  # n_is_high=0 時無定義
+    ],
+)
+
+#: H-27b（2026-09-04）：周轉率與交易成本。
+#:
+#: 補 walk-forward 矩陣「全部為毛報酬、未評估實務可行性」的限制。
+#: 🔴 **必須算到股票層**：策略之間持股重疊，A 賣出的股票可能正好是 B 買進的，
+#: 合併投組裡兩筆會互相抵銷。策略越多、抵銷越多，**每一元的周轉率反而可能下降**，
+#: 所以不能用「策略數」當周轉率的代理。
+#:
+#: `monthly_turnover` = 0.5×Σ|w_t − w_{t−1}|（單邊），未扣價格漂移 → **高估**，
+#: 對「成本會不會翻轉結論」是保守方向。
+#: `net_cagr_*bp` = 毛 CAGR − 年周轉率 × 單邊成本率 × 2（買賣各一次）。
+TURNOVER_COST = Schema(
+    name="turnover_cost",
+    primary_key=["tree_key", "ratio", "allocation"],
+    columns=[
+        Column("tree_key", "cat", allowed=("TW", "US", "XM")),
+        Column("ratio", "str"),
+        Column("allocation", "str"),
+        Column("n_strategies", "int", ge=1),
+        Column("n_stocks_avg", "float", ge=1),      # 去重後的平均持股檔數
+        Column("monthly_turnover", "float", ge=0),
+        Column("annual_turnover", "float", ge=0),
+        Column("gross_cagr", "float"),
+        Column("net_cagr_5bp", "float"),
+        Column("net_cagr_10bp", "float"),
+        Column("net_cagr_20bp", "float"),
+        Column("net_cagr_30bp", "float"),
+    ],
+)
+
+#: H-26c（2026-09-04）：walk-forward 結果的統計檢定。
+#:
+#: 🔴 存在理由：`walkforward_matrix` 的 2,700 個 A_hrp 格子**共用同一段歷史**
+#: （45 個窗次只對應 21 種不重複的 OOS 區間，且區間互相包含），**2,700 不是樣本數**。
+#: 本表只在「方案內部互不重疊的窗次」上做二項檢定——同一方案的窗次依建構方式
+#: 必然連續不重疊（見 `t_walkforward_schemes_are_mechanical`），跨方案才重疊。
+#:
+#: ⚠️ **刻意不合併各方案的 p 值**（Fisher 等方法要求獨立，但方案間共用歷史）。
+#: 逐方案各自報告，「每個方案單獨檢定都顯著」比一個合併的小 p 值誠實。
+#: ⚠️ 同期的三棵樹不完全獨立（XM 含台美兩市場的策略），`tree_scope="ALL"` 把它們
+#: 當獨立單位處理，論文須註明此假設。
+WALKFORWARD_SIGNIFICANCE = Schema(
+    name="walkforward_significance",
+    primary_key=["opponent", "metric", "scheme", "tree_scope"],
+    columns=[
+        Column("opponent", "cat", allowed=("B_all", "D_top_cagr", "E_top_calmar")),
+        Column("metric", "cat", allowed=("cagr", "mdd", "calmar")),
+        Column("scheme", "str"),
+        Column("tree_scope", "cat", allowed=("ALL", "TW", "US", "XM")),
+        Column("n_units", "int", ge=1),          # 單位＝(樹, 方案, 窗次)
+        Column("n_wins", "int", ge=0),
+        Column("win_rate", "float", ge=0, le=1),
+        Column("p_value", "float", ge=0, le=1),
+        Column("n_windows_per_tree", "int", ge=1),
+        Column("significant_05", "bool"),
+    ],
+)
+
+#: H-26b（2026-09-04）：群數 k 的前視偏誤診斷。
+#:
+#: `L1_TARGET`（6/7/3）是 H-03 用**完整窗**的輪廓係數選出來的，但 walk-forward
+#: 的早期窗只該知道 IS 期間的資訊——形式上這是前視偏誤，跟 H-18②（總經 z-score
+#: 全樣本凍結）、H-11 原提案（挑涵蓋 COVID 的窗）是同一類錯誤。
+#: 本表逐 IS 窗只用該窗資料重選 k，看是否仍得到同一個數字：
+#: **全數一致 → 前視偏誤形式存在、實質無影響；有不一致 → 須把 k_mode 納入矩陣重跑。**
+K_STABILITY = Schema(
+    name="k_stability",
+    primary_key=["tree_key", "is_start", "is_end"],
+    columns=[
+        Column("tree_key", "cat", allowed=("TW", "US", "XM")),
+        Column("is_start", "str"), Column("is_end", "str"),
+        Column("n_is_months", "int", ge=1),
+        Column("n_strategies", "int", ge=1),
+        Column("linkage_method", "str"),          # single／ward，須與主線同一條選法
+        Column("k_fixed", "int", ge=2),           # stage3_hrp.L1_TARGET 的值
+        Column("k_is_selected", "int", ge=2),     # 只用 IS 資料選出的 k
+        Column("same_as_fixed", "bool"),
+        Column("sil_at_selected", "float"),
+        Column("sil_at_fixed", "float", nullable=True),
+        Column("sil_gap", "float", nullable=True),        # selected − fixed，愈小影響愈輕
+        Column("max_share_at_fixed", "float", ge=0, le=1, nullable=True),
+        Column("degenerate_fallback", "bool"),    # 全域最佳解是退化解、已被排除
+    ],
+)
+
 #: H-25b（2026-09-02）：免費午餐清單——把「免費午餐藏在小而特化的群 × 另一個市場」
 #: 這句話落實成**具體可指認的群**。一列＝XM_normal 樹的一個 L3 群。
 #:
@@ -1177,4 +1369,6 @@ ALL_SCHEMAS = {s.name: s for s in (CANDIDATE_INDEX, RETURNS_MONTHLY, RETURNS_MET
                                    CLUSTER_PROFILE_QUANT, EFFECTIVE_BETS, CLUSTER_REPRESENTATIVES,
                                    CLUSTER_ASSIGN_ISOOS, CLUSTER_META_ISOOS, ISOOS_CORR_COMPARISON,
                                    FOUR_GROUP_CONTROL, COMPLEMENTARITY_GRANULARITY,
-                                   FREE_LUNCH_SHORTLIST)}
+                                   FREE_LUNCH_SHORTLIST, WALKFORWARD_MATRIX, K_STABILITY,
+                                   WALKFORWARD_SIGNIFICANCE, WINDOW_ROBUSTNESS,
+                                   L3_ISOOS, TURNOVER_COST)}

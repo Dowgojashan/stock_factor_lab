@@ -1,0 +1,40 @@
+{
+  "stage": "walkforward_significance",
+  "produced_at": "2026-09-04T17:44:46",
+  "git_sha": "a36ccbc",
+  "params": {
+    "opponents": [
+      "B_all",
+      "D_top_cagr",
+      "E_top_calmar"
+    ],
+    "metrics": [
+      "cagr",
+      "mdd",
+      "calmar"
+    ],
+    "unit": "(tree, scheme, window_no)",
+    "unit_win_rule": "A_hrp 在過半設定(5比例×2分配×2k_mode)中優於對手",
+    "test": "binomial, H0: p=0.5, alternative=greater"
+  },
+  "inputs": [
+    {
+      "path": "_analysis_outputs_robustness\\walkforward_matrix_detail.csv",
+      "sha256": "719af3e4824af37cbb15f45f9d344906b21144abd0548ab932b73d831bc126cd",
+      "bytes": 2222625
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_analysis_outputs_robustness\\walkforward_significance.csv",
+      "sha256": "fa311e012e21f4dc19e3c2a481fa6cc0850211c33da8663fae0c9b95b3eda3f8",
+      "bytes": 23149
+    },
+    {
+      "path": "_analysis_outputs_robustness\\walkforward_significance_units.csv",
+      "sha256": "8da3d7f73a6936013aaf92b7a597ceff4e0dec9fda4696ab5ae7022983e4d0b3",
+      "bytes": 43759
+    }
+  ],
+  "notes": "H-26c：只在方案內部（互不重疊）的窗次上做二項檢定，不把 2,700 格當樣本數；不合併各方案 p 值（方案間共用歷史）。"
+}

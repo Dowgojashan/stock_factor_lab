@@ -1,0 +1,81 @@
+{
+  "stage": "walkforward_matrix",
+  "produced_at": "2026-09-04T16:51:28",
+  "git_sha": "a36ccbc",
+  "params": {
+    "min_is_grid": [
+      72,
+      96,
+      120,
+      144
+    ],
+    "oos_len_grid": [
+      24,
+      36,
+      48
+    ],
+    "ratio_grid": [
+      "legacy",
+      "0.01",
+      "0.03",
+      "0.05",
+      "0.1"
+    ],
+    "allocations": [
+      "equal",
+      "proportional"
+    ],
+    "groups": [
+      "A_hrp",
+      "B_all",
+      "D_top_cagr",
+      "E_top_calmar"
+    ],
+    "k_modes": [
+      "fixed",
+      "silhouette_is"
+    ],
+    "rolling_is_months": 96,
+    "legacy_m_per_cluster": 5,
+    "min_tail_months": 24
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage0\\candidate_index.parquet",
+      "sha256": "b308a282f48511117739a3d3215dd00601a03c8247a9693edaad1644de57a8e2",
+      "bytes": 1453737,
+      "rows": 15810
+    },
+    {
+      "path": "_frozen\\stage1\\returns_monthly.parquet",
+      "sha256": "c449417668b6ff2ad58ecd475141e6a1f8dafb79b9600412056bd06bd7394cb3",
+      "bytes": 35729254,
+      "rows": 4547404
+    },
+    {
+      "path": "_frozen\\stage1\\returns_meta.parquet",
+      "sha256": "4a7dd7dc4e9cabd38e4bd04dfec742e1df99b7bc3a0f62216ad08deacf4e0010",
+      "bytes": 181944,
+      "rows": 15810
+    },
+    {
+      "path": "_frozen\\stage1\\strategy_marks.parquet",
+      "sha256": "4b81d7fb55665f465dbfc394c027b764c0805c373d32a719b4b2b6c3c59e4b03",
+      "bytes": 544970,
+      "rows": 15810
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_analysis_outputs_robustness\\walkforward_matrix_detail.csv",
+      "sha256": "719af3e4824af37cbb15f45f9d344906b21144abd0548ab932b73d831bc126cd",
+      "bytes": 2222625
+    },
+    {
+      "path": "_analysis_outputs_robustness\\walkforward_matrix_summary.csv",
+      "sha256": "c1c3d706f291792a815c2c195bae931e7ff12e7c23273b5c82991abc6587b1de",
+      "bytes": 8604
+    }
+  ],
+  "notes": "H-26/H-27/H-21：anchored walk-forward × 精選比例 × 分配方式的完整交叉。三維度不預先挑選（先挑=上帝視角，見模組docstring）。C_random已移除。"
+}

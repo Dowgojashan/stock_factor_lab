@@ -1,0 +1,60 @@
+{
+  "stage": "turnover_cost",
+  "produced_at": "2026-09-04T20:58:20",
+  "git_sha": "a36ccbc",
+  "params": {
+    "level": "L1",
+    "ratio_grid": [
+      "legacy",
+      "0.01",
+      "0.03",
+      "0.05",
+      "0.1"
+    ],
+    "allocations": [
+      "equal",
+      "proportional"
+    ],
+    "cost_grid_one_way": [
+      0.0005,
+      0.001,
+      0.002,
+      0.003
+    ],
+    "turnover_def": "0.5*sum|w_t - w_{t-1}|，未扣價格漂移（高估、保守）"
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage0\\candidate_index.parquet",
+      "sha256": "b308a282f48511117739a3d3215dd00601a03c8247a9693edaad1644de57a8e2",
+      "bytes": 1453737,
+      "rows": 15810
+    },
+    {
+      "path": "_frozen\\stage1\\returns_monthly.parquet",
+      "sha256": "c449417668b6ff2ad58ecd475141e6a1f8dafb79b9600412056bd06bd7394cb3",
+      "bytes": 35729254,
+      "rows": 4547404
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_assign.parquet",
+      "sha256": "ca3c56a47b8b3da494155d62e6c58acfb4428714fa04fea82cf41689b49a3ae5",
+      "bytes": 295416,
+      "rows": 60158
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_meta.parquet",
+      "sha256": "12765270e4803c4287aa3220dbc3a8ce8e0e2eb2f6ec5c3c2816f201f51fb706",
+      "bytes": 38970,
+      "rows": 1844
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_analysis_outputs_robustness\\turnover_cost.csv",
+      "sha256": "95bbb194837d034b473fe8cf418f3d17bce3006c886e91d32c4de11d87377f76",
+      "bytes": 5442
+    }
+  ],
+  "notes": "H-27b：股票層的實際周轉率與交易成本。策略間持股重疊會讓買賣互相抵銷，故必須算到股票層，不能用策略數當代理。在主線完整窗上計算，為代表性估計非逐窗實算。"
+}

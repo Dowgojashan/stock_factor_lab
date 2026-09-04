@@ -1,0 +1,63 @@
+{
+  "stage": "window_robustness",
+  "produced_at": "2026-09-04T17:56:34",
+  "git_sha": "a36ccbc",
+  "params": {
+    "main_window": [
+      "2007-01",
+      "2025-12"
+    ],
+    "alt_window": [
+      "2003-01",
+      "2025-12"
+    ],
+    "k_scan": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "n_shuffle": 20,
+    "shuffle_seed": 42
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage1\\returns_monthly.parquet",
+      "sha256": "c449417668b6ff2ad58ecd475141e6a1f8dafb79b9600412056bd06bd7394cb3",
+      "bytes": 35729254,
+      "rows": 4547404
+    },
+    {
+      "path": "_frozen\\stage1\\returns_meta.parquet",
+      "sha256": "4a7dd7dc4e9cabd38e4bd04dfec742e1df99b7bc3a0f62216ad08deacf4e0010",
+      "bytes": 181944,
+      "rows": 15810
+    },
+    {
+      "path": "_frozen\\stage1\\strategy_marks.parquet",
+      "sha256": "4b81d7fb55665f465dbfc394c027b764c0805c373d32a719b4b2b6c3c59e4b03",
+      "bytes": 544970,
+      "rows": 15810
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_assign.parquet",
+      "sha256": "ca3c56a47b8b3da494155d62e6c58acfb4428714fa04fea82cf41689b49a3ae5",
+      "bytes": 295416,
+      "rows": 60158
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_analysis_outputs_robustness\\window_robustness.csv",
+      "sha256": "1ecc846f6145ce0a7d0f8c9942094a66d7d4bed9a438f292841771f6037254d3",
+      "bytes": 761
+    }
+  ],
+  "notes": "H-26d（＝落差3 的方案E，2026-09-04 首次執行）：台股共同窗 2007-01 vs 2003-01 的群結構一致性，用來回答「群結構是不是窗選擇的產物」。"
+}
