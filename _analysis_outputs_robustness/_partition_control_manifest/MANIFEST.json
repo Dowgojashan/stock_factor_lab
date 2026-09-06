@@ -1,0 +1,44 @@
+{
+  "stage": "partition_control",
+  "produced_at": "2026-09-05T17:42:22",
+  "git_sha": "fc40f3a",
+  "params": {
+    "m_per_cluster": 5,
+    "n_draws": 200,
+    "random_seed": 42,
+    "partitions": [
+      "A_hrp",
+      "A1_fcombo",
+      "A2_random"
+    ],
+    "fcombo_features": "19 因子 × {primary, secondary} 的 38 維二元向量，ward linkage，不含 band、不含市場"
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage0\\candidate_index.parquet",
+      "sha256": "b308a282f48511117739a3d3215dd00601a03c8247a9693edaad1644de57a8e2",
+      "bytes": 1453737,
+      "rows": 15810
+    },
+    {
+      "path": "_frozen\\stage1\\returns_monthly.parquet",
+      "sha256": "c449417668b6ff2ad58ecd475141e6a1f8dafb79b9600412056bd06bd7394cb3",
+      "bytes": 35729254,
+      "rows": 4547404
+    },
+    {
+      "path": "_frozen\\stage3_isoos\\cluster_assign_IS.parquet",
+      "sha256": "fd4122a0b67aa0dbe80c4eb8340f1c13612dc12d50fb154d6e5d18ad0cc837bf",
+      "bytes": 222804,
+      "rows": 30079
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_analysis_outputs_robustness\\partition_control.csv",
+      "sha256": "0684f61642cdfa8fe39f2c3e84af741f6ca27917dec9634776ca31dbed007744",
+      "bytes": 3762
+    }
+  ],
+  "notes": "M-03：只換分群依據、其餘全部釘死的對照實驗。回答「A_hrp 的優勢是否來自 HRP 分群本身」。A2_random 沿用 HRP 的群大小 profile（保守設定）。"
+}

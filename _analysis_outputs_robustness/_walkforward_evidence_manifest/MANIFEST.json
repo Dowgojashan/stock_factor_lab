@@ -1,0 +1,52 @@
+{
+  "stage": "walkforward_evidence",
+  "produced_at": "2026-09-06T11:28:28",
+  "git_sha": "fc40f3a",
+  "params": {
+    "alpha": 0.05,
+    "quantiles": [
+      0.1,
+      0.25,
+      0.5,
+      0.75,
+      0.9
+    ],
+    "fdr_scope": "tree_scope=ALL 的檢定（逐樹列是子集，納入會稀釋 q 值）"
+  },
+  "inputs": [
+    {
+      "path": "_analysis_outputs_robustness\\walkforward_matrix_detail.csv",
+      "sha256": "719af3e4824af37cbb15f45f9d344906b21144abd0548ab932b73d831bc126cd",
+      "bytes": 2222625
+    },
+    {
+      "path": "_analysis_outputs_robustness\\walkforward_members.parquet",
+      "sha256": "4703c885f514628dfccae52e189e5615f0c356d9660353524bdf3cf042f22ef6",
+      "bytes": 3932801,
+      "rows": 8100
+    },
+    {
+      "path": "_analysis_outputs_robustness\\walkforward_significance.csv",
+      "sha256": "fa311e012e21f4dc19e3c2a481fa6cc0850211c33da8663fae0c9b95b3eda3f8",
+      "bytes": 23149
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_analysis_outputs_robustness\\wf_effect_distribution.csv",
+      "sha256": "062fa19a995cf7e931dd37df4b70368e71bb28c7913620312ce84e3c18cfea59",
+      "bytes": 6108
+    },
+    {
+      "path": "_analysis_outputs_robustness\\wf_multiplicity.csv",
+      "sha256": "f18ad768a6292cef64d749693b643a2af66c8e7c026f75d8ae189d831fa23f26",
+      "bytes": 776
+    },
+    {
+      "path": "_analysis_outputs_robustness\\wf_window_overlap.csv",
+      "sha256": "65a09d032a64087eb5fceba90982205fc922938016248e987bf360bd6cbbcaa6",
+      "bytes": 289750
+    }
+  ],
+  "notes": "M-10：效果量分布、多重比較校正（BH + Bonferroni）、相鄰窗次選股重疊。重疊分析不修正任何既有 p 值，只把「窗次獨立」的假設量化揭露。"
+}

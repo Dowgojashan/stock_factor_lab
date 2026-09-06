@@ -1091,6 +1091,56 @@ TURNOVER_COST = Schema(
     ],
 )
 
+#: M-01（2026-09-05）：市場 beta 基準與殘差相關結構。
+#:
+#: 🔴 存在理由：§3.5② 宣稱「分散效果的來源是市場邊界」，依據是跨市場配對相關 0.542，
+#: **但從未算過台美兩個市場基準本身的相關**。若市場基準之間就是 0.55，
+#: 那 0.542 只是**國際分散的重現**，跟策略選擇無關。
+#:
+#: `version="raw"` 用原始月報酬；`version="resid"` 用 `ret_i = α+β·mkt_i+ε` 的殘差
+#: （mkt 取該策略**所屬市場**的基準）重建樹。`ari_raw_vs_resid` 是兩版分群結構的
+#: 一致性（同一個 k）。`market_corr` 僅 XM 樹有值（單一市場樹無跨市場對象）。
+#:
+#: ⚠️ beta 代理用 `B_all`（候選池等權）有循環性——候選池是全期間贏家，
+#: 不是中性的市場代理，會略微高估 beta、低估殘差。乾淨版需 M-07 的市場指數。
+BETA_BASELINE = Schema(
+    name="beta_baseline",
+    primary_key=["tree_id", "level", "version", "pair_type"],
+    columns=[
+        Column("tree_id", "cat", allowed=TREE_IDS),
+        Column("level", "cat", allowed=("L1", "L3")),
+        Column("version", "cat", allowed=("raw", "resid")),
+        Column("pair_type", "cat", allowed=("same", "cross")),
+        Column("n_clusters", "int", ge=2),
+        Column("n_pairs", "int", ge=1),
+        Column("corr_median", "float", ge=-1, le=1),
+        Column("corr_mean", "float", ge=-1, le=1),
+        Column("pct_high", "float", ge=0, le=1),          # 相關 < 高互補門檻的比例
+        #: 🔴 殘差相關的機械下限 ≈ −1/(k−1)：mkt 是同一批策略的等權平均，殘差在
+        #: 橫斷面被強制加總≈0，故群代表的平均兩兩相關被壓到負值——**不是真的負相關**。
+        #: 解讀 `version="resid"` 的 corr_median 必須跟這條線比，不能跟 0 比。
+        Column("corr_mechanical_floor", "float", ge=-1, le=0),
+        Column("ari_raw_vs_resid", "float", ge=-1, le=1),
+        Column("market_corr", "float", ge=-1, le=1, nullable=True),   # 僅 XM 有值
+        Column("beta_median", "float"),
+        Column("r2_median", "float", ge=0, le=1),         # 市場解釋掉的變異比例
+        #: 🔴 純 beta 模型的預測相關（僅 version="raw" 有值）：
+        #:     corr_pred = ρ(m_i, m_j) × √(R²_i · R²_j)
+        #: 意義：假設「策略 = beta × 市場 + 無關的雜訊」，兩群該有多相關。
+        #: `excess_median = corr_median − corr_pred_median` ≈ 0 ⇒ **策略選擇沒有提供
+        #: 任何超越市場 beta 的分散**；顯著為負才代表有真正的超額分散。
+        #: `pct_below_pred` ≈ 0.5 表示實測只是在預測值附近隨機擺動（純隨機基準）。
+        Column("corr_pred_median", "float", ge=-1, le=1, nullable=True),
+        Column("excess_median", "float", ge=-2, le=2, nullable=True),
+        Column("pct_below_pred", "float", ge=0, le=1, nullable=True),
+        #: 群代表（非個別策略）對自己市場基準的 R² 中位——beta 模型的輸入。
+        #: 🔴 群越小 → 特異變異平均掉得越少 → R² 越低 → beta 相關被稀釋越多。
+        #: 這就是 H-25「粒度效應」的機械成因，**不是「小群比較特化」**。
+        Column("cluster_r2_median", "float", ge=0, le=1, nullable=True),
+        Column("cluster_size_median", "float", ge=1, nullable=True),
+    ],
+)
+
 #: H-26c（2026-09-04）：walk-forward 結果的統計檢定。
 #:
 #: 🔴 存在理由：`walkforward_matrix` 的 2,700 個 A_hrp 格子**共用同一段歷史**
@@ -1358,6 +1408,361 @@ STRATEGY_MAP = Schema(
 )
 
 
+#: M-03（2026-09-05）：分群依據的對照實驗。
+#:
+#: 🔴 存在理由：H-12 的 `C_random` 證明的是「A_hrp 贏過隨機**挑選**」，
+#: **沒有回答「贏在哪一步」**。A_hrp = 分成 k 群 → 每群挑 m 個高品質且夠不像的，
+#: 其中「分成 k 群」可換成任何依據。本表把分群依據換成
+#: **因子構成**（A1_fcombo）與**隨機**（A2_random）,其餘全部釘死。
+#:
+#: 🔴 **共同座標軸**：三組同窗、同宇宙、同品質分數（Calmar）、同 m=5／群、
+#: 同一套 H-10 貪婪多樣性規則、同一個組合檔數 k×5。唯一變因是分群依據。
+#: A2_random 的群大小 profile 刻意沿用 HRP（給對照組更多資訊的保守設定）。
+#:
+#: ⚠️ **集中度欄位一律用 HRP 的群定義當尺**（`n_hrp_clusters_covered` /
+#: `max_hrp_cluster_share`）。若各組用自己的分群去算，A2_random 必然「橫跨 k 群、
+#: 每群 5 檔」看起來完美分散——那是套套邏輯，不是發現。
+PARTITION_CONTROL = Schema(
+    name="partition_control",
+    primary_key=["tree_key", "partition"],
+    columns=[
+        Column("tree_key", "cat", allowed=("TW", "US", "XM")),
+        Column("partition", "cat", allowed=("A_hrp", "A1_fcombo", "A2_random")),
+        Column("n_universe", "int", ge=1),
+        Column("k", "int", ge=2),
+        Column("n_target", "int", ge=1),          # = k × m，三組必須相同
+        Column("n_members", "int", ge=1),
+        Column("n_draws", "int", ge=1),
+        Column("n_backfilled", "int", ge=0),
+        #: 各群「單一市場佔比」的加權平均。1.0 = 每群都只含單一市場。
+        #: 🔴 只有 XM 有意義：量化「HRP 是不是在分市場」。A1_fcombo 的特徵不含市場欄位，
+        #: 故在 XM 上必然遠低於 A_hrp——這是設計，不是 bug（見模組 docstring）。
+        Column("market_purity", "float", ge=0, le=1),
+        Column("is_cagr", "float"), Column("is_mdd", "float", le=0),
+        Column("is_sharpe", "float"), Column("is_enb", "float", ge=0),
+        #: 🔴 Calmar 是本表的決勝指標（品質分數本身就是 Calmar），且對 A2_random
+        #: 必須**逐次抽樣算完再平均**——比值的期望值 ≠ 期望值的比值，事後用
+        #: 平均 CAGR ÷ 平均 MDD 反推會得到錯的點估計與錯的 σ。
+        Column("is_calmar", "float"),
+        Column("oos_cagr", "float"), Column("oos_mdd", "float", le=0),
+        Column("oos_sharpe", "float"), Column("oos_enb", "float", ge=0),
+        Column("oos_calmar", "float"),
+        #: A2_random 的 200 次抽樣標準差；A_hrp / A1_fcombo 為單一次結果故留空。
+        #: 判讀用 (A_hrp − A2_random) / std 的 σ 數，不是看點估計誰高。
+        Column("is_cagr_std", "float", ge=0, nullable=True),
+        Column("is_mdd_std", "float", ge=0, nullable=True),
+        Column("is_sharpe_std", "float", ge=0, nullable=True),
+        Column("is_calmar_std", "float", ge=0, nullable=True),
+        Column("is_enb_std", "float", ge=0, nullable=True),
+        Column("oos_cagr_std", "float", ge=0, nullable=True),
+        Column("oos_mdd_std", "float", ge=0, nullable=True),
+        Column("oos_sharpe_std", "float", ge=0, nullable=True),
+        Column("oos_calmar_std", "float", ge=0, nullable=True),
+        Column("oos_enb_std", "float", ge=0, nullable=True),
+        Column("max_hrp_cluster_share_std", "float", ge=0, nullable=True),
+        Column("n_hrp_clusters_covered", "int", ge=0),
+        Column("max_hrp_cluster_share", "float", ge=0, le=1),
+        Column("note", "str", nullable=True),
+    ],
+)
+
+
+#: M-09（2026-09-05）：MDD 顯著性按 OOS 窗長分層。
+#:
+#: 🔴 存在理由：H-26c 報「Calmar 13/13、CAGR 13/13，**MDD 只有 8/13**」，
+#: 但 p 值同時混了效果量與樣本數，**看 p 值無法分辨「檢力不足」與「效果真的弱」**。
+#: 本表把兩者拆開：`detectable_win_rate` 是該 n 下能達 p<0.05 的最低勝率，
+#: `diff_mean` 是不受 n 影響的效果量，`verdict` 給出三分類的診斷。
+#:
+#: ⚠️ **本表不產生任何跨方案的合併檢定**。同窗長的方案（如 oos_len=24 的 A/D/G/J）
+#: 用不同 min_is 切同一條時間軸，窗次互相重疊，合併會把同一段歷史數好幾次。
+#: `p_value` 仍是 H-26c 那份逐方案二項檢定的重算，只是按窗長重新排列。
+MDD_WINDOW_LENGTH = Schema(
+    name="mdd_window_length",
+    primary_key=["opponent", "metric", "scheme"],
+    columns=[
+        Column("opponent", "cat", allowed=("B_all", "D_top_cagr", "E_top_calmar")),
+        Column("metric", "cat", allowed=("cagr", "mdd", "calmar")),
+        Column("scheme", "cat"),
+        Column("mode", "cat", allowed=("anchored", "rolling")),
+        Column("min_is_months", "int", ge=1),
+        Column("oos_len_months", "int", ge=1),
+        Column("n_units", "int", ge=1),          # = 窗次 × 3 棵樹（方案內部互不重疊）
+        Column("n_wins", "int", ge=0),
+        Column("win_rate", "float", ge=0, le=1),
+        #: 單位層級的 win_share（該單位 20 種設定中 A 勝出的比例）平均／標準差。
+        #: 比二元的 unit_win 更細緻——0.55 與 1.00 都算「勝出」但意義差很多。
+        Column("win_share_mean", "float", ge=0, le=1),
+        Column("win_share_std", "float", ge=0, nullable=True),
+        Column("n_cells", "int", ge=1),
+        #: 🔴 效果量：格子層級的 (A_hrp − 對手)。MDD 是負數，>0 代表 A 回撤較淺。
+        #: **不受樣本數影響**，是「效果真的弱不弱」的直接證據。
+        Column("diff_mean", "float"),
+        Column("diff_median", "float"),
+        Column("diff_std", "float", ge=0),
+        Column("pct_positive", "float", ge=0, le=1),
+        #: 🔴 檢力下限：n 個單位下雙尾二項檢定達 p<0.05 **至少**要贏幾場。
+        #: 空值代表**全勝也不可能顯著**——那種方案的「不顯著」完全不是證據。
+        Column("min_wins_for_sig", "float", nullable=True),
+        Column("detectable_win_rate", "float", ge=0, le=1, nullable=True),
+        Column("p_value", "float", ge=0, le=1),
+        Column("significant_05", "bool"),
+        #: 還差幾場才到顯著門檻（0 = 已顯著）——比 p 值直觀的距離度量。
+        Column("wins_short_of_sig", "float", ge=0, nullable=True),
+        #: 🔴 方向：雙尾檢定顯著**不代表 A_hrp 贏**——A 也可能顯著地輸
+        #: （實測 A vs D_top_cagr 在方案 A 的 CAGR 只贏 3/18、p=0.0075，是顯著落敗）。
+        Column("direction", "cat", allowed=("A勝", "A敗", "平手")),
+        #: 🔴 五分類診斷：顯著（A勝）／顯著（A敗）／檢力不足（門檻需近全勝）／
+        #: 差一場就顯著／效果不足。
+        #: **只有「效果不足」才代表該指標真的弱**；另兩種「不顯著」不構成證據。
+        Column("verdict", "cat"),
+    ],
+)
+
+
+#: M-10（2026-09-05）：walk-forward 證據強度三張表。
+#:
+#: 🔴 存在理由：H-26 報「A_hrp 在 92~94% 的格子裡贏」、H-26c 報「13/13 方案顯著」，
+#: 兩者都建立在沒有量化的假設上——①勝率不等於普遍性優勢（可能少數極端格主導）
+#: ②117 個檢定沒做多重比較校正 ③「窗次獨立」說的是 OOS 不重疊，不是選股不重疊。
+
+#: ① 配對差距的分布。⚠️ 格子互相重疊，**只報分布不報 p 值**。
+WF_EFFECT_DISTRIBUTION = Schema(
+    name="wf_effect_distribution",
+    primary_key=["tree_key", "opponent", "metric"],
+    columns=[
+        Column("tree_key", "cat", allowed=("TW", "US", "XM")),
+        Column("opponent", "cat", allowed=("B_all", "D_top_cagr", "E_top_calmar")),
+        Column("metric", "cat", allowed=("cagr", "mdd", "calmar")),
+        Column("n_cells", "int", ge=1),
+        Column("mean", "float"), Column("std", "float", ge=0),
+        #: 標準化效果量（Cohen 慣例：|d|<0.2 小、0.5 中、0.8 大）
+        Column("cohens_d", "float"),
+        Column("pct_positive", "float", ge=0, le=1),
+        Column("p10", "float"), Column("p25", "float"), Column("p50", "float"),
+        Column("p75", "float"), Column("p90", "float"),
+        #: 🔴 中位數 ÷ 平均。接近 1 → 普遍性優勢；遠小於 1 → **少數極端格主導**，
+        #: 那種「92% 勝率」的說服力要打折。
+        Column("median_over_mean", "float"),
+    ],
+)
+
+#: ② 多重比較校正。⚠️ BH 假設檢定獨立或正相關，本專案的檢定共用歷史故 **BH 偏樂觀**；
+#: Bonferroni 不需獨立性假設，論文要報單一數字就用它。
+WF_MULTIPLICITY = Schema(
+    name="wf_multiplicity",
+    primary_key=["opponent", "metric"],
+    columns=[
+        Column("opponent", "cat", allowed=("B_all", "D_top_cagr", "E_top_calmar")),
+        Column("metric", "cat", allowed=("cagr", "mdd", "calmar")),
+        Column("n_tests", "int", ge=1),
+        Column("n_sig_raw", "int", ge=0),
+        #: 🔴 **族內校正（n=13，固定對手×指標）** —— 對應論文真正的宣稱
+        #: 「不管怎麼切窗，A 都贏 B_all」，是審查者預期的標準做法。**論文主表用這欄。**
+        Column("n_sig_bh_family", "int", ge=0),
+        Column("n_sig_bonferroni_family", "int", ge=0),
+        #: 全域校正（n=117）把「vs B_all／vs D／vs E」× 三指標綁成一個大家族。
+        #: 那 117 個檢定其實回答三個不同的研究問題，全綁在一起**過苛**；
+        #: 只當「連最保守的校正都還剩幾個」的補充數字。
+        Column("n_sig_bh", "int", ge=0),
+        Column("n_sig_bonferroni", "int", ge=0),
+        Column("min_p", "float", ge=0, le=1),
+        Column("min_q_bh", "float", ge=0, le=1),
+        Column("min_p_bonferroni", "float", ge=0, le=1),
+        #: 校正基數——只算 tree_scope="ALL" 的檢定。逐樹的列是同一批單位的子集，
+        #: 一起丟進 FDR 等於同一個檢定數了四次，會把 q 值稀釋到毫無意義。
+        Column("n_total_tests_corrected", "int", ge=1),
+    ],
+)
+
+#: ③ 相鄰窗次的選股重疊。🔴 H-26c 的「窗次可當獨立單位」說的是 **OOS 區間**不重疊，
+#: 不是**選出的策略**不重疊。anchored 的 IS 是巢狀的（第 2 窗 IS = 第 1 窗 IS+OOS），
+#: 若相鄰窗選同一批策略，那些「獨立單位」在策略層面是同一個賭注重複下注。
+#: ⚠️ 本表**不修正**任何既有 p 值——重疊率多高才該打折沒有客觀答案。
+WF_WINDOW_OVERLAP = Schema(
+    name="wf_window_overlap",
+    primary_key=["tree_key", "scheme", "k_mode", "ratio", "allocation", "group"],
+    columns=[
+        Column("tree_key", "cat", allowed=("TW", "US", "XM")),
+        Column("scheme", "cat"),
+        Column("k_mode", "cat", allowed=("fixed", "silhouette_is")),
+        Column("ratio", "cat"),
+        Column("allocation", "cat"),
+        Column("group", "cat", allowed=("A_hrp", "D_top_cagr", "E_top_calmar")),
+        Column("n_windows", "int", ge=2),
+        Column("n_members_mean", "float", ge=1),
+        Column("jaccard_adjacent_mean", "float", ge=0, le=1),
+        Column("jaccard_adjacent_max", "float", ge=0, le=1),
+        #: |A∩B| / min(|A|,|B|)——組合大小不同時比 Jaccard 更能看出「小的被大的包住」
+        Column("overlap_coef_adjacent_mean", "float", ge=0, le=1),
+        #: 每一窗都被選中的策略數，以及它佔平均組合大小的比例（「從頭壓到尾」的部位）
+        Column("core_size", "int", ge=0),
+        Column("core_share", "float", ge=0, le=1),
+    ],
+)
+
+
+#: M-05（2026-09-05）：ENB 的虛無分布。
+#:
+#: 🔴 存在理由：v10 §3.4 的核心數字「ENB 只有 3.27/4.36/5.77」**從來沒有尺度**
+#: ——沒有虛無分布，那就只是一個沒有比較基準的數。
+#:
+#: 🔴 **N ≫ T 的關鍵限制**：N=6,679~15,040 而 T=228，相關矩陣的秩最多 T−1=227，
+#: 有 N−T+1 個特徵值恆為 0。故**純雜訊的 ENB 上界是 T 的數量級，不是 N**。
+#: 拿 N 當上界是錯的（稽核清單原本就這樣假設）。`max_possible_enb` 記錄這個上界。
+#:
+#: 兩個虛無：`iid`（純雜訊上界）／`one_factor`（用實測 R² 中位校準的單因子模型，
+#: 回答「ENB 這麼低是不是完全由市場 beta 解釋」，與 M-01 互相印證）。
+ENB_NULL = Schema(
+    name="enb_null",
+    primary_key=["tree_id", "null_model"],
+    columns=[
+        Column("tree_id", "cat", allowed=TREE_IDS),
+        #: iid=純雜訊上界／one_factor=單一共同因子／two_factor=兩個市場因子且相關
+        #: = M-01 實測的 0.5512。🔴 **跨市場樹必須看 two_factor**——XM 裡台股策略跟
+        #: 台股大盤、美股策略跟美股大盤，那是兩個因子；用單因子當虛無會低估虛無維度，
+        #: 讓實測看起來「比虛無更分散」，那是虛無設定錯不是發現。
+        #: 單一市場的樹不產生 two_factor 列（會退化成 one_factor）。
+        Column("null_model", "cat", allowed=("iid", "one_factor", "two_factor")),
+        Column("n_strategies", "int", ge=2),
+        Column("n_months", "int", ge=2),
+        Column("n_draws", "int", ge=1),
+        #: one_factor 校準用的 R² **中位數**（僅供閱讀；模擬實際用的是逐策略向量）。
+        #: 🔴 用逐策略而非單一中位數，是因為 R² 的**離散度本身會製造額外的獨立維度**
+        #: ——只用中位數會低估虛無 ENB，等於偷偷讓虛無比較容易被實測打敗。iid 列為空。
+        Column("r2_used", "float", ge=0, le=1, nullable=True),
+        #: two_factor 用的兩市場因子相關（= M-01 的 `market_corr`）。其餘虛無為空。
+        Column("market_rho_used", "float", ge=-1, le=1, nullable=True),
+        Column("enb_null_mean", "float", ge=0),
+        Column("enb_null_std", "float", ge=0),
+        Column("enb_null_p05", "float", ge=0),
+        Column("enb_null_p95", "float", ge=0),
+        Column("enb_null_min", "float", ge=0),
+        Column("enb_null_max", "float", ge=0),
+        #: 實測值。由 `fast_enb`（T×T 等價算法）算出，並與 H-09 凍結的 `enb_raw`
+        #: 比對過（差 < 1e-3 才允許往下跑）——那是整個模組的正確性根基。
+        Column("enb_observed", "float", ge=0),
+        Column("ratio_observed_over_null", "float", ge=0),
+        Column("z_observed", "float"),
+        #: 🔴 秩上限 T−1。純雜訊的 ENB 不可能超過它——這是 N≫T 的數學事實。
+        Column("max_possible_enb", "float", ge=1),
+    ],
+)
+
+
+#: M-02b（2026-09-06）：walk-forward 版的 C_random 抽樣分布。
+#:
+#: 🔴 存在理由：H-12 的 C_random 只做過**單一窗、legacy 比例、fixed k**。
+#: 現行矩陣是 45 窗 × 5 比例 × 2 分配 × 2 k_mode，組合檔數從 15 到 1,504——
+#: 舊結果完全沒有覆蓋這個空間。（`walkforward_matrix` 2026-09-03 移除 C_random，
+#: 理由是每格抽 200 次太貴；本表獨立跑，因為隨機抽取**不需要建樹**。）
+#:
+#: 🔴 **去重鍵是 (樹, 窗, 檔數)**：抽樣結果只由這三者決定，跟 ratio/allocation/k_mode
+#: 無關。2,700 個 A_hrp 格子去重後只剩 414 組，多個格子共用同一批抽樣。
+#: ⚠️ 檔數對齊 A_hrp 的**實際 `n_members`**（不是 target_total）——A 可能因 backfill
+#: 或空群使實際檔數與目標不同，對齊實際值才是「買一樣多檔」的公平比較。
+WALKFORWARD_RANDOM = Schema(
+    name="walkforward_random",
+    primary_key=["tree_key", "is_start", "is_end", "oos_start", "oos_end", "n_members"],
+    columns=[
+        Column("tree_key", "cat", allowed=("TW", "US", "XM")),
+        Column("is_start", "str"), Column("is_end", "str"),
+        Column("oos_start", "str"), Column("oos_end", "str"),
+        Column("n_members", "int", ge=1),
+        Column("n_universe", "int", ge=1),
+        Column("n_draws", "int", ge=1),
+        #: ENB 只在 <= 400 檔時算（與 `walkforward_matrix._evaluate` 同一條規則）；
+        #: 超過就要做上千維特徵分解。False 的列 `*_enb` 為空。
+        Column("enb_computed", "bool"),
+        Column("is_cagr", "float"), Column("is_cagr_std", "float", ge=0),
+        Column("is_mdd", "float", le=0), Column("is_mdd_std", "float", ge=0),
+        Column("is_sharpe", "float"), Column("is_sharpe_std", "float", ge=0),
+        Column("is_enb", "float", ge=0, nullable=True),
+        Column("is_enb_std", "float", ge=0, nullable=True),
+        Column("oos_cagr", "float"), Column("oos_cagr_std", "float", ge=0),
+        Column("oos_mdd", "float", le=0), Column("oos_mdd_std", "float", ge=0),
+        Column("oos_sharpe", "float"), Column("oos_sharpe_std", "float", ge=0),
+        Column("oos_enb", "float", ge=0, nullable=True),
+        Column("oos_enb_std", "float", ge=0, nullable=True),
+    ],
+)
+
+#: M-02b 的對照彙總：每個 A_hrp 格子相對其 C_random 抽樣分布的 z 分數。
+#: 🔴 z = (A − 隨機均值) / 隨機標準差。**這是 walk-forward 版的「挑選有沒有技術」。**
+#: ⚠️ 與 M-03 不衝突：M-03 換掉的是**分群依據**（HRP vs 隨機分群），
+#: 本表換掉的是**挑選機制**（品質排序+多樣性限制 vs 純隨機抽）。兩者結論可以相反。
+WALKFORWARD_RANDOM_COMPARE = Schema(
+    name="walkforward_random_compare",
+    primary_key=["tree_key", "metric", "ratio"],
+    columns=[
+        Column("tree_key", "cat", allowed=("TW", "US", "XM")),
+        Column("metric", "cat", allowed=("oos_cagr", "oos_mdd", "oos_sharpe", "oos_enb")),
+        #: 🔴 **精選比例必須拆開看，聚合數字會掩蓋方向相反的結構**（2026-09-06 實測）。
+        #: `ratio="ALL"` 是全比例聚合列；其餘是 legacy/0.01/0.03/0.05/0.1 逐比例。
+        #: 實測 M-03b：台股 CAGR 在 legacy 是 A 勝率 21.7%、在 5% 卻是 75.6%——
+        #: 聚合起來變成 50.4% 的假平手。ENB 更極端：只有 legacy 那一檔 A 才贏
+        #: （TW 76.1%、XM 68.3%），1% 以上全部反轉（13~19%）。
+        Column("ratio", "cat"),
+        Column("n_cells", "int", ge=1),
+        Column("z_mean", "float"), Column("z_median", "float"),
+        Column("pct_A_wins", "float", ge=0, le=1),
+        Column("pct_z_over_2", "float", ge=0, le=1),
+        Column("pct_z_under_neg2", "float", ge=0, le=1),
+        #: 🔴 **原始效果量（A − 隨機均值），不做標準化**。
+        #: z 在對照組變異數極小時會爆炸而失去意義——實測 M-03b 的 XM 樹就是這種情形：
+        #: k=3 時每個隨機群都是全宇宙的代表性樣本，各次抽樣選出的組合幾乎相同，
+        #: 隨機分布的標準差趨近 0，z 因此衝到 −50 以上。**那不是「差 50 個標準差」
+        #: 的實質意義，只是分母太小。** 判讀一律以 `diff_mean` 與 `pct_A_wins` 為主，
+        #: z 只當輔助。`random_std_mean` 讓分母是否過小可以直接查。
+        Column("diff_mean", "float"),
+        Column("diff_median", "float"),
+        Column("random_std_mean", "float", ge=0),
+    ],
+)
+
+
+#: M-03b（2026-09-06）：walk-forward 版的 A2_random（隨機分群）。
+#:
+#: 🔴 存在理由：M-03 證明「換成隨機分群，A_hrp 反而落敗 2.7~3.2σ」，**但那是單一窗、
+#: legacy 比例、fixed k**。而 M-02b 已把「挑選機制」的對照擴到整個 2,700 格矩陣
+#: ——兩個結論的證據強度不對等。本表補齊後者。
+#:
+#: 🔴 **本表比 M-02b 貴得多**：`C_random` 是純隨機抽取、與分群無關，可完全繞過建樹；
+#: `A2_random` 需要該窗 HRP 樹的**群大小 profile** + **相關矩陣** + **品質分數**，
+#: 43 棵樹一棵都不能少。故抽樣次數用 30（2,700 格 × 30 = 81,000 次，聚合足夠）。
+#:
+#: ⚠️ 設計與 M-03 完全一致：群大小沿用 HRP（保守）、多樣性門檻用隨機群自己的
+#: `avg_intra_corr`（不可沿用 HRP 的，否則對照髒了）、走同一個 `select_representatives`。
+WALKFORWARD_PARTITION = Schema(
+    name="walkforward_partition",
+    primary_key=["tree_key", "scheme", "k_mode", "ratio", "allocation", "window_no"],
+    columns=[
+        Column("tree_key", "cat", allowed=("TW", "US", "XM")),
+        Column("scheme", "cat"),
+        Column("k_mode", "cat", allowed=("fixed", "silhouette_is")),
+        Column("ratio", "cat"),
+        Column("allocation", "cat", allowed=("equal", "proportional")),
+        Column("window_no", "int", ge=1),
+        Column("is_start", "str"), Column("is_end", "str"),
+        Column("oos_start", "str"), Column("oos_end", "str"),
+        Column("n_clusters", "int", ge=2),
+        Column("target_total", "int", ge=1),
+        Column("n_draws", "int", ge=1),
+        Column("n_members_mean", "float", ge=1),
+        #: 隨機群的 backfill 檔數（多樣性門檻擋不住、退回純品質排序的數量）。
+        #: 與 A_hrp 的 `n_backfilled` 對照可看出隨機群的門檻是鬆是緊。
+        Column("n_backfilled_mean", "float", ge=0),
+        #: ENB 只在平均組合 <= 400 檔時算（同 walkforward_matrix 的規則）。
+        Column("enb_computed", "bool"),
+        Column("oos_cagr", "float"), Column("oos_cagr_std", "float", ge=0, nullable=True),
+        Column("oos_mdd", "float", le=0), Column("oos_mdd_std", "float", ge=0, nullable=True),
+        Column("oos_sharpe", "float"), Column("oos_sharpe_std", "float", ge=0, nullable=True),
+        Column("oos_enb", "float", ge=0, nullable=True),
+        Column("oos_enb_std", "float", ge=0, nullable=True),
+    ],
+)
+
+
 ALL_SCHEMAS = {s.name: s for s in (CANDIDATE_INDEX, RETURNS_MONTHLY, RETURNS_META,
                                    MACRO_RAW, MACRO_HISTORY, MACRO_CLOCK_COMPARISON,
                                    REGIME_TABLE, REGIME_CONSISTENCY,
@@ -1371,4 +1776,9 @@ ALL_SCHEMAS = {s.name: s for s in (CANDIDATE_INDEX, RETURNS_MONTHLY, RETURNS_MET
                                    FOUR_GROUP_CONTROL, COMPLEMENTARITY_GRANULARITY,
                                    FREE_LUNCH_SHORTLIST, WALKFORWARD_MATRIX, K_STABILITY,
                                    WALKFORWARD_SIGNIFICANCE, WINDOW_ROBUSTNESS,
-                                   L3_ISOOS, TURNOVER_COST)}
+                                   L3_ISOOS, TURNOVER_COST, BETA_BASELINE,
+                                   PARTITION_CONTROL, MDD_WINDOW_LENGTH,
+                                   WF_EFFECT_DISTRIBUTION, WF_MULTIPLICITY,
+                                   WF_WINDOW_OVERLAP, ENB_NULL,
+                                   WALKFORWARD_RANDOM, WALKFORWARD_RANDOM_COMPARE,
+                                   WALKFORWARD_PARTITION)}

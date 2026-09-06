@@ -1,0 +1,51 @@
+{
+  "stage": "beta_baseline",
+  "produced_at": "2026-09-05T15:08:07",
+  "git_sha": "fc40f3a",
+  "params": {
+    "levels": [
+      "L1",
+      "L3"
+    ],
+    "market_proxy": "B_all（該市場全池等權）",
+    "market_corr": 0.551188542217812,
+    "complementarity_cuts": {
+      "高": 0.5,
+      "中": 0.8
+    }
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage1\\returns_monthly.parquet",
+      "sha256": "c449417668b6ff2ad58ecd475141e6a1f8dafb79b9600412056bd06bd7394cb3",
+      "bytes": 35729254,
+      "rows": 4547404
+    },
+    {
+      "path": "_frozen\\stage1\\returns_meta.parquet",
+      "sha256": "4a7dd7dc4e9cabd38e4bd04dfec742e1df99b7bc3a0f62216ad08deacf4e0010",
+      "bytes": 181944,
+      "rows": 15810
+    },
+    {
+      "path": "_frozen\\stage1\\strategy_marks.parquet",
+      "sha256": "4b81d7fb55665f465dbfc394c027b764c0805c373d32a719b4b2b6c3c59e4b03",
+      "bytes": 544970,
+      "rows": 15810
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_assign.parquet",
+      "sha256": "ca3c56a47b8b3da494155d62e6c58acfb4428714fa04fea82cf41689b49a3ae5",
+      "bytes": 295416,
+      "rows": 60158
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_analysis_outputs_robustness\\beta_baseline.csv",
+      "sha256": "fb5e429be0c6d9be84b130a5b9477a87c5e53493be1db4d618245400408bdc0c",
+      "bytes": 3596
+    }
+  ],
+  "notes": "M-01：市場 beta 基準與殘差相關結構。回答「跨市場分散是不是只是國際分散的重現」。beta 代理用 B_all 有循環性（候選池是全期間贏家），須在文件揭露；乾淨版需 M-07 的市場指數。"
+}

@@ -465,6 +465,10 @@ def run_one_window(tree_key: str, srow: pd.Series, tree: dict,
                "n_universe": n_uni}
 
     rows = []
+    # 🔴 M-10：把每格 A_hrp 實際選出的成員留下來。相鄰窗次的 IS 高度重疊
+    # （anchored 第 2 窗的 IS = 第 1 窗的 IS+OOS），選出的代表很可能大量重複——
+    # 那是 H-26c「窗次互相獨立」假設的直接檢驗對象，先前沒有任何資料可以量化。
+    picks: list[dict] = []
     for k_mode in K_MODES:
         if k_mode == "fixed":
             a_tree, m_tree = assign, cmeta
@@ -525,7 +529,14 @@ def run_one_window(tree_key: str, srow: pd.Series, tree: dict,
                                 "group": gname, "target_total": tot,
                                 "n_capped_clusters": n_capped, "n_backfilled": bf,
                                 **_evaluate(mem, wide_is, wide_oos, cluster_map)})
-    return rows
+                    picks.append({"tree_key": tree_key, "scheme": srow.scheme,
+                                 "k_mode": k_mode, "ratio": str(ratio),
+                                 "allocation": how, "group": gname,
+                                 "window_no": int(srow.window_no),
+                                 "is_start": is_start, "is_end": is_end,
+                                 "oos_start": oos_start, "oos_end": oos_end,
+                                 "members": mem})
+    return rows, picks
 
 
 # ============================================================================
@@ -555,6 +566,7 @@ def run(schemes_filter=None, trees=TREES, log=print) -> pd.DataFrame:
             f"請重跑 `python -m research.k_stability`（窗口方案改過就要重跑）")
 
     all_rows = []
+    all_picks: list[dict] = []
     t0 = time.time()
     for tree_key in trees:
         # ⚠️ 快取 key 用**實際日期** (is_start, is_end)，不用抽象的
@@ -579,8 +591,10 @@ def run(schemes_filter=None, trees=TREES, log=print) -> pd.DataFrame:
 
         for _, srow in schemes.iterrows():
             s, e, _, _ = window_dates(srow, tree_key)
-            all_rows += run_one_window(tree_key, srow, cache[(s, e)], months_long,
-                                       k_table, log)
+            r, pk = run_one_window(tree_key, srow, cache[(s, e)], months_long,
+                                   k_table, log)
+            all_rows += r
+            all_picks += pk
         log(f"[{tree_key}] 完成，累計 {time.time()-t0:.0f}s\n")
 
     df = pd.DataFrame(all_rows)
@@ -597,13 +611,23 @@ def run(schemes_filter=None, trees=TREES, log=print) -> pd.DataFrame:
     summary = summarize(df)
     summary.to_csv(p_sum, index=False, encoding="utf-8-sig")
 
+    # 🔴 M-10 成員名單。存 parquet 不存 CSV：`members` 是 list[str] 欄位，
+    # CSV 往返會變成字串再被重新解析（本專案已經被這類往返坑過三次：
+    # co_fail_peers / stable_core / allocation="n/a"）。parquet 保留原生型別。
+    p_mem = out_dir / "walkforward_members.parquet"
+    mem_df = pd.DataFrame(all_picks)
+    for col in ("tree_key", "scheme", "k_mode", "ratio", "allocation", "group"):
+        mem_df[col] = mem_df[col].astype("category")
+    mem_df.to_parquet(p_mem, index=False)
+    log(f"✓ 成員名單 {len(mem_df):,} 列 → {p_mem.name}")
+
     freeze.write_manifest(
         "walkforward_matrix", out_dir / "_walkforward_matrix_manifest",
         inputs=[paths.STAGE0 / "candidate_index.parquet",
                paths.STAGE1 / "returns_monthly.parquet",
                paths.STAGE1 / "returns_meta.parquet",
                paths.STAGE1 / "strategy_marks.parquet"],
-        outputs=[p_detail, p_sum],
+        outputs=[p_detail, p_sum, p_mem],
         params={"min_is_grid": list(MIN_IS_GRID), "oos_len_grid": list(OOS_LEN_GRID),
                "ratio_grid": [str(r) for r in RATIO_GRID],
                "allocations": list(ALLOCATIONS), "groups": list(GROUPS),
@@ -623,8 +647,16 @@ def summarize(df: pd.DataFrame) -> pd.DataFrame:
 
     🔴 **三個指標都要看，不能只看 CAGR。** 老師明講 MDD 是我們唯一的代價
     （「我只有換股的話，我的代價就是我的 MDD 一定會比較慘」），而 H-12 已實測
-    E_top_calmar 在 CAGR 上其實贏過 A_hrp——A 的優勢在**風險調整後**，不在
-    絕對報酬。只報 CAGR 勝率會得到「HRP 沒用」的錯誤結論。
+    E_top_calmar 在 CAGR 上其實贏過 A_hrp。
+
+    ⚠️ **2026-09-05 訂正**：本 docstring 原本寫「A 的優勢在**風險調整後**」，
+    **本矩陣自己的數字不支持這句話**——實測 `win_E_calmar` 只有
+    TW 16.8%／US 8.0%／XM 34.0%（全矩陣 19.6%，2,700 格），
+    A_hrp 在 Calmar 上同樣輸給 E_top_calmar。
+    正確的表述是產出文件 §5.2 已經寫對的那一版：
+    **A_hrp 的優勢是「贏過 B_all（全宇宙）」與「集中度／ENB」，不是報酬、
+    也不是 Calmar**。M-03（`partition_control.py`）進一步證實：連隨機分群都在
+    OOS CAGR 上贏過 A_hrp（−2.65~−3.15σ）。
 
       win_*_cagr    OOS 年化報酬較高
       win_*_mdd     OOS 最大回撤較淺（MDD 是負數，故比大小）

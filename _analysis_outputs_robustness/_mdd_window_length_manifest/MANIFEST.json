@@ -1,0 +1,38 @@
+{
+  "stage": "mdd_window_length",
+  "produced_at": "2026-09-05T20:23:23",
+  "git_sha": "fc40f3a",
+  "params": {
+    "alpha": 0.05,
+    "opponents": [
+      "B_all",
+      "D_top_cagr",
+      "E_top_calmar"
+    ],
+    "metrics": [
+      "cagr",
+      "mdd",
+      "calmar"
+    ]
+  },
+  "inputs": [
+    {
+      "path": "_analysis_outputs_robustness\\walkforward_matrix_detail.csv",
+      "sha256": "719af3e4824af37cbb15f45f9d344906b21144abd0548ab932b73d831bc126cd",
+      "bytes": 2222625
+    },
+    {
+      "path": "_analysis_outputs_robustness\\walkforward_significance_units.csv",
+      "sha256": "8da3d7f73a6936013aaf92b7a597ceff4e0dec9fda4696ab5ae7022983e4d0b3",
+      "bytes": 43759
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_analysis_outputs_robustness\\mdd_window_length.csv",
+      "sha256": "1e5aa02fa8a3d698c5226f4507371e843ea1c493bde679a061098205837f2865",
+      "bytes": 27589
+    }
+  ],
+  "notes": "M-09：把 H-26c 的逐方案檢定按 OOS 窗長重新排列，並拆開「檢力不足」與「效果真的弱」。**不產生新的 p 值以外的檢定**——同窗長的方案互相重疊，不可合併。"
+}

@@ -1,0 +1,47 @@
+{
+  "stage": "enb_null",
+  "produced_at": "2026-09-06T11:59:36",
+  "git_sha": "fc40f3a",
+  "params": {
+    "nulls": [
+      "iid",
+      "one_factor",
+      "two_factor"
+    ],
+    "n_draws": 200,
+    "seed": 42,
+    "fast_enb": "非零特徵值由 T×T 的 ZᵀZ/T 取得，與 N×N 恆等"
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage1\\returns_monthly.parquet",
+      "sha256": "c449417668b6ff2ad58ecd475141e6a1f8dafb79b9600412056bd06bd7394cb3",
+      "bytes": 35729254,
+      "rows": 4547404
+    },
+    {
+      "path": "_frozen\\stage1\\strategy_marks.parquet",
+      "sha256": "4b81d7fb55665f465dbfc394c027b764c0805c373d32a719b4b2b6c3c59e4b03",
+      "bytes": 544970,
+      "rows": 15810
+    },
+    {
+      "path": "_analysis_outputs_robustness\\effective_number_of_bets.csv",
+      "sha256": "91730cf71df34b9d22295ab1af00290a30d2115d9b1168bb6022bf3e19f5fabc",
+      "bytes": 291
+    },
+    {
+      "path": "_analysis_outputs_robustness\\beta_baseline.csv",
+      "sha256": "fb5e429be0c6d9be84b130a5b9477a87c5e53493be1db4d618245400408bdc0c",
+      "bytes": 3596
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_analysis_outputs_robustness\\enb_null.csv",
+      "sha256": "a604c56e667972fca18f74e304148f202120bb6c045e022f5cf3b497bb08471a",
+      "bytes": 1766
+    }
+  ],
+  "notes": "M-05：ENB 的虛無分布。iid 是純雜訊上界（受 N≫T 的秩限制，量級是 T 而非 N）；one_factor/two_factor 用逐策略實測 R² 校準，回答「ENB 這麼低是不是完全由市場 beta 解釋」。跨市場樹必須看 two_factor——單因子會低估虛無維度。"
+}

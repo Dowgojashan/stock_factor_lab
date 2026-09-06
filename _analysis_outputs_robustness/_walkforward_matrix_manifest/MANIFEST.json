@@ -1,7 +1,7 @@
 {
   "stage": "walkforward_matrix",
-  "produced_at": "2026-09-04T16:51:28",
-  "git_sha": "a36ccbc",
+  "produced_at": "2026-09-06T00:38:42",
+  "git_sha": "fc40f3a",
   "params": {
     "min_is_grid": [
       72,
@@ -75,6 +75,12 @@
       "path": "_analysis_outputs_robustness\\walkforward_matrix_summary.csv",
       "sha256": "c1c3d706f291792a815c2c195bae931e7ff12e7c23273b5c82991abc6587b1de",
       "bytes": 8604
+    },
+    {
+      "path": "_analysis_outputs_robustness\\walkforward_members.parquet",
+      "sha256": "4703c885f514628dfccae52e189e5615f0c356d9660353524bdf3cf042f22ef6",
+      "bytes": 3932801,
+      "rows": 8100
     }
   ],
   "notes": "H-26/H-27/H-21：anchored walk-forward × 精選比例 × 分配方式的完整交叉。三維度不預先挑選（先挑=上帝視角，見模組docstring）。C_random已移除。"

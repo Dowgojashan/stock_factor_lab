@@ -2447,6 +2447,583 @@ def t_stage0_idempotent():
     assert freeze.sha256_file(p) == before, "重跑產出不同，管線非確定性"
 
 
+@test
+def t_beta_baseline_real_data():
+    """M-01：市場 beta 基準與殘差結構，鎖住四件會被誤寫進論文的事。
+
+    這張表推翻了 v10 §3.5② 原本的敘事。以下任何一條壞掉，改寫後的敘事就不成立：
+
+    ①**市場基準相關必須是實算出來的、且落在合理區間**（實測台美 0.5512）。
+      整個 M-01 的立論是「跨市場配對相關 0.542 只是這個數字的重現」，
+      若它不存在或荒謬（如 >0.99 或 <0），對照就沒有意義。
+    ②🔴 **殘差相關必須跟機械下限比，不能跟 0 比**。`mkt` 是同一批策略的等權平均，
+      殘差在橫斷面被強制加總≈0，k 個群代表的平均兩兩相關被機械壓到約 −1/(k−1)。
+      本測試斷言殘差中位**不顯著低於**機械下限——若有人把 `corr_mechanical_floor`
+      拿掉、或改用真正外生的市場指數卻沿用舊解讀，這條會擋下
+      「扣掉 beta 後群呈負相關」這種假宣稱。
+    ③🔴 **純 beta 模型的預測必須貼近實測**（超額 |excess| 小、低於預測% 接近 50%）。
+      這是「策略選擇沒有提供超越 beta 的分散」的直接證據。實測 XM L3 跨市場
+      實測 0.4580 vs 預測 0.4627（超額 −0.0047、55.7% 低於預測）。
+      若哪天超額變成顯著負值，代表結論翻轉，必須重寫 §3.5②——這條會提醒。
+    ④🔴 **粒度效應必須伴隨群 R² 下降**。H-25 的「L3 比 L1 互補」若是真的因子專門化，
+      群 R² 不該隨群變小而系統性下降；實測 L1 群大小 6,464/R² 0.9920 →
+      L3 群大小 23/R² 0.8470。R² 掉了 0.145 正好解釋相關從 0.542 掉到 0.458。
+      本測試鎖住「群變小 ⇒ R² 下降」這個機械成因，避免退回「小群比較特化」的說法。
+    """
+    p = paths.ROOT / "_analysis_outputs_robustness" / "beta_baseline.csv"
+    if not p.exists():
+        raise AssertionError("尚未執行 research.beta_baseline")
+    df = pd.read_csv(p)
+    for col in ("tree_id", "level", "version", "pair_type"):
+        df[col] = df[col].astype("category")
+    C.validate(df, C.BETA_BASELINE, strict_columns=True)
+
+    # ① 市場基準相關
+    mc = df.market_corr.dropna().unique()
+    assert len(mc) == 1, f"市場基準相關不唯一：{mc}"
+    mc = float(mc[0])
+    assert 0.2 < mc < 0.9, f"台美市場基準相關 {mc:.4f} 落在不合理區間"
+
+    # ② 殘差相關 vs 機械下限
+    res = df[df.version == "resid"]
+    assert len(res) > 0, "缺殘差版列"
+    bad = res[res.corr_median < res.corr_mechanical_floor - 0.25]
+    assert bad.empty, (
+        "殘差相關明顯低於機械下限 −1/(k−1)：\n"
+        + bad[["tree_id", "level", "pair_type", "corr_median",
+              "corr_mechanical_floor"]].to_string(index=False)
+        + "\n——殘差不該比機械下限還負；請檢查 mkt 代理是否被換過")
+
+    # ③ 純 beta 模型：超額必須小
+    raw = df[df.version == "raw"]
+    assert raw.corr_pred_median.notna().all(), "raw 列缺 beta 模型預測"
+    assert res.corr_pred_median.isna().all(), \
+        "殘差版不該有 beta 模型預測（beta 已被移除，預測是同義反覆）"
+    worst = raw.excess_median.abs().max()
+    assert worst < 0.05, (
+        f"純 beta 模型的最大超額 {worst:.4f} 超過 0.05——"
+        "策略選擇開始提供超越 beta 的分散，v10 §3.5② 的改寫版結論需重新檢視：\n"
+        + raw[["tree_id", "level", "pair_type", "corr_median",
+              "corr_pred_median", "excess_median"]].to_string(index=False))
+
+    xm = raw[(raw.tree_id == "XM_normal") & (raw.pair_type == "cross")
+             & (raw.level == "L3")]
+    assert len(xm) == 1
+    assert 0.35 < float(xm.pct_below_pred.iloc[0]) < 0.65, (
+        f"XM L3 跨市場『低於 beta 預測』的比例 {float(xm.pct_below_pred.iloc[0]):.1%} "
+        "偏離 50%——實測應接近純隨機擺動")
+
+    # ④ 粒度效應 = 特異變異稀釋：群變小 ⇒ 群 R² 下降
+    for tid, g in raw.groupby("tree_id", observed=True):
+        l1 = g[g.level == "L1"]
+        l3 = g[g.level == "L3"]
+        if l1.empty or l3.empty:
+            continue
+        s1, s3 = float(l1.cluster_size_median.iloc[0]), float(l3.cluster_size_median.iloc[0])
+        r1, r3 = float(l1.cluster_r2_median.iloc[0]), float(l3.cluster_r2_median.iloc[0])
+        assert s3 < s1, f"[{tid}] L3 群大小未小於 L1"
+        assert r3 <= r1 + 1e-9, (
+            f"[{tid}] L3 群 R² {r3:.4f} 未低於 L1 {r1:.4f}——"
+            "『群越小、特異變異稀釋越多』的機械解釋不成立，粒度效應需重新歸因")
+
+
+@test
+def t_partition_control_real_data():
+    """M-03：分群依據對照，鎖住五件事——其中三件是「這個對照乾不乾淨」的前提。
+
+    本表要回答「A_hrp 的優勢是否來自 HRP 分群本身」。若以下任一條壞掉，
+    三組之間的差異就不能歸因到分群依據：
+
+    ①🔴 **A_hrp 必須與 H-12 的 A_hrp 逐位元一致**。本模組直接重用
+      `four_group_control` 的量測函式，兩邊算出來的 A 若有任何差異，代表挑選或
+      評估路徑被動過，整張表跟既有結果不可比。這是最強的回歸鎖。
+    ②🔴 **共同座標軸**：三組的 `n_target`、`n_universe`、`k` 必須相同，
+      且 `n_members == n_target`。任何一組檔數不同，報酬差異就混進了「買幾檔」
+      這個變因（同 H-27 對 equal/proportional 的堅持）。
+    ③🔴 **`max_hrp_cluster_share` 對 A_hrp 是套套邏輯**：A 每群固定挑 m 檔，
+      所以它的最大單群佔比**恆等於 1/k**。本測試斷言這個恆等式成立——
+      它存在的目的是提醒：**不可拿這個欄位當「HRP 比較分散」的證據**。
+      真正非套套邏輯的證據是 `oos_enb`（從 OOS 報酬共變異算出來，與分群無關）。
+    ④**A2_random 的抽樣統計必須齊備**（有 std、n_draws>1），
+      A_hrp/A1_fcombo 是單次結果故 std 必須為空——判讀靠 σ 數不是點估計。
+    ⑤🔴 **A1_fcombo 在 XM 的市場純度必須遠低於 A_hrp**。特徵刻意不含市場欄位，
+      故因子構成分群無法還原市場邊界（實測 0.577，隨機基準 0.556，A_hrp 1.000）。
+      若哪天 A1 的純度接近 1，代表特徵洩漏了市場資訊，這個對照就沒有意義了。
+    """
+    p = paths.ROOT / "_analysis_outputs_robustness" / "partition_control.csv"
+    if not p.exists():
+        raise AssertionError("尚未執行 research.partition_control")
+    df = pd.read_csv(p)
+    for col in ("tree_key", "partition"):
+        df[col] = df[col].astype("category")
+    C.validate(df, C.PARTITION_CONTROL, strict_columns=True)
+
+    # ① A_hrp 必須與 H-12 完全一致
+    fp = paths.ROOT / "_analysis_outputs_robustness" / "four_group_control.csv"
+    if fp.exists():
+        f = pd.read_csv(fp)
+        a12 = f[f.group == "A_hrp"].set_index("tree_key")
+        a03 = df[df.partition == "A_hrp"].set_index("tree_key")
+        for col in ("n_members", "is_cagr", "is_mdd", "oos_cagr", "oos_mdd", "oos_enb"):
+            for t in a03.index:
+                if t not in a12.index:
+                    continue
+                lhs, rhs = float(a03.loc[t, col]), float(a12.loc[t, col])
+                assert abs(lhs - rhs) < 1e-9, (
+                    f"[{t}] A_hrp 的 {col} 與 H-12 不一致：{lhs} vs {rhs}"
+                    "——兩邊應走完全同一條量測路徑，出現差異代表有一邊被改過")
+
+    # ② 共同座標軸
+    for t, g in df.groupby("tree_key", observed=True):
+        assert (g.n_target.nunique() == 1 and g.n_universe.nunique() == 1
+                and g.k.nunique() == 1), f"[{t}] 三組的 n_target/n_universe/k 不一致"
+        assert (g.n_members == g.n_target).all(), (
+            f"[{t}] 有組別的實際檔數 != 目標檔數：\n"
+            + g[["partition", "n_members", "n_target"]].to_string(index=False))
+
+    # ③ A_hrp 的 max_hrp_cluster_share 恆等於 1/k（套套邏輯，不可當證據）
+    for r in df[df.partition == "A_hrp"].itertuples():
+        assert abs(r.max_hrp_cluster_share - 1.0 / r.k) < 1e-9, (
+            f"[{r.tree_key}] A_hrp 的最大單群佔比 {r.max_hrp_cluster_share:.4f} "
+            f"!= 1/k = {1.0/r.k:.4f}——每群固定挑 m 檔的前提被破壞了")
+
+    # ④ 抽樣統計齊備
+    std_cols = [c for c in df.columns if c.endswith("_std")]
+    r2 = df[df.partition == "A2_random"]
+    assert (r2.n_draws > 1).all(), "A2_random 的 n_draws 應大於 1"
+    assert r2[std_cols].notna().all().all(), "A2_random 缺抽樣標準差"
+    single = df[df.partition != "A2_random"]
+    assert single[std_cols].isna().all().all(),         "單次結果的組別不該有抽樣標準差（會被誤讀成有不確定性區間）"
+
+    # ⑤ 因子構成無法還原市場邊界
+    xm = df[df.tree_key == "XM"].set_index("partition")
+    if len(xm) == 3:
+        a = float(xm.loc["A_hrp", "market_purity"])
+        f1 = float(xm.loc["A1_fcombo", "market_purity"])
+        r = float(xm.loc["A2_random", "market_purity"])
+        assert a > 0.99, f"XM 的 A_hrp 市場純度 {a:.3f} 不到 1——HRP L1 應完全分開市場"
+        assert f1 < r + 0.15, (
+            f"XM 的 A1_fcombo 市場純度 {f1:.3f} 明顯高於隨機基準 {r:.3f}——"
+            "因子構成特徵疑似洩漏了市場資訊，該對照失去意義")
+
+
+@test
+def t_mdd_window_length_real_data():
+    """M-09：MDD 顯著性按窗長分層，鎖住四件事。
+
+    這張表把 H-26c 的「MDD 只有 8/13 顯著」拆成「檢力不足」與「效果真的弱」。
+    以下任何一條壞掉，那個拆解就不成立：
+
+    ①🔴 **不得遺漏對手**。B_all 的列 `ratio="all"`、`allocation="unallocated"`，
+      跟 A_hrp 的設定鍵永遠對不上——初版就是因此讓 B_all 整組被靜默丟掉
+      （117 列變 78 列，且不會報錯）。斷言列數 = 方案 × 對手 × 指標。
+    ②🔴 **顯著門檻的定義必須正確，且必須帶方向**：`min_wins_for_sig` 是雙尾二項
+      檢定 p<0.05 所需的最少勝場，只在 A 勝的方向上有意義。
+      **雙尾顯著不等於 A 贏**——實測 A_hrp vs D_top_cagr 在方案 A 的 CAGR 上只贏
+      3/18（p=0.0075），那是**顯著落敗**。本測試斷言 verdict 對這種列必須標
+      「顯著（A敗）」而非「顯著」，否則讀表的人會把 A 的慘敗讀成勝利
+      （2026-09-05 開發時本條就是這樣抓到初版缺陷的）。
+    ③🔴 **verdict 不可把檢力問題誤標成效果問題**。n=6 的方案門檻是 6/6（100%），
+      5/6 不顯著純粹是檢力，不是效果弱。斷言：凡門檻 >= 95% 的不顯著方案，
+      一律不得被標成「效果不足」。（初版就是這樣標錯的。）
+    ④🔴 **MDD 的效果量必須在各窗長下都明顯為正**。這是「不是短窗雜訊」的核心證據：
+      若 24/36/48 個月的效果量都是 1.1~1.4pp 而非隨窗長趨近 0，
+      MDD 的弱就只是「效果比 CAGR 小（1.2pp vs 3.3pp）」，不是雜訊。
+    """
+    p = paths.ROOT / "_analysis_outputs_robustness" / "mdd_window_length.csv"
+    if not p.exists():
+        raise AssertionError("尚未執行 research.mdd_window_length")
+    df = pd.read_csv(p)
+    for col in ("opponent", "metric", "scheme", "mode", "verdict"):
+        df[col] = df[col].astype("category")
+    C.validate(df, C.MDD_WINDOW_LENGTH, strict_columns=True)
+
+    # ① 三個對手都在，且列數完整
+    opps = set(df.opponent.astype(str))
+    assert opps == {"B_all", "D_top_cagr", "E_top_calmar"}, \
+        f"對手不齊：{opps}——B_all 最容易因設定鍵對不上被靜默丟掉"
+    n_expect = df.scheme.nunique() * 3 * 3
+    assert len(df) == n_expect, f"{len(df)} 列 != 預期 {n_expect}（方案×對手×指標）"
+
+    # ② 門檻定義（只在 A 勝方向）：贏到門檻 ⟺ 顯著
+    up = df[df.min_wins_for_sig.notna() & (df.win_rate > 0.5)]
+    assert ((up.n_wins >= up.min_wins_for_sig) == up.significant_05).all(), \
+        "A 勝方向上「贏場數 >= 顯著門檻」與 significant_05 不一致——門檻算錯了"
+    # ②b 顯著落敗必須標明方向，不可只寫「顯著」
+    lose = df[df.significant_05 & (df.win_rate < 0.5)]
+    assert not lose.empty, \
+        "沒有任何顯著落敗的列——請確認 D/E 對手仍在表內（它們是 A 落敗的來源）"
+    assert (lose.verdict.astype(str) == "顯著（A敗）").all(), (
+        "A_hrp 顯著落敗的列未標明方向，會被讀成 A 贏：\n"
+        + lose[["opponent", "metric", "scheme", "n_wins", "n_units",
+               "p_value", "verdict"]].head(5).to_string(index=False))
+    assert (df.direction.astype(str) == np.where(
+        df.win_rate > 0.5, "A勝", np.where(df.win_rate < 0.5, "A敗", "平手"))).all(), \
+        "direction 欄與 win_rate 不一致"
+
+    # ③ 檢力問題不得被標成效果問題
+    bad = df[(~df.significant_05) & (df.detectable_win_rate >= 0.95)
+             & (df.verdict.astype(str) == "效果不足")]
+    assert bad.empty, (
+        "門檻需近全勝的方案被標成「效果不足」——那是檢力問題：\n"
+        + bad[["opponent", "metric", "scheme", "n_wins", "n_units",
+              "detectable_win_rate"]].to_string(index=False))
+
+    # ④ MDD 效果量在各窗長下都明顯為正 → 不是短窗雜訊
+    mdd = df[(df.opponent == "B_all") & (df.metric == "mdd")]
+    by_len = mdd.groupby("oos_len_months")["diff_mean"].mean()
+    assert len(by_len) == 3, f"應有 24/36/48 三種窗長，實得 {list(by_len.index)}"
+    assert (by_len > 0.005).all(), (
+        "有窗長的 MDD 效果量低於 0.5pp——「MDD 的弱只是效果較小、不是短窗雜訊」"
+        f"這個結論需重新檢視：\n{(by_len * 100).round(3).to_string()}")
+    cagr = df[(df.opponent == "B_all") & (df.metric == "cagr")].diff_mean.mean()
+    assert cagr > mdd.diff_mean.mean(), \
+        "CAGR 的效果量未大於 MDD——本表的核心對照（3.3pp vs 1.2pp）不成立"
+
+
+@test
+def t_walkforward_evidence_real_data():
+    """M-10：walk-forward 證據強度三張表，鎖住六件事。
+
+    這三張表把 H-26／H-26c 三個沒量化的假設補上。以下任何一條壞掉，
+    「A_hrp 在 92~94% 格子裡贏、13/13 方案顯著」這組宣稱就要重新檢視：
+
+    ①**三張表都不得遺漏對手**（B_all 的設定鍵對不上，最容易被靜默丟掉——
+      M-09 開發時實測從 117 列掉成 78 列且不報錯）。
+    ②🔴 **勝率必須是普遍性優勢，不是少數極端格撐起來的**：A_hrp vs B_all 的
+      中位數與平均必須同號，且 `median_over_mean` 落在 0.5~1.5。實測 0.64~1.04。
+      若中位數接近 0 而平均很大 → 那 92% 是被離群格子撐的，結論要收斂。
+    ③**Cohen's d 必須與勝率方向一致**：`pct_positive > 0.5` ⟺ `cohens_d > 0`。
+      兩個獨立算出來的量若方向打架，代表其中一個算錯。
+    ④🔴 **多重比較的校正必須真的更嚴格**：對每個 (對手 × 指標)，
+      `n_sig_raw >= n_sig_bh_family >= n_sig_bonferroni_family`，
+      且全域校正不得比族內寬鬆。若順序反了，校正實作是錯的。
+    ⑤🔴 **主結論必須撐得住校正**：A_hrp vs B_all 的 cagr 與 calmar 在
+      **族內 BH** 下必須維持 13/13。這是論文第五章的主要統計論據；
+      若哪天掉下來，`H26_H27_walkforward矩陣結果.md` §4.2 必須改寫。
+    ⑥🔴 **anchored 的相鄰窗次選股重疊必須明顯高於 rolling**。這是「窗次可當
+      獨立單位」假設的量化揭露：anchored 的 IS 是巢狀的（第 2 窗 IS = 第 1 窗
+      IS+OOS），實測相鄰 Jaccard 0.372 vs rolling 0.138、全窗核心佔比
+      0.357 vs 0.034。若兩者接近，代表成員名單沒有正確對應到窗次。
+    """
+    d = paths.ROOT / "_analysis_outputs_robustness"
+    pe, pm, po = (d / "wf_effect_distribution.csv", d / "wf_multiplicity.csv",
+                  d / "wf_window_overlap.csv")
+    for p in (pe, pm, po):
+        if not p.exists():
+            raise AssertionError("尚未執行 research.walkforward_evidence")
+    eff, mul, ovl = pd.read_csv(pe), pd.read_csv(pm), pd.read_csv(po)
+    for c in ("tree_key", "opponent", "metric"):
+        eff[c] = eff[c].astype("category")
+    for c in ("opponent", "metric"):
+        mul[c] = mul[c].astype("category")
+    for c in ("tree_key", "scheme", "k_mode", "ratio", "allocation", "group"):
+        ovl[c] = ovl[c].astype("category")
+    C.validate(eff, C.WF_EFFECT_DISTRIBUTION, strict_columns=True)
+    C.validate(mul, C.WF_MULTIPLICITY, strict_columns=True)
+    C.validate(ovl, C.WF_WINDOW_OVERLAP, strict_columns=True)
+
+    # ① 對手齊全
+    want = {"B_all", "D_top_cagr", "E_top_calmar"}
+    for name, df_ in (("效果量分布", eff), ("多重比較", mul)):
+        got = set(df_.opponent.astype(str))
+        assert got == want, f"{name} 缺對手：{want - got}"
+
+    # ② 普遍性優勢
+    b = eff[eff.opponent == "B_all"]
+    assert (np.sign(b["mean"]) == np.sign(b.p50)).all(), \
+        "A_hrp vs B_all 的平均與中位數不同號——優勢方向不一致"
+    bad = b[(b.median_over_mean < 0.5) | (b.median_over_mean > 1.5)]
+    assert bad.empty, (
+        "中位數/平均落在 0.5~1.5 之外，勝率可能被少數極端格主導：\n"
+        + bad[["tree_key", "metric", "mean", "p50", "median_over_mean"]].to_string(index=False))
+
+    # ③ Cohen's d 與勝率同向
+    assert ((eff.pct_positive > 0.5) == (eff.cohens_d > 0)).all(), \
+        "cohens_d 與 pct_positive 方向不一致——兩個獨立算出的量打架"
+
+    # ④ 校正必須更嚴格
+    assert (mul.n_sig_raw >= mul.n_sig_bh_family).all(), "族內 BH 比未校正還寬鬆"
+    assert (mul.n_sig_bh_family >= mul.n_sig_bonferroni_family).all(), \
+        "族內 Bonferroni 比族內 BH 還寬鬆"
+    assert (mul.n_sig_bh_family >= mul.n_sig_bh).all(), "全域 BH 比族內 BH 還寬鬆"
+    assert (mul.n_sig_bh >= mul.n_sig_bonferroni).all(), "全域 Bonferroni 比全域 BH 寬鬆"
+
+    # ⑤ 主結論撐得住族內 BH
+    for metric in ("cagr", "calmar"):
+        r = mul[(mul.opponent == "B_all") & (mul.metric == metric)]
+        assert len(r) == 1
+        n_t, n_s = int(r.n_tests.iloc[0]), int(r.n_sig_bh_family.iloc[0])
+        assert n_s == n_t, (
+            f"A_hrp vs B_all 的 {metric} 在族內 BH 校正後只剩 {n_s}/{n_t} 方案顯著"
+            "——論文主結論「不管怎麼切窗都贏」需改寫")
+
+    # ⑥ anchored 重疊明顯高於 rolling（R 是唯一的 rolling 方案）
+    a = ovl[ovl.group == "A_hrp"]
+    roll = a[a.scheme == "R"]
+    anch = a[a.scheme != "R"]
+    assert len(roll) > 0 and len(anch) > 0, "缺 rolling 或 anchored 的格子"
+    assert anch.jaccard_adjacent_mean.mean() > roll.jaccard_adjacent_mean.mean() + 0.10, (
+        f"anchored 相鄰 Jaccard {anch.jaccard_adjacent_mean.mean():.3f} 未明顯高於 "
+        f"rolling {roll.jaccard_adjacent_mean.mean():.3f}——anchored 的 IS 是巢狀的，"
+        "重疊本該明顯較高；兩者接近代表成員名單沒對應到正確的窗次")
+    assert anch.core_share.mean() > roll.core_share.mean(), \
+        "anchored 的全窗核心佔比未高於 rolling"
+
+
+@test
+def t_enb_null_real_data():
+    """M-05：ENB 的虛無分布，鎖住五件事。
+
+    v10 §3.4 的核心數字「ENB 只有 3.27/4.36/5.77」原本沒有任何尺度。
+    這張表給它虛無分布。以下任何一條壞掉，那個尺度就不可信：
+
+    ①🔴 **快速演算法必須與 H-09 凍結的 `enb_raw` 一致**。整個模組建立在
+      「N×N 相關矩陣的非零特徵值 = T×T 的 ZᵀZ/T」這條恆等式上（省下五個數量級
+      的運算）。若它錯了，所有虛無分布都沒有意義。斷言差 < 1e-3。
+    ②🔴 **純雜訊的 ENB 不得超過秩上限 T−1**。N≫T（15,040 vs 228）時相關矩陣
+      有 N−T+1 個特徵值恆為 0，所以純雜訊的 ENB 是 **T 的數量級，不是 N**。
+      稽核清單原本假設可以拿 N 當上界，那是錯的；本條把數學事實鎖住。
+    ③**實測必須遠低於純雜訊虛無**：`ratio_observed_over_null < 0.1`。
+      實測 1.5~2.6%——這是「多樣性假象」最直接的量化。
+    ④🔴 **跨市場樹必須有 two_factor 列，單一市場樹不得有**。XM 有兩個市場因子
+      （台股大盤、美股大盤，相關 0.5512），拿單因子當虛無會低估虛無維度，
+      讓實測看起來「比虛無更分散」——開發初版就犯了這個錯（XM 實測 5.77 vs
+      單因子 4.49 看似 +3.1σ；換成雙因子 6.86 後實測其實是低於虛無的）。
+    ⑤🔴 **實測必須落在市場因子虛無的同量級**（0.5~1.5 倍）。這是與 M-01
+      互相印證的關鍵：ENB 這麼低幾乎完全由市場 beta 解釋。實測 76~84%。
+      若哪天跳出這個範圍，v10 §3.4 與 §3.5② 的敘事都要重新檢視。
+    """
+    p = paths.ROOT / "_analysis_outputs_robustness" / "enb_null.csv"
+    if not p.exists():
+        raise AssertionError("尚未執行 research.enb_null")
+    df = pd.read_csv(p)
+    for c in ("tree_id", "null_model"):
+        df[c] = df[c].astype("category")
+    C.validate(df, C.ENB_NULL, strict_columns=True)
+
+    # ① 快速演算法 vs H-09 凍結值
+    ref = pd.read_csv(paths.ROOT / "_analysis_outputs_robustness"
+                      / "effective_number_of_bets.csv").set_index("tree_id")
+    for tid, g in df.groupby("tree_id", observed=True):
+        obs = float(g.enb_observed.iloc[0])
+        known = float(ref.loc[str(tid), "enb_raw"])
+        assert abs(obs - known) < 1e-3, (
+            f"[{tid}] fast_enb {obs:.6f} 與 H-09 的 enb_raw {known:.6f} 不符"
+            "——T×T 等價性被破壞，所有虛無分布失效")
+
+    # ② 純雜訊不得超過秩上限
+    iid = df[df.null_model == "iid"]
+    assert len(iid) == df.tree_id.nunique(), "每棵樹都該有 iid 虛無"
+    assert (iid.enb_null_max <= iid.max_possible_enb).all(), (
+        "純雜訊的 ENB 超過秩上限 T−1——N≫T 的秩限制被違反：\n"
+        + iid[["tree_id", "enb_null_max", "max_possible_enb"]].to_string(index=False))
+    assert (iid.enb_null_mean > 0.7 * iid.max_possible_enb).all(), \
+        "純雜訊的 ENB 遠低於秩上限——iid 模擬可能沒有真的獨立"
+
+    # ③ 實測遠低於純雜訊
+    assert (iid.ratio_observed_over_null < 0.1).all(), (
+        "實測 ENB 未遠低於純雜訊虛無——「多樣性假象」的核心量化不成立：\n"
+        + iid[["tree_id", "enb_observed", "enb_null_mean",
+              "ratio_observed_over_null"]].to_string(index=False))
+
+    # ④ two_factor 只該出現在跨市場樹
+    two = set(df[df.null_model == "two_factor"].tree_id.astype(str))
+    assert two == {"XM_normal"}, (
+        f"two_factor 出現在 {two}——應該只有跨市場樹有（單一市場會退化成單因子）")
+
+    # ⑤ 實測落在市場因子虛無的同量級
+    for tid, g in df.groupby("tree_id", observed=True):
+        tf = g[g.null_model == "two_factor"]
+        mk = tf if len(tf) else g[g.null_model == "one_factor"]
+        assert len(mk) == 1, f"[{tid}] 缺市場因子虛無"
+        ratio = float(mk.ratio_observed_over_null.iloc[0])
+        assert 0.5 < ratio < 1.5, (
+            f"[{tid}] 實測 ENB 是市場因子虛無的 {ratio:.2f} 倍，超出 0.5~1.5"
+            "——「ENB 這麼低幾乎完全由市場 beta 解釋」需重新檢視")
+
+
+@test
+def t_walkforward_random_real_data():
+    """M-02b：walk-forward 版 C_random，鎖住五件事。
+
+    H-12 的 C_random 只做過單一窗、legacy 比例、fixed k。本表把它擴到整個
+    45 窗 × 5 比例 × 2 分配 × 2 k_mode 的空間。以下任何一條壞掉，
+    「挑選規則有技術」這個宣稱就不能寫成 walk-forward 結論：
+
+    ①🔴 **必須完整覆蓋矩陣的每一個 A_hrp 格子**。去重鍵是 (樹, 窗, 檔數)，
+      2,700 格應全部接得上（`compare()` 內已斷言，這裡再驗一次涵蓋率），
+      否則就是矩陣重跑過而本表沒跟著重跑，兩邊對不起來。
+    ②**檔數必須對齊 A_hrp 的實際 `n_members`**（不是 target_total），
+      且不得超過該窗宇宙。對齊實際值才是「買一樣多檔」的公平比較。
+    ③**ENB 的計算範圍必須與矩陣一致**：`enb_computed` ⟺ `n_members <= 400`，
+      且 False 的列 `oos_enb` 必須為空。兩邊規則若不同，ENB 的對照就不可比。
+    ④🔴 **核心結論**：A_hrp 相對隨機挑選的 OOS CAGR z 分數，三棵樹都必須
+      為正且勝率過半。這是「挑選規則有技術」的 walk-forward 版證據。
+    ⑤🔴 **必須與 M-03 的結論並存而不矛盾**：本表換的是**挑選機制**、
+      M-03 換的是**分群依據**，兩者結論相反是正常的（挑選有用、HRP 分群沒用）。
+      本條斷言兩張表都在，避免只引用其中一張而誤導。
+    """
+    d = paths.ROOT / "_analysis_outputs_robustness"
+    pr, pc = d / "walkforward_random.csv", d / "walkforward_random_compare.csv"
+    for p in (pr, pc):
+        if not p.exists():
+            raise AssertionError("尚未執行 research.walkforward_random")
+    rnd, cmp_df = pd.read_csv(pr), pd.read_csv(pc)
+    rnd["tree_key"] = rnd["tree_key"].astype("category")
+    for c in ("tree_key", "metric"):
+        cmp_df[c] = cmp_df[c].astype("category")
+    C.validate(rnd, C.WALKFORWARD_RANDOM, strict_columns=True)
+    C.validate(cmp_df, C.WALKFORWARD_RANDOM_COMPARE, strict_columns=True)
+
+    # ① 覆蓋率：矩陣每個 A_hrp 格子都要接得上
+    det = pd.read_csv(d / "walkforward_matrix_detail.csv")
+    a = det[det.group == "A_hrp"]
+    key = ["tree_key", "is_start", "is_end", "oos_start", "oos_end", "n_members"]
+    merged = a.merge(rnd[key], on=key, how="inner")
+    assert len(merged) == len(a), (
+        f"只有 {len(merged)}/{len(a)} 個 A_hrp 格子接得上隨機分布"
+        "——矩陣與隨機表不同步，請重跑 research.walkforward_random")
+
+    # ② 檔數對齊且不超過宇宙
+    assert (rnd.n_members <= rnd.n_universe).all(), "抽樣檔數超過該窗宇宙"
+    assert set(rnd.n_members) <= set(a.n_members), \
+        "隨機表出現 A_hrp 沒有的檔數——對齊的應是 A 的實際 n_members"
+
+    # ③ ENB 計算範圍與矩陣一致
+    assert (rnd.enb_computed == (rnd.n_members <= 400)).all(), \
+        "enb_computed 與 400 檔門檻不一致——與 walkforward_matrix 的規則不同就不可比"
+    assert rnd.loc[~rnd.enb_computed, "oos_enb"].isna().all(), \
+        "未計算 ENB 的列卻有 oos_enb 值"
+
+    # ④ 核心結論：挑選有技術。⚠️ 對照表自 2026-09-06 起帶 `ratio` 維度
+    # （聚合列 ratio="ALL" + 逐比例列），故要先取聚合列，不能直接數列數。
+    cagr = cmp_df[(cmp_df.metric == "oos_cagr") & (cmp_df.ratio.astype(str) == "ALL")]
+    assert len(cagr) == rnd.tree_key.nunique(), "每棵樹都該有 oos_cagr 的聚合對照列"
+    assert (cagr.z_mean > 0).all() and (cagr.pct_A_wins > 0.5).all(), (
+        "A_hrp 相對隨機挑選的 OOS CAGR 未全數為正——「挑選規則有技術」"
+        "在 walk-forward 上不成立：\n"
+        + cagr[["tree_key", "z_mean", "pct_A_wins"]].to_string(index=False))
+    # 🔴 逐比例也必須成立——這是本結論與 M-03b 的關鍵差異：
+    # 「挑選有技術」在**每一個比例**上都成立，而「HRP 分群有貢獻」只在 legacy 成立。
+    per = cmp_df[(cmp_df.metric == "oos_cagr") & (cmp_df.ratio.astype(str) != "ALL")]
+    assert (per.pct_A_wins > 0.5).all(), (
+        "有比例的 A_hrp 勝率低於 50%——「挑選有技術」不是全比例成立，敘事要收斂：\n"
+        + per[["tree_key", "ratio", "diff_mean", "pct_A_wins"]].to_string(index=False))
+
+    # ⑤ 與 M-03 並存
+    assert (d / "partition_control.csv").exists(), (
+        "缺 M-03 的 partition_control.csv——本表（挑選機制有用）必須與 M-03"
+        "（分群依據無用）一起讀，只引用其中一張會誤導")
+
+
+@test
+def t_robustness_manifests_all_consistent():
+    """🔴 DD-08 全面檢查：`_analysis_outputs_robustness/` 底下每一份 manifest
+    記錄的 sha256 都必須與實際檔案相符。
+
+    **這條測試是 2026-09-06 code review 抓到真實違規後補的。**
+    當時為了「只重算對照表、不重跑數小時的模擬」而加的 `--recompare` 路徑，
+    改寫了 `walkforward_random_compare.csv` 與 `walkforward_partition_compare.csv`
+    卻**沒有重寫 manifest**，兩份 manifest 的雜湊當場失效——而在補上這條測試之前，
+    **整套測試沒有任何一條會發現**，只有下游模組真的去 `verify_inputs` 時才會炸。
+
+    通則：**任何改寫產物的路徑都必須同時重寫 manifest**（見各模組的 `_persist`）。
+    """
+    d = paths.ROOT / "_analysis_outputs_robustness"
+    if not d.exists():
+        raise AssertionError("找不到 _analysis_outputs_robustness/")
+    dirs = sorted(p for p in d.iterdir()
+                  if p.is_dir() and p.name.startswith("_") and p.name.endswith("manifest"))
+    assert dirs, "一個 manifest 目錄都沒有——命名規則改過了？"
+    bad = []
+    for m in dirs:
+        try:
+            freeze.verify_inputs(m)
+        except Exception as e:                      # noqa: BLE001 - 要蒐集全部再一起報
+            bad.append(f"  {m.name}: {type(e).__name__}: {str(e).splitlines()[0]}")
+    assert not bad, (
+        f"{len(bad)}/{len(dirs)} 份 manifest 與實際檔案不符：\n" + "\n".join(bad)
+        + "\n——請重跑對應階段；若是新增了「只改寫產物」的路徑，該路徑必須一併重寫 manifest")
+
+
+@test
+def t_walkforward_partition_real_data():
+    """M-03b：walk-forward 版隨機分群，鎖住五件事。
+
+    這張表把 M-03 的單點結論擴到 2,700 格，並**推翻了兩個外推**。
+    以下任何一條壞掉，修正後的結論就不成立：
+
+    ①🔴 **必須完整覆蓋矩陣的每一個 A_hrp 格子**（`compare()` 內已斷言，這裡再驗）。
+    ②**共同座標軸**：每格的 `n_members_mean` 必須是整數——代表該格的每一次抽樣
+      都選出**同樣檔數**。若不是整數，ENB 的 400 檔門檻會在同一格內部分觸發，
+      平均值就混了「有算 ENB」與「沒算 ENB」兩種樣本（開發時實測全部為整數）。
+    ③**ENB 計算範圍與矩陣一致**：`enb_computed` ⟺ `n_members_mean <= 400`，
+      且 False 的列 `oos_enb` 必須為空。
+    ④🔴 **對照表必須有 ratio 維度且聚合列不可單獨解讀**。實測台股 CAGR 在
+      legacy 是 A 勝率 21.7%、在 5% 是 75.6%，聚合起來是 50.4% 的假平手——
+      本條斷言「至少有一棵樹的逐比例勝率跨越 50%」，確保 ratio 維度真的有作用；
+      若哪天所有比例同向，代表資料或口徑變了，敘事要重新檢視。
+    ⑤🔴 **與 M-02b 的關鍵差別必須成立**：C_random 的 ENB 勝率是每個比例都 100%，
+      而本表（換分群依據）**只有 legacy 勝**。這正是「分散度來自多樣性限制、
+      不是 HRP 群邊界」的直接證據。
+    """
+    d = paths.ROOT / "_analysis_outputs_robustness"
+    pp, pc = d / "walkforward_partition.csv", d / "walkforward_partition_compare.csv"
+    for p in (pp, pc):
+        if not p.exists():
+            raise AssertionError("尚未執行 research.walkforward_partition")
+    rnd, cmp_df = pd.read_csv(pp), pd.read_csv(pc)
+    for c in ("tree_key", "scheme", "k_mode", "ratio", "allocation"):
+        rnd[c] = rnd[c].astype("category")
+    for c in ("tree_key", "metric", "ratio"):
+        cmp_df[c] = cmp_df[c].astype("category")
+    C.validate(rnd, C.WALKFORWARD_PARTITION, strict_columns=True)
+    C.validate(cmp_df, C.WALKFORWARD_RANDOM_COMPARE, strict_columns=True)
+
+    # ① 覆蓋率
+    det = pd.read_csv(d / "walkforward_matrix_detail.csv")
+    a = det[det.group == "A_hrp"]
+    key = ["tree_key", "scheme", "k_mode", "ratio", "allocation", "window_no"]
+    left, right = a[key].astype(str), rnd[key].astype(str)
+    merged = left.merge(right, on=key, how="inner")
+    assert len(merged) == len(a), (
+        f"只有 {len(merged)}/{len(a)} 個 A_hrp 格子接得上隨機分群——兩表不同步")
+
+    # ② 每格的各次抽樣檔數一致
+    assert (rnd.n_members_mean == rnd.n_members_mean.round()).all(), (
+        "有格子的 n_members_mean 不是整數——同一格內各次抽樣的檔數不同，"
+        "ENB 的 400 檔門檻會在格內部分觸發，平均值混了兩種樣本")
+
+    # ③ ENB 範圍
+    assert (rnd.enb_computed == (rnd.n_members_mean <= 400)).all(), \
+        "enb_computed 與 400 檔門檻不一致——與 walkforward_matrix 的規則不同就不可比"
+    assert rnd.loc[~rnd.enb_computed, "oos_enb"].isna().all(), \
+        "未計算 ENB 的列卻有 oos_enb 值"
+
+    # ④ ratio 維度存在且真的有作用
+    assert "ALL" in set(cmp_df.ratio.astype(str)), "對照表缺聚合列 ratio='ALL'"
+    per = cmp_df[(cmp_df.metric == "oos_cagr") & (cmp_df.ratio.astype(str) != "ALL")]
+    assert len(per) > 0, "對照表缺逐比例列"
+    spans = per.groupby("tree_key", observed=True).pct_A_wins.agg(["min", "max"])
+    assert ((spans["min"] < 0.5) & (spans["max"] > 0.5)).any(), (
+        "沒有任何一棵樹的逐比例勝率跨越 50%——ratio 維度失去作用，"
+        "『聚合會掩蓋相反結構』的判讀需重新檢視：\n" + spans.to_string())
+
+    # ⑤ 與 M-02b 的關鍵差別
+    rp = d / "walkforward_random_compare.csv"
+    assert rp.exists(), "缺 M-02b 的對照表——兩者必須一起讀"
+    rc = pd.read_csv(rp)
+    sel_r = rc[(rc.metric == "oos_enb") & (rc.ratio.astype(str) != "ALL")]
+    assert (sel_r.pct_A_wins > 0.99).all(), (
+        "M-02b 的 ENB 勝率不再是每個比例都 100%——「分散度來自多樣性限制」的"
+        "對比失效：\n" + sel_r[["tree_key", "ratio", "pct_A_wins"]].to_string(index=False))
+    sel_p = cmp_df[(cmp_df.metric == "oos_enb") & (cmp_df.ratio.astype(str) != "ALL")]
+    assert (sel_p.pct_A_wins < 0.99).all(), (
+        "M-03b 的 ENB 出現 100% 勝率的比例——若換掉分群依據也能全勝，"
+        "「群邊界沒有貢獻」的結論要重新檢視")
+
+
 # ---------------------------------------------------------------- runner
 
 def main() -> int:
