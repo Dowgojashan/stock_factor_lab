@@ -1,0 +1,52 @@
+{
+  "stage": "rank_persistence",
+  "produced_at": "2026-09-07T00:09:15",
+  "git_sha": "83a6b2e",
+  "params": {
+    "top_qs": [
+      0.01,
+      0.03,
+      0.05,
+      0.1
+    ],
+    "quality_metrics": [
+      "calmar",
+      "cagr"
+    ],
+    "quality_rule": "與 walkforward_matrix.run_one_window 同一口徑"
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage0\\candidate_index.parquet",
+      "sha256": "b308a282f48511117739a3d3215dd00601a03c8247a9693edaad1644de57a8e2",
+      "bytes": 1453737,
+      "rows": 15810
+    },
+    {
+      "path": "_frozen\\stage1\\returns_monthly.parquet",
+      "sha256": "c449417668b6ff2ad58ecd475141e6a1f8dafb79b9600412056bd06bd7394cb3",
+      "bytes": 35729254,
+      "rows": 4547404
+    },
+    {
+      "path": "_frozen\\stage1\\returns_meta.parquet",
+      "sha256": "4a7dd7dc4e9cabd38e4bd04dfec742e1df99b7bc3a0f62216ad08deacf4e0010",
+      "bytes": 181944,
+      "rows": 15810
+    },
+    {
+      "path": "_frozen\\stage1\\strategy_marks.parquet",
+      "sha256": "4b81d7fb55665f465dbfc394c027b764c0805c373d32a719b4b2b6c3c59e4b03",
+      "bytes": 544970,
+      "rows": 15810
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_analysis_outputs_robustness\\rank_persistence.csv",
+      "sha256": "82e6ea2608068e52e88eed4a8839823ede8d135b710dc12e67da9e17d7d1b46d",
+      "bytes": 57014
+    }
+  ],
+  "notes": "M-12：IS→OOS 品質排序的持續性（Spearman rank IC）+ 分位版。不建樹。⚠️ 45 個窗互相重疊（巢狀 IS），不是獨立樣本，只報分布與逐方案結果，不做檢定。"
+}

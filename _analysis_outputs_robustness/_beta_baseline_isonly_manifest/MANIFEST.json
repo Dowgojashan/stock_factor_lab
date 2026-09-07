@@ -1,6 +1,6 @@
 {
-  "stage": "beta_baseline",
-  "produced_at": "2026-09-07T11:15:13",
+  "stage": "beta_baseline_isonly",
+  "produced_at": "2026-09-07T11:19:28",
   "git_sha": "83a6b2e",
   "params": {
     "levels": [
@@ -13,7 +13,7 @@
       "高": 0.5,
       "中": 0.8
     },
-    "beta_fit_window": "全窗"
+    "beta_fit_window": "IS 窗（HRP_IS_WINDOWS），殘差與 R² 仍算全窗"
   },
   "inputs": [
     {
@@ -43,9 +43,9 @@
   ],
   "outputs": [
     {
-      "path": "_analysis_outputs_robustness\\beta_baseline.csv",
-      "sha256": "fb5e429be0c6d9be84b130a5b9477a87c5e53493be1db4d618245400408bdc0c",
-      "bytes": 3596
+      "path": "_analysis_outputs_robustness\\beta_baseline_isonly.csv",
+      "sha256": "78988755664a28f41a885884e1a08529d7b7fa51df8ac5abe6333e116feeb4d1",
+      "bytes": 3600
     }
   ],
   "notes": "M-01：市場 beta 基準與殘差相關結構。回答「跨市場分散是不是只是國際分散的重現」。beta 代理用 B_all 有循環性（候選池是全期間贏家），須在文件揭露；乾淨版需 M-07 的市場指數。"

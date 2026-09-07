@@ -197,6 +197,21 @@ def build_schemes() -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def oos_months(oos_start: str, oos_end: str) -> int:
+    """OOS 區間的**實際**月數（含頭含尾）。
+
+    🔴 注意跟 `scheme` 的 `oos_len_months` 不同——方案的名目長度是 24/36/48，
+    但**尾巴不足 min_tail 會併進最後一窗**，所以最後一窗可能是 36/48/60。
+    做秩不足（N vs T）分析時必須用這個實際值，不能用方案的名目值。
+
+    2026-09-07（M-14）抽出成共用函式：`walkforward_partition` /
+    `walkforward_random` 的輸出都要帶這一欄，而既有 CSV 用同一個公式回填
+    ——共用才保證回填值與未來重跑的值逐位元相同。
+    （已驗證：對矩陣 8,370 列，本式與 `n_oos_months` 完全相符。）
+    """
+    return int((pd.Period(oos_end, "M") - pd.Period(oos_start, "M")).n) + 1
+
+
 def window_dates(row: pd.Series, tree_key: str) -> tuple[str, str, str, str]:
     """一個窗次在某棵樹上的實際 (is_start, is_end, oos_start, oos_end)。
 
@@ -642,8 +657,13 @@ def run(schemes_filter=None, trees=TREES, log=print) -> pd.DataFrame:
     return df
 
 
-def summarize(df: pd.DataFrame) -> pd.DataFrame:
-    """A_hrp 在每個維度切面下的 OOS 勝率。
+def summarize(df: pd.DataFrame, subject: str = "A_hrp") -> pd.DataFrame:
+    """`subject`（預設 A_hrp）在每個維度切面下的 OOS 勝率。
+
+    🔴 `subject` 參數為 M-11（2026-09-07）新增，**預設值維持 `A_hrp` 使既有產出
+    逐位元不變**（`walkforward_matrix_summary.csv` 是 manifest 登記的產物，
+    輸出一變就要連 manifest 重寫）。換主體的結果由 `subject_comparison.py`
+    寫進它自己的產出，**不擾動凍結的矩陣**。
 
     🔴 **三個指標都要看，不能只看 CAGR。** 老師明講 MDD 是我們唯一的代價
     （「我只有換股的話，我的代價就是我的 MDD 一定會比較慘」），而 H-12 已實測
@@ -672,7 +692,7 @@ def summarize(df: pd.DataFrame) -> pd.DataFrame:
     b = {m: df[df.group == "B_all"].set_index(wkeys)[f"oos_{m}"] for m in ("cagr", "mdd")}
 
     sub = piv["cagr"].reset_index()
-    if "A_hrp" not in sub.columns:
+    if subject not in sub.columns:
         return pd.DataFrame()
     for m in ("cagr", "mdd"):
         flat = piv[m].reset_index()
@@ -682,7 +702,7 @@ def summarize(df: pd.DataFrame) -> pd.DataFrame:
         sub[f"B_all_{m}"] = flat.set_index(wkeys).index.map(b[m])
     # ⚠️ 只保留 A 組真的有值的列——B_all 自己那一列的 ratio="all"，A 欄是 NaN，
     # 若不剔除會被 `NaN > x == False` 靜默算成敗場（開發時實測 20/22=90.9% 的來源）。
-    sub = sub.dropna(subset=["A_hrp_cagr"])
+    sub = sub.dropna(subset=[f"{subject}_cagr"])
 
     def _calmar(c, d):
         return c / d.abs().replace(0, np.nan)
@@ -694,16 +714,16 @@ def summarize(df: pd.DataFrame) -> pd.DataFrame:
                 continue
             rec = {"dimension": dim, "value": str(val), "n_cells": len(g)}
             for opp in ("B_all", "D_top_cagr", "E_top_calmar"):
-                if f"{opp}_cagr" not in g.columns:
+                if f"{opp}_cagr" not in g.columns or opp == subject:
                     continue
                 short = {"B_all": "B", "D_top_cagr": "D", "E_top_calmar": "E"}[opp]
-                rec[f"win_{short}_cagr"] = float((g["A_hrp_cagr"] > g[f"{opp}_cagr"]).mean())
-                rec[f"win_{short}_mdd"] = float((g["A_hrp_mdd"] > g[f"{opp}_mdd"]).mean())
+                rec[f"win_{short}_cagr"] = float((g[f"{subject}_cagr"] > g[f"{opp}_cagr"]).mean())
+                rec[f"win_{short}_mdd"] = float((g[f"{subject}_mdd"] > g[f"{opp}_mdd"]).mean())
                 rec[f"win_{short}_calmar"] = float(
-                    (_calmar(g["A_hrp_cagr"], g["A_hrp_mdd"])
+                    (_calmar(g[f"{subject}_cagr"], g[f"{subject}_mdd"])
                      > _calmar(g[f"{opp}_cagr"], g[f"{opp}_mdd"])).mean())
-            rec["mean_cagr_A"] = float(g["A_hrp_cagr"].mean())
-            rec["mean_mdd_A"] = float(g["A_hrp_mdd"].mean())
+            rec["mean_cagr_A"] = float(g[f"{subject}_cagr"].mean())
+            rec["mean_mdd_A"] = float(g[f"{subject}_mdd"].mean())
             rec["mean_cagr_B"] = float(g["B_all_cagr"].mean())
             rec["mean_mdd_B"] = float(g["B_all_mdd"].mean())
             rows.append(rec)
@@ -713,7 +733,7 @@ def summarize(df: pd.DataFrame) -> pd.DataFrame:
     # backfill = 多樣性門檻擋不住、退回純品質排序的檔數。實測 10% 時高達 56%，
     # 代表 A_hrp 在高比例下已經半退化成 E_top_calmar，「比例愈高表現愈差」有一部分
     # 是**多樣性機制失效**造成的，不只是「買太多稀釋報酬」。
-    a = df[df.group == "A_hrp"].copy()
+    a = df[df.group == subject].copy()
     a["_pct_bf"] = a.n_backfilled / a.n_members
     for dim in ("tree_key", "scheme", "k_mode", "ratio", "allocation", "window_no"):
         m = a.groupby(dim, observed=True)["_pct_bf"].mean()

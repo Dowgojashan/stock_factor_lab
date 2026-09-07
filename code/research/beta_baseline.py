@@ -73,13 +73,19 @@ LEVELS = ("L1", "L3")
 
 
 def market_returns(log=print) -> dict[str, pd.Series]:
-    """各市場的策略基準＝該市場 normal 樹的全池等權（＝`B_all` 的定義）。"""
+    """各市場的策略基準＝該市場 normal 樹的全池等權（＝`B_all` 的定義）。**永遠是全窗。**"""
     out = {}
     for m in ("TW", "US"):
         w = S3.rebuild_tree_returns(f"{m}_normal", log=lambda *a, **k: None)
         out[m] = w.mean(axis=0)
         log(f"  [{m}] 基準序列 {len(out[m])} 個月（{w.shape[0]:,} 檔策略等權）")
     return out
+
+
+def _fit_cols(m: str, cols) -> list:
+    """該市場 IS 窗（`contracts.HRP_IS_WINDOWS`）涵蓋的月份——M-13a 的擬合區間。"""
+    a, b = C.HRP_IS_WINDOWS[m]
+    return [c for c in cols if pd.Period(a, "M") <= c <= pd.Period(b, "M")]
 
 
 def benchmark_correlation(mkt: dict[str, pd.Series], log=print) -> float:
@@ -90,7 +96,8 @@ def benchmark_correlation(mkt: dict[str, pd.Series], log=print) -> float:
     return r
 
 
-def _residuals(wide: pd.DataFrame, mkt: dict[str, pd.Series]) -> tuple[pd.DataFrame, pd.Series, pd.Series]:
+def _residuals(wide: pd.DataFrame, mkt: dict[str, pd.Series],
+               is_only: bool = False) -> tuple[pd.DataFrame, pd.Series, pd.Series]:
     """逐策略對其所屬市場基準做 OLS，回傳 (殘差矩陣, beta, R²)。
 
     向量化實作：對同一市場的策略，市場序列相同，故 beta = cov(r_i, m)/var(m)
@@ -109,20 +116,28 @@ def _residuals(wide: pd.DataFrame, mkt: dict[str, pd.Series]) -> tuple[pd.DataFr
         mk = mkt[m].reindex(sub.columns)
         if mk.isna().any():
             raise ValueError(f"[{m}] 基準序列在該樹的窗內有缺月，無法回歸")
-        x = mk.to_numpy(dtype=np.float64)
-        xc = x - x.mean()
-        var_x = float((xc ** 2).mean())
+        # 🔴 M-13a：`is_only` 時**係數只用 IS 窗估**，但殘差仍算全窗
+        # ——這樣只換掉「beta 有沒有偷看 OOS」一個變因，殘差矩陣的維度不變，
+        # 殘差樹與主版才是可比的。若連殘差也裁到 IS，就同時換掉了樣本區間。
+        fc = _fit_cols(m, sub.columns) if is_only else list(sub.columns)
+        if len(fc) < 24:
+            raise ValueError(f"[{m}] 擬合區間只有 {len(fc)} 個月，太短")
+        xf = mk.reindex(fc).to_numpy(dtype=np.float64)
+        yf = sub[fc].to_numpy(dtype=np.float64)
+        xfc = xf - xf.mean()
+        var_x = float((xfc ** 2).mean())
+        yfc = yf - yf.mean(axis=1, keepdims=True)
+        beta = (yfc @ xfc) / (len(xf) * var_x)              # cov/var（IS 窗）
+        alpha = yf.mean(axis=1) - beta * xf.mean()
+
+        x = mk.to_numpy(dtype=np.float64)                   # 全窗
         y = sub.to_numpy(dtype=np.float64)
-        yc = y - y.mean(axis=1, keepdims=True)
-        beta = (yc @ xc) / (len(x) * var_x)                 # cov/var
-        alpha = y.mean(axis=1) - beta * x.mean()
-        pred = alpha[:, None] + beta[:, None] * x[None, :]
-        e = y - pred
+        e = y - (alpha[:, None] + beta[:, None] * x[None, :])
         resid.loc[idx] = e
         betas.loc[idx] = beta
-        # R² = 1 - SSE/SST
+        # R² = 1 - SSE/SST（全窗，與主版口徑一致）
         sse = (e ** 2).sum(axis=1)
-        sst = (yc ** 2).sum(axis=1)
+        sst = ((y - y.mean(axis=1, keepdims=True)) ** 2).sum(axis=1)
         r2s.loc[idx] = 1.0 - np.divide(sse, sst, out=np.full_like(sse, np.nan), where=sst > 0)
     return resid, betas, r2s
 
@@ -196,12 +211,12 @@ def _beta_predicted_corr(r2: pd.Series, a, b, mkt_of: pd.Series, mkt_corr: float
 
 
 def analyse_tree(tree_id: str, mkt: dict[str, pd.Series], mkt_corr: float,
-                 log=print) -> list[dict]:
+                 log=print, is_only: bool = False) -> list[dict]:
     tree_key = tree_id.split("_")[0]
     wide = S3.rebuild_tree_returns(tree_id, log=lambda *a, **k: None)
     log(f"[{tree_id}] {wide.shape[0]:,} 檔 × {wide.shape[1]} 月")
 
-    resid, betas, r2s = _residuals(wide, mkt)
+    resid, betas, r2s = _residuals(wide, mkt, is_only=is_only)
     log(f"  beta 中位 {betas.median():.3f}｜R² 中位 {r2s.median():.3f}"
         f"（市場解釋掉的變異）")
 
@@ -282,7 +297,7 @@ def analyse_tree(tree_id: str, mkt: dict[str, pd.Series], mkt_corr: float,
     return rows
 
 
-def run(trees=TREES, log=print) -> pd.DataFrame:
+def run(trees=TREES, log=print, is_only: bool = False) -> pd.DataFrame:
     freeze.verify_inputs(paths.STAGE1)
     freeze.verify_inputs(paths.STAGE1 / "_marks")
     freeze.verify_inputs(paths.STAGE3)
@@ -294,7 +309,7 @@ def run(trees=TREES, log=print) -> pd.DataFrame:
 
     rows = []
     for t in trees:
-        rows += analyse_tree(t, mkt, mkt_corr, log)
+        rows += analyse_tree(t, mkt, mkt_corr, log, is_only=is_only)
         log("")
 
     df = pd.DataFrame(rows)
@@ -304,10 +319,14 @@ def run(trees=TREES, log=print) -> pd.DataFrame:
     log(f"✓ beta_baseline 契約通過（{len(df)} 列）")
 
     out_dir = paths.ROOT / "_analysis_outputs_robustness"
-    p = out_dir / "beta_baseline.csv"
+    # 🔴 M-13a 寫到**另一個檔名**：`enb_null` 會 `verify_inputs(_beta_baseline_manifest)`
+    # 並讀 `market_corr`，若 `--is-only` 覆蓋主版產物會連鎖要求 M-05 重跑。
+    # 分檔後兩者互不干擾（稽核清單第二輪已預先警告這條連鎖）。
+    stem = "beta_baseline_isonly" if is_only else "beta_baseline"
+    p = out_dir / f"{stem}.csv"
     df.to_csv(p, index=False, encoding="utf-8-sig")
     freeze.write_manifest(
-        "beta_baseline", out_dir / "_beta_baseline_manifest",
+        stem, out_dir / f"_{stem}_manifest",
         inputs=[paths.STAGE1 / "returns_monthly.parquet",
                paths.STAGE1 / "returns_meta.parquet",
                paths.STAGE1 / "strategy_marks.parquet",
@@ -315,7 +334,9 @@ def run(trees=TREES, log=print) -> pd.DataFrame:
         outputs=[p],
         params={"levels": list(LEVELS), "market_proxy": "B_all（該市場全池等權）",
                "market_corr": mkt_corr,
-               "complementarity_cuts": C.COMPLEMENTARITY_CUTS},
+               "complementarity_cuts": C.COMPLEMENTARITY_CUTS,
+               "beta_fit_window": ("IS 窗（HRP_IS_WINDOWS），殘差與 R² 仍算全窗"
+                                   if is_only else "全窗")},
         notes="M-01：市場 beta 基準與殘差相關結構。回答「跨市場分散是不是只是"
               "國際分散的重現」。beta 代理用 B_all 有循環性（候選池是全期間贏家），"
               "須在文件揭露；乾淨版需 M-07 的市場指數。",
@@ -380,8 +401,11 @@ def _report(df: pd.DataFrame, log=print) -> None:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="research.beta_baseline")
     ap.add_argument("--trees", nargs="+", default=list(TREES))
+    ap.add_argument("--is-only", action="store_true",
+                    help="M-13a：beta 與 alpha 只用 IS 窗估計（殘差仍算全窗），"
+                         "產出寫到 beta_baseline_isonly.csv")
     a = ap.parse_args(argv)
-    df = run(trees=tuple(a.trees))
+    df = run(trees=tuple(a.trees), is_only=a.is_only)
     _report(df)
     return 0
 

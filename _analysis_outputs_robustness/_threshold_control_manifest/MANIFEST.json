@@ -1,0 +1,56 @@
+{
+  "stage": "threshold_control",
+  "produced_at": "2026-09-07T10:52:05",
+  "git_sha": "83a6b2e",
+  "params": {
+    "subset_schemes": [
+      "E",
+      "H"
+    ],
+    "subset_ratios": [
+      "legacy",
+      "0.03"
+    ],
+    "k_mode": "fixed",
+    "n_draws": 30,
+    "seed": 42,
+    "diagnose_only": false
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage0\\candidate_index.parquet",
+      "sha256": "b308a282f48511117739a3d3215dd00601a03c8247a9693edaad1644de57a8e2",
+      "bytes": 1453737,
+      "rows": 15810
+    },
+    {
+      "path": "_frozen\\stage1\\returns_monthly.parquet",
+      "sha256": "c449417668b6ff2ad58ecd475141e6a1f8dafb79b9600412056bd06bd7394cb3",
+      "bytes": 35729254,
+      "rows": 4547404
+    },
+    {
+      "path": "_analysis_outputs_robustness\\walkforward_matrix_detail.csv",
+      "sha256": "719af3e4824af37cbb15f45f9d344906b21144abd0548ab932b73d831bc126cd",
+      "bytes": 2222625
+    },
+    {
+      "path": "_analysis_outputs_robustness\\walkforward_partition.csv",
+      "sha256": "2b2025253fdc7c0d7522750c7ddb20cb047766f013882195d07a3ee94c345ce3",
+      "bytes": 624638
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_analysis_outputs_robustness\\backfill_diagnosis.csv",
+      "sha256": "c543f4e80c27f2429d52d7f854918bd54df8de2197f96443beff00b6e2eeff10",
+      "bytes": 2401
+    },
+    {
+      "path": "_analysis_outputs_robustness\\threshold_control.csv",
+      "sha256": "dfce0baf2340037d2dae011814567e62bc0f3d4eabd4c7dd70855ecbee79d31f",
+      "bytes": 76477
+    }
+  ],
+  "notes": "M-15：多樣性門檻是 M-03/M-03b 的第二個變因。A=backfill 診斷（免費）；B=固定門檻變體（代表性子集），把門檻真的釘死看結論是否改變。"
+}

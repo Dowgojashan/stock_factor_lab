@@ -1,0 +1,34 @@
+{
+  "stage": "subject_comparison",
+  "produced_at": "2026-09-07T08:15:56",
+  "git_sha": "83a6b2e",
+  "params": {
+    "subjects": [
+      "A_hrp",
+      "E_top_calmar",
+      "D_top_cagr"
+    ],
+    "alpha": 0.05,
+    "correction": "族內（固定 主體×對手×指標 的 13 個方案）"
+  },
+  "inputs": [
+    {
+      "path": "_analysis_outputs_robustness\\walkforward_matrix_detail.csv",
+      "sha256": "719af3e4824af37cbb15f45f9d344906b21144abd0548ab932b73d831bc126cd",
+      "bytes": 2222625
+    },
+    {
+      "path": "_analysis_outputs_robustness\\walkforward_matrix_summary.csv",
+      "sha256": "c1c3d706f291792a815c2c195bae931e7ff12e7c23273b5c82991abc6587b1de",
+      "bytes": 8604
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_analysis_outputs_robustness\\subject_comparison.csv",
+      "sha256": "c9aeea63bc6e5373afd306ef7ae6dc3e4cd060878272c60b30097b3bf959b3f3",
+      "bytes": 8518
+    }
+  ],
+  "notes": "M-11：把檢定主體從寫死的 A_hrp 換成 E_top_calmar / D_top_cagr。只讀既有明細彙整，不重跑矩陣、不擾動凍結鏈。含自我校驗：A_hrp 主體的結果必須與凍結的 summary 完全一致。"
+}

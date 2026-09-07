@@ -1,7 +1,7 @@
 {
   "stage": "walkforward_random",
-  "produced_at": "2026-09-06T23:04:43",
-  "git_sha": "fc40f3a",
+  "produced_at": "2026-09-07T11:05:58",
+  "git_sha": "83a6b2e",
   "params": {
     "n_draws": 200,
     "seed": 42,
@@ -36,13 +36,13 @@
   "outputs": [
     {
       "path": "_analysis_outputs_robustness\\walkforward_random.csv",
-      "sha256": "4f389bc99533efeeee4f86d01bc0cb8482d4605e3688ddbe79e4ef2b85e0ba62",
-      "bytes": 137753
+      "sha256": "cc79da2473f3b2b76131e7a6424e07289b30e209c2112761cf5153e39cc3c048",
+      "bytes": 138999
     },
     {
       "path": "_analysis_outputs_robustness\\walkforward_random_compare.csv",
-      "sha256": "524dd2d330e116b3b107f2b30c7c4f2089506a397c55b5881a6e17cb5db1d93f",
-      "bytes": 11009
+      "sha256": "7d1f1e6957c38e2b447d4e270f9378d34ba1dfe2c2e3601615c4bd0181e356ff",
+      "bytes": 13232
     }
   ],
   "notes": "M-02b：walk-forward 版的 C_random。不建樹（隨機抽取與分群無關），去重後 414 組。不算群集中度欄位（需樹標籤，且 M-03 證明該欄對 A 是套套邏輯）。對照表帶 ratio 維度（ALL + 逐比例）。"

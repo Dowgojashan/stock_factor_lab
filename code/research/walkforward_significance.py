@@ -63,17 +63,24 @@ def _load() -> pd.DataFrame:
     return df.rename(columns={"oos_cagr": "cagr", "oos_mdd": "mdd"})
 
 
-def unit_wins(df: pd.DataFrame) -> pd.DataFrame:
-    """每個 (樹 × 方案 × 窗次 × 對手 × 指標) 單位，A_hrp 是否在過半設定中勝出。
+def unit_wins(df: pd.DataFrame, subject: str = "A_hrp") -> pd.DataFrame:
+    """每個 (樹 × 方案 × 窗次 × 對手 × 指標) 單位，`subject` 是否在過半設定中勝出。
 
     ⚠️ MDD 是負數，「較淺」＝數值較大，所以三個指標一律用 `>` 判勝，方向正確。
+
+    🔴 `subject` 參數為 M-11（2026-09-07）新增，**預設 `A_hrp` 維持回溯相容**。
+    存在理由：本專案至今所有檢定的主體都恆為 `A_hrp`，但矩陣實測
+    `E_top_calmar` 在 Calmar 上贏 A 的格子高達 80.4%——**表現最好的方法從未被
+    當成主體檢定過**。要決定第五章的主張句怎麼寫，就必須把主體換掉再跑一次。
     """
     setting = ["tree_key", "scheme", "window_no", "k_mode", "ratio", "allocation"]
     wkey = ["tree_key", "scheme", "window_no", "k_mode"]
-    a = df[df.group == "A_hrp"].set_index(setting)
+    if subject not in set(df.group):
+        raise ValueError(f"矩陣裡沒有 group={subject}；可選 {sorted(set(df.group))}")
+    a = df[df.group == subject].set_index(setting)
 
     rows = []
-    for opp in OPPONENTS:
+    for opp in [o for o in OPPONENTS if o != subject]:
         o = df[df.group == opp]
         for m in METRICS:
             if opp == "B_all":

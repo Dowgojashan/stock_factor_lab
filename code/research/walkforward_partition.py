@@ -68,7 +68,7 @@ from .partition_control import _avg_intra_corr, random_partition
 from .walkforward_matrix import (ALLOCATIONS, K_MODES, LEVEL, RATIO_GRID, TREES,
                                  _load_inputs, _load_k_table, allocate,
                                  build_schemes, build_tree_for_window,
-                                 target_total, window_dates)
+                                 oos_months, target_total, window_dates)
 
 N_DRAWS = 30                 # 每格抽樣次數（2,700 格 × 30 = 81,000 次，聚合足夠）
 RANDOM_SEED = 42
@@ -209,6 +209,9 @@ def run_one_window(tree_key: str, srow: pd.Series, tree: dict, months_long,
                        "window_no": int(srow.window_no),
                        "is_start": is_start, "is_end": is_end,
                        "oos_start": oos_start, "oos_end": oos_end,
+                       # 🔴 M-14：實際 OOS 月數。秩不足（N vs T）分析必須用它，
+                       # 不能用方案的名目 oos_len_months（尾巴會併窗）。
+                       "n_oos_months": oos_months(oos_start, oos_end),
                        "n_clusters": k, "target_total": tot, "n_draws": n_draws,
                        "n_members_mean": float(np.mean(nm)),
                        "n_backfilled_mean": float(np.mean(bfs)),
@@ -309,7 +312,12 @@ def compare(rnd: pd.DataFrame, log=print) -> pd.DataFrame:
                              "pct_z_under_neg2": float((g._z < -2).mean()),
                              "diff_mean": float(g._d.mean()),
                              "diff_median": float(g._d.median()),
-                             "random_std_mean": float(g[f"{metric}_std"].mean())})
+                             "random_std_mean": float(g[f"{metric}_std"].mean()),
+                             # M-16：名目二項 SE（下限；格子不獨立故實際更寬）
+                             "se_binomial_nominal": float(np.sqrt(0.25 / len(g))),
+                             # M-16：聚合列才是事前設定的結論，逐比例是探索性的
+                             "evidence_type": ("confirmatory" if ratio == "ALL"
+                                               else "exploratory")})
     return pd.DataFrame(rows)
 
 
@@ -368,14 +376,19 @@ def _report(rnd: pd.DataFrame, cmp_df: pd.DataFrame, log=print) -> None:
     cmp_df = cmp_df.copy()
     cmp_df["_o"] = cmp_df.ratio.astype(str).map(order).fillna(9)
     log(f"  {'樹':<5}{'指標':<12}{'比例':<9}{'格數':>6}{'效果量(A−隨機)':>15}"
-        f"{'隨機σ':>10}{'z 平均':>9}{'A 勝率':>9}")
+        f"{'隨機σ':>10}{'z 平均':>9}{'A 勝率':>9}{'±SE':>7}  證據")
     for (met, tree), g in cmp_df.groupby(["metric", "tree_key"], observed=True):
         for r in g.sort_values("_o").itertuples():
-            mark = "  ←聚合" if str(r.ratio) == "ALL" else ""
+            tag = "驗證性(聚合)" if str(r.ratio) == "ALL" else "探索性"
             log(f"  {r.tree_key:<5}{r.metric:<12}{str(r.ratio):<9}{r.n_cells:>6,}"
                 f"{r.diff_mean:>15.4f}{r.random_std_mean:>10.4f}"
-                f"{r.z_mean:>9.2f}{r.pct_A_wins:>9.1%}{mark}")
+                f"{r.z_mean:>9.2f}{r.pct_A_wins:>9.1%}"
+                f"{r.se_binomial_nominal:>7.3f}  {tag}")
         log("")
+    log("  ⚠️ **±SE 是名目二項標準誤，是下限不是實際值**——格子彼此不獨立")
+    log("     （共用窗與方案，M-10 實測相鄰窗選股 Jaccard 0.372），有效 n 更低。")
+    log("     另有第二個誤差源：對照組均值/標準差只由 n_draws 次抽樣估得（見「隨機σ」）。")
+    log("  ⚠️ **逐比例列一律標為探索性，不做強宣稱**；只有聚合列是事前設定的結論。")
     log("")
     log("  ⚠️ **判讀以「效果量」與「A 勝率」為主，z 只當輔助**——對照組變異數極小時")
     log("     z 會爆炸而失去意義（見「隨機σ」欄）。")

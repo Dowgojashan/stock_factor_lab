@@ -90,8 +90,10 @@ def _load_detail() -> pd.DataFrame:
 # ① 效果量分布
 # ============================================================================
 
-def effect_distribution(detail: pd.DataFrame) -> pd.DataFrame:
-    """每個 (樹 × 對手 × 指標) 的配對差距分布。
+def effect_distribution(detail: pd.DataFrame, subject: str = "A_hrp") -> pd.DataFrame:
+    """每個 (樹 × 對手 × 指標) 的配對差距分布（`subject` 減對手）。
+
+    🔴 `subject` 為 M-11（2026-09-07）新增，**預設 `A_hrp` 維持回溯相容**。
 
     ⚠️ B_all 的列 `ratio="all"`／`allocation="unallocated"`，設定鍵跟 A_hrp 對不上，
     必須用窗鍵廣播對齊——否則整組被靜默丟掉（M-09 開發時實測踩過）。
@@ -102,17 +104,17 @@ def effect_distribution(detail: pd.DataFrame) -> pd.DataFrame:
     rows = []
     for metric in METRICS:
         piv = detail.pivot_table(index=keys, columns="group", values=metric,
-                                 observed=True).dropna(subset=["A_hrp"])
+                                 observed=True).dropna(subset=[subject])
         b_ref = detail[detail.group == "B_all"].set_index(wkeys)[metric]
         b_ref = b_ref[~b_ref.index.duplicated()]
-        for opp in OPPONENTS:
+        for opp in [o for o in OPPONENTS if o != subject]:
             if opp == "B_all":
                 other = pd.Series(
                     piv.reset_index().set_index(wkeys).index.map(b_ref).to_numpy(),
                     index=piv.index)
             else:
                 other = piv[opp]
-            diff = (piv["A_hrp"] - other).dropna()
+            diff = (piv[subject] - other).dropna()
             for tree, s in diff.groupby(level="tree_key", observed=True):
                 sd = float(s.std(ddof=1))
                 rec = {"tree_key": tree, "opponent": opp, "metric": metric,
@@ -128,7 +130,7 @@ def effect_distribution(detail: pd.DataFrame) -> pd.DataFrame:
                                            if rec["mean"] != 0 else float("nan"))
                 rows.append(rec)
     out = pd.DataFrame(rows)
-    missing = set(OPPONENTS) - set(out.opponent)
+    missing = {o for o in OPPONENTS if o != subject} - set(out.opponent)
     if missing:
         raise AssertionError(f"效果量分布缺對手 {missing}——設定鍵對不上被靜默丟掉")
     return out

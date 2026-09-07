@@ -1,14 +1,12 @@
 {
-  "stage": "walkforward_partition",
-  "produced_at": "2026-09-07T11:08:17",
+  "stage": "residual_tree_selection",
+  "produced_at": "2026-09-07T14:57:15",
   "git_sha": "83a6b2e",
   "params": {
-    "n_draws": 30,
     "seed": 42,
     "enb_max_members": 400,
-    "q_init_factor": 8,
-    "q_min": 400,
-    "truncation": "品質前綴截斷；無 backfill 即與完整版等價，否則放大重試"
+    "benchmark": "該窗自己的宇宙按市場等權（不是主線全池）",
+    "threshold_and_corr": "原始相關矩陣（與 A_hrp 同一把尺）"
   },
   "inputs": [
     {
@@ -48,15 +46,15 @@
   ],
   "outputs": [
     {
-      "path": "_analysis_outputs_robustness\\walkforward_partition.csv",
-      "sha256": "d0ec9b42cedfbc461f9d79eed54939ec9e481abef2c5fdf4d3de220e89729678",
-      "bytes": 632701
+      "path": "_analysis_outputs_robustness\\residual_tree_selection.csv",
+      "sha256": "8db55dd76ffbb6ef6b304e436a1d2921c2c7c3aab432849738d68355fcb0cb8c",
+      "bytes": 529754
     },
     {
-      "path": "_analysis_outputs_robustness\\walkforward_partition_compare.csv",
-      "sha256": "8b7b689271bd45396c414a65061918ab70e14abbdf20a2268f4dd92cb56ebfc1",
-      "bytes": 14175
+      "path": "_analysis_outputs_robustness\\residual_tree_compare.csv",
+      "sha256": "b75ec84198747f2817eb93548b8a3b0dd2f53144351b5e0361d1e581711c8172",
+      "bytes": 7739
     }
   ],
-  "notes": "M-03b：walk-forward 版的 A2_random（隨機分群）。群大小 profile 沿用該窗 HRP 樹，多樣性門檻用隨機群自己的 avg_intra_corr，走同一個 select_representatives。對照表帶 ratio 維度（ALL + 逐比例）——聚合列會掩蓋方向相反的結構，判讀必須逐比例。"
+  "notes": "M-13b：用殘差相關樹選兵。只換分群依據，品質分數／配額／挑選規則／門檻所用的相關矩陣全部沿用 A_hrp。回答口委必問的「有沒有試過扣掉 beta 再分群」。"
 }

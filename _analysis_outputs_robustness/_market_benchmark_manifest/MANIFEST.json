@@ -1,0 +1,43 @@
+{
+  "stage": "market_benchmark",
+  "produced_at": "2026-09-07T13:18:04",
+  "git_sha": "83a6b2e",
+  "params": {
+    "tr_tables": {
+      "TW": "taiex_tr",
+      "US": "sp500_tr"
+    },
+    "px_tables": {
+      "TW": "taiex",
+      "US": "sp500"
+    },
+    "xm_benchmark": "兩個 TR 指數的等權混合（未做匯率調整，見 M-06）",
+    "why_tr": "contracts.BENCHMARK_CAGR 註解寫明自建基準含股利"
+  },
+  "inputs": [
+    {
+      "path": "_analysis_outputs_robustness\\walkforward_matrix_detail.csv",
+      "sha256": "719af3e4824af37cbb15f45f9d344906b21144abd0548ab932b73d831bc126cd",
+      "bytes": 2222625
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_analysis_outputs_robustness\\market_index_monthly.parquet",
+      "sha256": "143443042bdb2cb2ade7ccd84234ce379c893d5b119ffbbbf98bc47c4072f657",
+      "bytes": 16625,
+      "rows": 1237
+    },
+    {
+      "path": "_analysis_outputs_robustness\\market_benchmark_compare.csv",
+      "sha256": "5719a40f3935ba525b6c06be817a630f6b0b8407752bf5334d5a5fc605515c9a",
+      "bytes": 7400
+    },
+    {
+      "path": "_analysis_outputs_robustness\\weighting_decomposition.csv",
+      "sha256": "607b9806f5d5cd413217e8ff591cea5ffabd751e8c6339d792215e562a4a9ed9",
+      "bytes": 304
+    }
+  ],
+  "notes": "M-17：真正的市場基準（報酬指數）+ 等權 vs 市值加權分解。🔴 美股的市值加權拒絕輸出——market_capital 98.8% NULL。⚠️ 資料庫來源，非 _frozen 凍結鏈；重跑需要 DB 連線。"
+}
