@@ -13,6 +13,9 @@
                           （同圖 A 的版面，換一個對照組，見 M-17）
     圖 G  比例×分配表格圖   5 比例 × 2 分配＝10 張，每張列 13 方案的 IS/OOS CAGR/MDD，
                           同表同欄最佳標紅、最差標綠（另計，不算進上面的 4 版 × 6 組）
+    圖 H  群數穩健性時間軸  每個 IS 窗動態選出的群數 k 隨時間怎麼變（回應老師 9-8 提問①，
+                          回答的是「分群結構穩不穩」，不是市場宇宙大小——那張圖在
+                          `research.universe_history`，因為那支要連資料庫查即時資料）
 
 ⚠️ 本模組**不產生資料**，只讀既有凍結產物畫圖，故不寫 manifest；
    但仍會 `verify_inputs` 走查矩陣的 manifest，確保畫的是未被改動的資料。
@@ -456,6 +459,35 @@ def fig_g_scheme_table(g: pd.DataFrame, schemes: pd.DataFrame, ratio: str, alloc
     _save(fig, f"G_table_{RATIO_FILE[ratio]}_{allocation}.png", log)
 
 
+# --------------------------------------------------------------- 圖 H
+def fig_h_k_over_time(log=print) -> None:
+    """每個 IS 窗動態選出的群數 k，依 IS 窗結束時點畫成時間軸，對照固定值 k_fixed。
+
+    回應老師 9-8 的提問：「每群後來少多少，你至少要給人家一個[圖]」。
+    ⚠️ 這張圖答的是「分群結構隨時間穩不穩定」，不是「市場宇宙大小隨時間怎麼變」
+    ——後者是上市公司家數的問題，見 `research.universe_history`。
+    """
+    freeze.verify_inputs(SRC_DIR / "_k_stability_manifest")
+    ks = pd.read_csv(SRC_DIR / "k_stability.csv")
+    ks["is_end_dt"] = pd.to_datetime(ks.is_end, format="%Y-%m")
+    ks = ks.sort_values(["tree_key", "is_end_dt"])
+
+    fig, ax = plt.subplots(figsize=(8.2, 4.6))
+    for t in ("TW", "US", "XM"):
+        g = ks[ks.tree_key == t]
+        ax.plot(g.is_end_dt, g.k_is_selected, "-o", ms=5, lw=1.8,
+                color=TREE_COLOR[t], label=f"{TREE_LABEL[t]}｜動態選 k")
+        ax.axhline(g.k_fixed.iloc[0], color=TREE_COLOR[t], lw=1, ls=":", alpha=0.6)
+    ax.set_xlabel("IS 窗結束時點")
+    ax.set_ylabel("群數 k")
+    ax.legend(fontsize=8, loc="upper left")
+    ax.set_title("圖 H｜群數穩健性時間軸（回應老師 9-8 提問①）\n"
+                 "實線＝每個 IS 窗自選的 k；虛線＝固定值（台6／美7／跨3）；"
+                 "43 個窗次中多數偏離固定值，但走查矩陣結論不受影響（見 §1.4）",
+                 fontsize=10.5)
+    _save(fig, "H_k_over_time.png", log)
+
+
 def run(log=print) -> None:
     m, schemes = load_pairs(log)
     mkt = load_market_pairs(log)
@@ -479,6 +511,9 @@ def run(log=print) -> None:
         for allocation in ("equal", "proportional"):
             fig_g_scheme_table(ratio_alloc, schemes, ratio, allocation, log)
     log(f"完成：{len(RATIO_ORDER) * 2} 張表格圖 → {OUT_DIR}")
+
+    log("  [圖 H｜群數穩健性時間軸]")
+    fig_h_k_over_time(log)
 
 
 def main(argv: list[str] | None = None) -> int:
