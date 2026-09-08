@@ -1,0 +1,9 @@
+﻿,0
+total_rows_10batches_TW,67435.0
+cross_dup_rows,33570.0
+unique_strategies,33865.0
+pool_CAGR_positive_raw(含跨批重複),57887.0
+pool_CAGR_beat_bench_raw(含跨批重複),42487.0
+pool_CAGR_positive_dedup(去重後),28970.0
+pool_CAGR_beat_bench_dedup(去重後),21328.0
+bench_CAGR_used,0.0624
