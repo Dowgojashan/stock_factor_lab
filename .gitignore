@@ -316,6 +316,10 @@ db_config.json
 credentials.json
 secrets.json
 
+# 應用層（code/app/）執行時累積的稽核紀錄（F2），不是程式碼，
+# 內容含每次執行的覆核理由等自由文字，不上傳版本庫
+code/app/_runs/
+
 # Unpublished thesis reference material — must never be committed
 /參考資料/
 

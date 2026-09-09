@@ -88,8 +88,9 @@ setup.bat
 
 ## D. 我已經幫你改好的部分
 
-- `requirements_clean.txt`：原本的 `requirements.txt` 是 UTF-16 編碼，且 TA-Lib 那行
-  寫死成別人的路徑 `C:/iplab/...`。已轉成 UTF-8 乾淨版，並移除 TA-Lib 行（改由 whl 單獨裝）。
+- `requirements_clean.txt`：**這是現在唯一的套件清單**。舊的 `requirements.txt` 是 UTF-16
+  編碼、TA-Lib 那行還寫死成別人的路徑 `C:/iplab/...`，已轉成 UTF-8 乾淨版並移除 TA-Lib 行
+  （改由 whl 單獨裝）；**舊檔已於 2026-09-09 刪除**，避免換機器時裝錯。
 - `backtest.py` 的 `from core.backtest_core import mae_mfe` 已是正確寫法，無需再改。
 - 程式碼中沒有殘留 `iplab` 的 import，無需清理。
 
