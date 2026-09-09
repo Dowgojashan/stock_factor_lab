@@ -1,0 +1,16 @@
+{
+  "produced_at": "2026-08-30T19:25:42",
+  "model": "gpt-5",
+  "n_clusters": 16,
+  "n_new_this_run": 13,
+  "resumed": true,
+  "trees": [
+    "TW_normal",
+    "US_normal",
+    "XM_normal"
+  ],
+  "level": "L1",
+  "complete": true,
+  "paused_by_free_tier_quota": false,
+  "note": "LLM輸出不保證位元可複現，故不納入stage3 MANIFEST的雜湊驗證"
+}

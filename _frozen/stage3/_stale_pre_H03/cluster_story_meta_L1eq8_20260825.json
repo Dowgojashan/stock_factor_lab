@@ -1,0 +1,16 @@
+{
+  "produced_at": "2026-08-25T12:44:51",
+  "model": "gpt-5.6-sol",
+  "n_pairs": 84,
+  "trees": [
+    "TW_normal",
+    "US_normal",
+    "XM_normal"
+  ],
+  "level": "L1",
+  "complementarity_cuts": {
+    "高": 0.5,
+    "中": 0.8
+  },
+  "note": "LLM輸出不保證位元可複現，故不納入stage3 MANIFEST的雜湊驗證｜2026-08-25 code review：model 欄原記為佔位字串「(from config)」，已依產物實際值訂正（未重跑LLM，值取自 cluster_story.parquet 的 model 欄）"
+}

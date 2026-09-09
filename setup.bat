@@ -17,25 +17,8 @@ if errorlevel 1 (
 echo [OK] Python 3.10 detected
 echo.
 
-REM ---------- 1. Git LFS pull (optional) ----------
-echo [Step 1/6] Fetch Git LFS notebooks (optional)...
-where git >nul 2>&1
-if errorlevel 1 (
-    echo   [SKIP] git not found. example.ipynb is already a full file, so this is fine.
-) else (
-    git lfs version >nul 2>&1
-    if errorlevel 1 (
-        echo   [SKIP] git-lfs not installed. example.ipynb is already a full file, so this is fine.
-    ) else (
-        git lfs install
-        git lfs pull
-        echo   [OK] git lfs pull done
-    )
-)
-echo.
-
-REM ---------- 2. Create virtual environment ----------
-echo [Step 2/6] Create .venv ...
+REM ---------- 1. Create virtual environment ----------
+echo [Step 1/5] Create .venv ...
 if exist ".venv\Scripts\python.exe" (
     echo   .venv already exists, skip.
 ) else (
@@ -45,26 +28,26 @@ if exist ".venv\Scripts\python.exe" (
 )
 echo.
 
-REM ---------- 3. Activate and upgrade pip ----------
-echo [Step 3/6] Activate env and upgrade pip ...
+REM ---------- 2. Activate and upgrade pip ----------
+echo [Step 2/5] Activate env and upgrade pip ...
 call ".venv\Scripts\activate.bat"
 python -m pip install --upgrade pip
 echo.
 
-REM ---------- 4. Install requirements (pins numpy 1.24.4) ----------
-echo [Step 4/6] Install requirements_clean.txt ...
+REM ---------- 3. Install requirements (pins numpy 1.24.4) ----------
+echo [Step 3/5] Install requirements_clean.txt ...
 pip install -r requirements_clean.txt
 if errorlevel 1 ( echo [ERROR] requirements install failed & goto :fail )
 echo.
 
-REM ---------- 5. Install TA-Lib (cp310, --no-deps) ----------
-echo [Step 5/6] Install TA-Lib (cp310) ...
+REM ---------- 4. Install TA-Lib (cp310, --no-deps) ----------
+echo [Step 4/5] Install TA-Lib (cp310) ...
 pip install --no-deps "TA-LIB\ta_lib-0.6.3-cp310-cp310-win_amd64.whl"
 if errorlevel 1 ( echo [ERROR] TA-Lib install failed & goto :fail )
 echo.
 
-REM ---------- 6. Build Cython backtest core ----------
-echo [Step 6/6] Build core\backtest_core (needs VS C++ Build Tools) ...
+REM ---------- 5. Build Cython backtest core ----------
+echo [Step 5/5] Build core\backtest_core (needs VS C++ Build Tools) ...
 pushd core
 python setup.py build_ext --inplace
 set BUILD_RC=!errorlevel!
@@ -82,7 +65,7 @@ echo.
 echo ============================================================
 echo   ALL DONE!
 echo   - Activate env:  .venv\Scripts\activate
-echo   - Open code\example.ipynb, select the .venv Python as Kernel
+echo   - See README.md / 安裝說明_SETUP.md for how to run the pipeline
 echo ============================================================
 goto :end
 

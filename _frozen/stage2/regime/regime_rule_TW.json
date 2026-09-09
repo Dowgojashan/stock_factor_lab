@@ -1,0 +1,9 @@
+{
+  "bear_thresh": 0.15,
+  "bull_thresh": 0.15,
+  "crisis_thresh": 0.3,
+  "consolidation_speed": 0.15,
+  "market": "TW",
+  "method": "zigzag（Pagan & Sossounov 風格）",
+  "note": "純價格切割，不摻總經（做法甲）；crisis 段不受盤整覆寫規則影響"
+}
