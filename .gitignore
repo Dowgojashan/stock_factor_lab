@@ -65,6 +65,10 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
+# 資料庫完整匯出（GB 級，含財報數據，不進 git）
+*.sql
+*.sql.gz
+
 # Flask stuff:
 instance/
 .webassets-cache
@@ -328,6 +332,13 @@ code/app/_runs/
 *論文*.pdf
 余姵穎*.pdf
 郭鎧菘*.pdf
+
+# 應用層 UI 設計參考書（版權著作，僅供個人閱讀參考，不可公開散布；單檔數十MB也不適合進版控）
+book3-part*.pdf
+
+# 應用層設計參考論文（他人著作，僅供個人閱讀參考）
+Agentic Architecture for Institutional Asset Management.pdf
+TradingAgents MultiAgents LLM Financial Trading.pdf
 # 研究部凍結產物：2026-09-09 起改為全部進版控（97MB，最大單檔35MB，
 # 研究部主鏈已接近完成階段，不會再頻繁重跑；改版控可避免換機器時遺漏這個
 # 全專案最關鍵的資料夾，見 文件/換機器遷移清單_2026-09-09.md）

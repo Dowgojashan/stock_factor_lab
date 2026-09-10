@@ -29,6 +29,7 @@ import dataclasses
 import json
 import re
 
+from .audit import diff_holdings, find_previous
 from .calibration import CalibrationResult
 from .engine import Holdings
 from .risk import RiskReport, Violation
@@ -48,7 +49,12 @@ _SYSTEM_PROMPT = (
     "4. 若有風控違規且已被人工覆核放行，必須如實寫出違規內容跟覆核原因，"
     "不能淡化或省略。\n"
     "5. 判決資料裡的數字已經事先格式化好（百分比/小數位數），請直接照抄，"
-    "不要自己重新換算、四捨五入或改變位數。"
+    "不要自己重新換算、四捨五入或改變位數。\n"
+    "6. change_note：只描述提供的新增/剔除檔數，禁止推測換股的原因（例如不能說"
+    "「因為市場轉向所以換股」，因為這個原因沒有被提供給你）。\n"
+    "7. alternative_note：只陳述提供的替代方案數字，禁止建議「應該改用哪一個」"
+    "或評論哪個方案比較好——這件事已經由研究部的統計檢定回答過，不是這份備忘錄"
+    "的工作，你的角色只是把數字攤開陳述。"
 )
 
 _MEMO_SCHEMA = {
@@ -68,12 +74,25 @@ _MEMO_SCHEMA = {
                 "type": "string",
                 "description": "校準監控結果的說明：這期表現跟歷史常態分布相比如何，"
                                "只能引用提供的 p10 門檻數字，不能延伸解讀原因。"},
+            "change_note": {
+                "type": "string",
+                "description": "跟上一次同一組設定的執行結果相比，這次新增/剔除了幾檔"
+                               "策略；沒有上一筆紀錄可比就明講「這是第一次執行，沒有"
+                               "前期可比較」，不能假裝有更早的紀錄。只能引用提供的"
+                               "diff 數字，不能推測換股的原因。"},
+            "alternative_note": {
+                "type": "string",
+                "description": "同一格設定下，若改用其他候選方案（H-26/H-27/M-03 已"
+                               "驗證過的替代規則）會有什麼不同：檔數、會增減幾檔、"
+                               "OOS 績效數字。只是攤開既有比較結果給決策者參考，"
+                               "不能寫成「應該改用哪一個」的建議或評論優劣。"},
             "caveat": {
                 "type": "string",
                 "description": "這份備忘錄的限制（例如：策略層級不是股票層級、"
                                "replay 模式是歷史回顧不是即時建議等，只能根據提供的資訊寫）。"},
         },
-        "required": ["summary", "risk_note", "calibration_note", "caveat"],
+        "required": ["summary", "risk_note", "calibration_note", "change_note",
+                    "alternative_note", "caveat"],
         "additionalProperties": False,
     },
     "strict": True,
@@ -95,6 +114,28 @@ def _fmt_violation(v: Violation) -> dict:
     d["value"] = _pct(d["value"])
     d["limit"] = _pct(d["limit"])
     return d
+
+
+def _fmt_diff(diff: dict) -> dict:
+    """只給 LLM 看數量，不給實際策略 uid 清單——memo 該講的是「換了幾檔」，
+    不是逐一唸出策略名稱，那種細節留給 UI 的原始資料表格。"""
+    if not diff.get("has_previous"):
+        return {"has_previous": False}
+    return {
+        "has_previous": True,
+        "previous_recorded_at": diff["previous_recorded_at"],
+        "n_added": diff["n_added"], "n_removed": diff["n_removed"],
+        "n_unchanged": diff["n_unchanged"],
+    }
+
+
+def _fmt_alt(alt: dict) -> dict:
+    return {
+        "n_members": alt["n_members"],
+        "oos_cagr": _pct(alt["oos_cagr"]), "oos_mdd": _pct(alt["oos_mdd"]),
+        "oos_sharpe": _ratio(alt["oos_sharpe"]),
+        "n_would_add": alt["n_would_add"], "n_would_remove": alt["n_would_remove"],
+    }
 
 
 def build_prompt(holdings: Holdings, risk: RiskReport, calib: CalibrationResult) -> str:
@@ -120,6 +161,10 @@ def build_prompt(holdings: Holdings, risk: RiskReport, calib: CalibrationResult)
             "cluster_cap": _pct(holdings.config.cluster_cap),
             "n_clusters_covered": risk.n_clusters_covered,
             "violations": [_fmt_violation(v) for v in risk.violations],
+            # 2026-09-10（應用層 §6 落差②）：T8 本來就算好、先前沒接進 memo 的三組數字。
+            "factor_exposure_F1": {k: _pct(v) for k, v in risk.factor_exposure_f1.items()},
+            "market_share": {k: _pct(v) for k, v in risk.market_share.items()},
+            "regime_avg_ret": {k: _pct(v) for k, v in risk.regime_avg_ret.items()},
         },
         "calibration": {
             "oos_cagr": _pct(calib.oos_cagr), "oos_cagr_p10": _pct(calib.thresholds.oos_cagr_p10),
@@ -127,6 +172,10 @@ def build_prompt(holdings: Holdings, risk: RiskReport, calib: CalibrationResult)
             "n_historical_cells": calib.thresholds.n_cells,
             "flagged": calib.flagged,
         },
+        # 2026-09-10（應用層 §6 落差①）：跟上一次同一組 RunConfig 身份的執行結果相比。
+        "change_vs_previous": _fmt_diff(diff_holdings(holdings.members, find_previous(holdings.config))),
+        # 2026-09-10（應用層 §6 落差③）：同一格設定下的其他候選方案（H-12 四組對照）。
+        "alternative_groups": {g: _fmt_alt(v) for g, v in holdings.alternative_groups.items()},
     }
     return (
         "【程式判決 · 不可推翻，數字已格式化，請照抄】\n"
@@ -218,12 +267,10 @@ def generate(holdings: Holdings, risk: RiskReport, calib: CalibrationResult, *,
     prompt = build_prompt(holdings, risk, calib)
 
     if dry_run:
-        memo = {
-            "summary": "(dry-run，未呼叫 LLM)",
-            "risk_note": "(dry-run，未呼叫 LLM)",
-            "calibration_note": "(dry-run，未呼叫 LLM)",
-            "caveat": "(dry-run，未呼叫 LLM)",
-        }
+        # 2026-09-10 code review：欄位清單直接從 schema 的 required 衍生，不要
+        # 手動另外列一份——先前就是手動列的清單漏了新增的兩個欄位，UI 端
+        # 用固定 key 去讀 memo 字典會直接 KeyError 崩掉，不是「顯示不完整」而已。
+        memo = {k: "(dry-run，未呼叫 LLM)" for k in _MEMO_SCHEMA["schema"]["required"]}
     else:
         from utils.config import Config
         cfg = Config()

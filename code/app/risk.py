@@ -16,6 +16,13 @@
    是直接從 members 的歷史報酬序列算出來的，不涉及 cluster 對應，這部分可以
    放心複用。
 
+🔴 **2026-09-10（應用層 §6 落差②）**：T8 呼叫時其實同時算出 `market_share`、
+   `factor_exposure_F1`、`regime_avg_ret` 三組數字（`ops/tools.py:590-598`），
+   但先前只取用了 `portfolio_mdd`／`portfolio_ann_vol`，其餘三組算完就丟——
+   等於白算。這三組不涉及 cluster 對應（跟上面 mdd/vol 同一類，可放心複用），
+   現在補進 `RiskReport`，讓 memo 能講「這期因子曝險集中在哪個因子」而不是
+   只會複誦選了幾檔、CAGR 多少。
+
 ⚠️ 這個教訓對 `live` 模式（A2，尚未實作）同樣成立：慢時鐘用 T9 重建的新樹，
    分群結果不會寫回 `cluster_assign.parquet`，屆時一樣不能用 T8 的
    cluster_coverage，要用 T9 重建當下算出來的分群結果。
@@ -47,6 +54,10 @@ class RiskReport:
     max_cluster_share: float
     n_clusters_covered: int
     violations: list[Violation]
+    # 2026-09-10（應用層 §6 落差②）：T8 本來就算好、先前被丟掉的三組數字。
+    market_share: dict[str, float]
+    factor_exposure_f1: dict[str, float]
+    regime_avg_ret: dict[str, float]
 
     @property
     def ok(self) -> bool:
@@ -58,7 +69,8 @@ def assess(holdings: Holdings) -> RiskReport:
     n = holdings.n_members
     equal_weight = 1.0 / n if n else 0.0
 
-    # portfolio_mdd／portfolio_ann_vol 不涉及分群結構，T8 可以放心複用；
+    # portfolio_mdd／portfolio_ann_vol／market_share／factor_exposure_F1／
+    # regime_avg_ret 都不涉及分群結構，T8 可以放心複用；
     # 群佔比改讀 holdings.cluster_info（理由見本檔案開頭的 2026-09-09 教訓）。
     raw = T.t8_compute_portfolio_risk(holdings.members)   # 等權，跟 T8 預設一致
     max_share = holdings.cluster_info["max_cluster_share"]
@@ -82,4 +94,7 @@ def assess(holdings: Holdings) -> RiskReport:
         max_single_weight=equal_weight, max_cluster_share=max_share,
         n_clusters_covered=holdings.cluster_info["n_clusters_covered"],
         violations=violations,
+        market_share=raw["market_share"],
+        factor_exposure_f1=raw["factor_exposure_F1"],
+        regime_avg_ret=raw["regime_avg_ret"],
     )
