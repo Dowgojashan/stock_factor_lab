@@ -122,12 +122,51 @@ def resolve_holdings(md: MarketData, row: pd.Series, as_of: str) -> list[str]:
     return sorted(day[day].index.tolist()), use_date
 
 
+def markets_needed(idx: pd.DataFrame, uids: list[str]) -> list[str]:
+    """給一批策略 uid，回傳需要載入哪些市場的 `MarketData`（去重排序）。
+
+    🔴 2026-09-11（應用層 §9.7 I-1，S1）：XM 投組混合台美策略——`candidate_index`
+    本身就有 `market` 欄位（TW/US），不用解析 uid 字串前綴（欄位比字串解析更不容易
+    因命名規則變動而壞掉）。實測 XM legacy 15 檔＝5 檔 TW 策略＋10 檔 US 策略，
+    故 XM 通常需要兩個市場都載入；但不假設一定要兩個都有——若剛好全落在同一
+    市場，只回傳真正用到的那個，呼叫端就不用多載一個不需要的 `MarketData`。
+    """
+    return sorted(idx.loc[uids, "market"].unique().tolist())
+
+
+def resolve_holdings_multi(md_map: dict[str, MarketData], idx: pd.DataFrame,
+                           uid: str, as_of: str):
+    """跟 `resolve_holdings()` 相同，但依 `candidate_index` 的 `market` 欄位分派到
+    對應的 `MarketData`——XM 投組混合台美策略，不能只用一個市場的資料庫連線。
+
+    `md_map`：`{"TW": MarketData(...), "US": MarketData(...)}`，用 `markets_needed()`
+    先算出需要哪些市場再準備好，不要每個策略都重新判斷要不要載入新的市場。
+    """
+    row = idx.loc[uid]
+    m = row["market"]
+    if m not in md_map:
+        raise KeyError(f"{uid}：market={m!r} 沒有對應的 MarketData"
+                       f"（md_map 只準備了 {sorted(md_map)}）——"
+                       f"呼叫端要先用 markets_needed() 準備好全部需要的市場")
+    return resolve_holdings(md_map[m], row, as_of)
+
+
 def _load_company_names(market: str) -> pd.Series:
     """公司代號 → 名稱對照（market 篩選跟 database.py 其餘地方同一條 `_exchange_in_clause()`，
-    避免重演 CLAUDE.md 記載過的雷：`stock`/`company` 沒篩市場會兩邊資料撈在一起）。"""
+    避免重演 CLAUDE.md 記載過的雷：`stock`/`company` 沒篩市場會兩邊資料撈在一起）。
+
+    🔴 2026-09-11（§9.7 I-10）：原本只用 `_exchange_in_clause()`，但
+    `database.get_daily_stock()`／`get_finance_report()` 兩個都用——美股還要
+    `_universe_clause()` 才會篩進 Russell 3000 名單（CLAUDE.md 明文警告過這條）。
+    ⚠️ 實際影響有限，不是持股錯誤：`names` 只當查表用（`names.get(sym, "")`），
+    股票本身來自 `get_mask()`，`MarketData` 的價格宇宙已套過 universe 篩選；
+    這裡只是補齊「同一個雷在另一支程式沒防」的不一致，順手修，不是修一個
+    曾經造成錯誤持股結果的 bug。
+    """
     db = Database(market)
     conn = db.create_connection()
-    q = f"SELECT company_symbol, name FROM company WHERE {db._exchange_in_clause()}"
+    q = (f"SELECT company_symbol, name FROM company "
+        f"WHERE {db._exchange_in_clause()}{db._universe_clause('company_symbol')}")
     df = pd.read_sql(q, conn).drop_duplicates("company_symbol")
     return df.set_index("company_symbol")["name"]
 

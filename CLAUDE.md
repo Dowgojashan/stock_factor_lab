@@ -78,7 +78,16 @@ Phase 4  加估值濾網 V（PE 相對估值）
 
 **進度定位**：Phase 1~4（階段 −1）早已完成並經老師核可；之後的研究部主鏈（階段 0→1→2a/2b/2c→3→4→產出A）
 以及 H 系列（H-01~H-28）、S 系列（S-01~S-08，S-06 暫緩）、M 系列**全部完成**。
-測試套件 **131/131 通過**（⚠️ 資料庫沒開時會是 130/131，掛掉的 `t_ops_t11_regime_label_valid` 是唯一需要即時 DB 的測試，不是程式壞了）。
+測試套件在舊機器是 **131/131 通過**（⚠️ 資料庫沒開時會是 130/131，掛掉的 `t_ops_t11_regime_label_valid` 是唯一需要即時 DB 的測試，不是程式壞了）。
+
+🔴 **2026-09-10 新機器實測是 129/131**（資料庫有開）。**不是程式壞了，是換機器沒帶 `results_artifacts/`**：
+- `t_stage0_artifacts_exist` — 讀凍結 `candidate_index.parquet` 的 `artifacts_dir` 欄，
+  裡面 **100% 是舊機器的絕對路徑**（`D:\git\stock_factor_lab\code\results_artifacts\...`），
+  新機器上當然不存在 ⇒ 這是**凍結資料存了絕對路徑**的可攜性缺陷，不是這次改壞的
+- `t_stage0_idempotent` — 重跑 `stage0_index.py`，它用 `paths.artifacts_path()` 算出新機器路徑，
+  但本機 `code/results_artifacts/` 只有 3 個 spec 目錄（**189GB 的逐策略回測產物沒複製過來**）
+- **影響範圍**：僅限「重跑 stage0」。stage0 的產物已凍結，下游全部讀 `_frozen/`，
+  **應用層完全不受影響**（實測：`app.cli`／`app.clustering` 全部正常，G4 驗收 14/14 通過）
 
 **應用層（`code/app/`，2026-09-08~10）**：Phase A~D 完成，`replay` 模式可跑（CLI + Streamlit UI）；
 2026-09-10 另完成 §6 法人治理五項改動（累積 diff／T8 三組數字／多方法對照／IPS 文件／快慢時鐘拆分）。

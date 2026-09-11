@@ -94,3 +94,7 @@
 {"ts": "2026-09-09T06:01:18+00:00", "day_utc": "2026-09-09", "model": "gpt-5", "tier": "standard", "purpose": "cluster_story", "prompt_tokens": 1378, "completion_tokens": 2424, "total_tokens": 3802}
 {"ts": "2026-09-09T06:55:39+00:00", "day_utc": "2026-09-09", "model": "gpt-5", "tier": "standard", "purpose": "cluster_story", "prompt_tokens": 1378, "completion_tokens": 2199, "total_tokens": 3577}
 {"ts": "2026-09-10T07:43:54+00:00", "day_utc": "2026-09-10", "model": "gpt-5", "tier": "standard", "purpose": "cluster_story", "prompt_tokens": 1378, "completion_tokens": 1832, "total_tokens": 3210}
+{"ts": "2026-09-10T16:18:00+00:00", "day_utc": "2026-09-10", "model": "gpt-5", "tier": "standard", "purpose": "cluster_story", "prompt_tokens": 3644, "completion_tokens": 3909, "total_tokens": 7553}
+{"ts": "2026-09-10T16:18:11+00:00", "day_utc": "2026-09-10", "model": "gpt-5", "tier": "standard", "purpose": "cluster_story", "prompt_tokens": 3644, "completion_tokens": 5340, "total_tokens": 8984}
+{"ts": "2026-09-10T16:18:16+00:00", "day_utc": "2026-09-10", "model": "gpt-5", "tier": "standard", "purpose": "cluster_story", "prompt_tokens": 3644, "completion_tokens": 4892, "total_tokens": 8536}
+{"ts": "2026-09-10T16:18:21+00:00", "day_utc": "2026-09-10", "model": "gpt-5", "tier": "standard", "purpose": "cluster_story", "prompt_tokens": 3644, "completion_tokens": 5440, "total_tokens": 9084}

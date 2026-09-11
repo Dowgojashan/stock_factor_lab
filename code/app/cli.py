@@ -22,11 +22,18 @@ from .risk import assess
 
 
 def cmd_new_config(args: argparse.Namespace) -> int:
-    cfg = RunConfig(
-        mode="replay", market=args.market, group=args.group,
-        ratio=args.ratio, allocation=args.allocation, k_mode=args.k_mode,
-        replay_anchor=ReplayAnchor(scheme=args.scheme, window_no=args.window_no),
-    )
+    # 2026-09-10（§7 P2）：加上正式模式。正式模式沒有 scheme/window_no
+    # （IS 依定義就是錨點到最新可用月），k_mode 固定 mainline_h03。
+    if args.mode == "live":
+        cfg = RunConfig(mode="live", market=args.market, group=args.group,
+                        ratio=args.ratio, allocation=args.allocation,
+                        k_mode="mainline_h03")
+    else:
+        cfg = RunConfig(
+            mode="replay", market=args.market, group=args.group,
+            ratio=args.ratio, allocation=args.allocation, k_mode=args.k_mode,
+            replay_anchor=ReplayAnchor(scheme=args.scheme, window_no=args.window_no),
+        )
     cfg.save(args.out)
     print(f"已建立 {args.out}")
     return 0
@@ -52,13 +59,18 @@ def cmd_run(args: argparse.Namespace) -> int:
     calib = check_calibration(holdings)
     print()
     print(f"=== 校準監控（C5，對 {calib.thresholds.n_cells} 個歷史格子的 p10 分位）===")
-    print(f"OOS CAGR：{calib.oos_cagr:.2%}（p10 門檻 {calib.thresholds.oos_cagr_p10:.2%}）"
-         f"{' ⚠️ 低於門檻' if calib.below_cagr else ''}")
-    print(f"OOS Calmar：{calib.oos_calmar:.3f}（p10 門檻 {calib.thresholds.oos_calmar_p10:.3f}）"
-         f"{' ⚠️ 低於門檻' if calib.below_calmar else ''}")
-    if calib.flagged:
-        print("⚠️ 這次表現明顯偏離歷史常態分布，只是提醒，不會攔下執行"
-             "（校準監控是示警，不是 C4 那種強制關卡）")
+    if calib.evaluable:
+        print(f"OOS CAGR：{calib.oos_cagr:.2%}（p10 門檻 {calib.thresholds.oos_cagr_p10:.2%}）"
+             f"{' ⚠️ 低於門檻' if calib.below_cagr else ''}")
+        print(f"OOS Calmar：{calib.oos_calmar:.3f}（p10 門檻 {calib.thresholds.oos_calmar_p10:.3f}）"
+             f"{' ⚠️ 低於門檻' if calib.below_calmar else ''}")
+        if calib.flagged:
+            print("⚠️ 這次表現明顯偏離歷史常態分布，只是提醒，不會攔下執行"
+                 "（校準監控是示警，不是 C4 那種強制關卡）")
+    else:
+        # §8-R3：正式模式沒有 OOS，不假裝判定得出來
+        print(f"狀態：{calib.status}（門檻已立起來當日後基準，本次不判定）")
+        print(f"  {calib.note}")
 
     if args.no_record:
         # 2026-09-09 code review：純預覽/探索設定用，不寫稽核紀錄——沒有要
@@ -112,6 +124,9 @@ def main(argv: list[str] | None = None) -> int:
 
     p_new = sub.add_parser("new-config", help="產生一份起始 RunConfig（replay 模式）")
     p_new.add_argument("out")
+    p_new.add_argument("--mode", default="replay", choices=["live", "replay"],
+                       help="live＝正式模式（全歷史建的樹、無 OOS）；"
+                            "replay＝驗證模式（凍結窗次、有 OOS）")
     p_new.add_argument("--market", default="TW", choices=["TW", "US", "XM"])
     p_new.add_argument("--group", default="A_hrp",
                        choices=["A_hrp", "D_top_cagr", "E_top_calmar"])

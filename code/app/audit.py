@@ -24,6 +24,8 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pandas as pd
+
 from research import paths
 from .calibration import CalibrationResult
 from .config import RunConfig
@@ -36,7 +38,24 @@ LOG_PATH = RUNS_DIR / "audit_log.jsonl"
 # 判定「同一條 RunConfig 系列」的身份欄位——不含 window_no/scheme，因為使用者
 # 換窗次通常代表「同一個政策、下一期」，是我們要比較的對象；scheme 不同代表
 # 換了窗口方案本身，也視為同系列（H-26 已證實不同方案的結論一致，比較有意義）。
-_IDENTITY_KEYS = ("market", "group", "ratio", "allocation", "k_mode")
+#
+# 🔴 2026-09-10（§8-R11）補上 `mode`：原本沒有它，等 live 模式開始寫紀錄之後，
+# `find_previous()` 會把一筆 **replay 展示紀錄**當成 live 執行的「上一期」拿去 diff，
+# 算出的「新增/剔除幾檔」變成拿正式運作結果比一個歷史展示案例。趁還沒發作先修。
+_IDENTITY_KEYS = ("mode", "market", "group", "ratio", "allocation", "k_mode")
+
+
+def _window_sort_key(entry: dict) -> tuple | None:
+    """從一筆紀錄取出「這一窗在時間軸上的位置」，用來判斷 diff 是不是逆序。
+
+    正式模式沒有 window_no，用 is_end 當位置；replay 用 (is_end, window_no)。
+    取不到就回 None（呼叫端視為無法判斷，不硬猜）。
+    """
+    wi = entry.get("window_info") or {}
+    is_end = wi.get("is_end")
+    if not is_end:
+        return None
+    return (str(is_end), int(wi.get("window_no") or 0))
 
 
 def _read_all_entries() -> list[dict]:
@@ -64,16 +83,31 @@ def find_previous(config: RunConfig) -> dict | None:
     return max(matches, key=lambda e: e["recorded_at"])
 
 
-def diff_holdings(current_members: list[str], previous_entry: dict | None) -> dict:
+def diff_holdings(current_members: list[str], previous_entry: dict | None,
+                  current_window_info: dict | None = None) -> dict:
     """算出跟上一筆紀錄相比，策略清單新增/剔除了哪些。
 
     `previous_entry` 是舊格式（沒有 `members` 欄位）時視同沒有上一筆——
     誠實反映「補存這個欄位之前的紀錄沒辦法拿來比」，不假裝算得出來。
+
+    🔴 2026-09-10（§8-R6）新增 `is_chronological`：`find_previous()` 是依
+    **執行時間**（`recorded_at`）排序，不是依窗次時間。使用者先跑 window 6 再跑
+    window 5，這裡會算出一份「新增 X／剔除 Y」，但那其實是**拿過去的窗比未來的窗**。
+    memo 的 `change_note` 會把它敘述成「本期異動」，在治理文件裡是誤導。
+    ⇒ 加一個旗標讓呼叫端能標示「這是回溯比較，不是本期異動」。
     """
     if previous_entry is None or "members" not in previous_entry:
         return {"has_previous": False}
     prev = set(previous_entry["members"])
     curr = set(current_members)
+
+    prev_key = _window_sort_key(previous_entry)
+    curr_key = _window_sort_key({"window_info": current_window_info or {}})
+    if prev_key is None or curr_key is None:
+        chrono = None          # 資訊不足，不硬猜
+    else:
+        chrono = curr_key >= prev_key
+
     return {
         "has_previous": True,
         "previous_recorded_at": previous_entry["recorded_at"],
@@ -83,16 +117,83 @@ def diff_holdings(current_members: list[str], previous_entry: dict | None) -> di
         "n_added": len(curr - prev),
         "n_removed": len(prev - curr),
         "n_unchanged": len(curr & prev),
+        "is_chronological": chrono,
+        "direction_note": (
+            "" if chrono is not False else
+            "⚠️ 上一筆紀錄的窗次晚於本次——這是**回溯比較**，不是本期異動。"
+            "（find_previous 依執行時間排序，不是窗次時間，見 §8-R6）"),
     }
+
+
+#: 🔴 2026-09-11（§9.7 I-8）：`app/cluster_kb.py`（S2）與 `app/explain.py`（S3）
+#: 新讀的群知識庫檔案，之前 `_input_versions()` 完全沒記——違反剛補上的 R4
+#: 可重現性（同一份 RunConfig，若這些檔案換版，解釋 agent 的輸出會跟著變，
+#: 但稽核紀錄看不出來）。⚠️ **只列實際會被讀到的檔案**——`cluster_quarterly_returns`
+#: 雖然存在於 `_frozen/stage3/`，但 `cluster_kb.build_footprint()` 沒有讀它
+#: （§9.2 資源盤點仍列為「❌ 沒用」），不放進來，避免稽核紀錄宣稱讀了其實沒讀的檔。
+#: 同理 `weighting_decomposition.csv`（H7 基準數字的來源）也不在這裡——那組數字
+#: 是靜態寫進 `memo.py`/`explain.py` 的已驗證事實，不是這次執行時讀檔算出來的。
+_CLUSTER_KB_FILES = (
+    "cluster_identity", "cluster_profile_quant", "cluster_annual_returns",
+    "co_fail_regimes", "cluster_story",
+    "cluster_corr_matrix_TW_normal", "cluster_corr_matrix_US_normal", "cluster_corr_matrix_XM_normal",
+    "cluster_corr_matrix_TW_crisis", "cluster_corr_matrix_US_crisis", "cluster_corr_matrix_XM_crisis",
+)
+
+
+def _input_versions() -> dict:
+    """🔴 2026-09-10（§8-R4）：記下這次讀了哪一版輸入資料。
+
+    舊版完全沒記，理由是「這裡記的是執行歷史不是凍結產物」——那個理由在只讀
+    凍結檔時成立，但**快時鐘讀的是每天在變的資料庫**：同一份 RunConfig 隔一週跑
+    結果會不同，而紀錄無法區分。這違反 `pitfalls.md` §8 可重現性與 DD-08 精神。
+
+    只記 size+mtime 而不是完整 sha256——凍結檔最大 35MB，每次執行都做雜湊會拖慢
+    互動流程；size+mtime 足以偵測「檔案換過了」，真要追版本再去查 DD-08 manifest。
+    """
+    out = {}
+    files = [
+        ("candidate_index", paths.STAGE0 / "candidate_index.parquet"),
+        ("returns_monthly", paths.STAGE1 / "returns_monthly.parquet"),
+        ("cluster_assign", paths.STAGE3 / "cluster_assign.parquet"),
+        ("walkforward_detail", paths.ROOT / "_analysis_outputs_robustness"
+                               / "walkforward_matrix_detail.csv"),
+    ]
+    files += [(name, paths.STAGE3 / f"{name}.parquet") for name in _CLUSTER_KB_FILES]
+    for name, p in files:
+        if p.exists():
+            st = p.stat()
+            out[name] = {"bytes": st.st_size,
+                        "mtime": datetime.fromtimestamp(st.st_mtime, timezone.utc).isoformat()}
+        else:
+            out[name] = None
+    return out
 
 
 def record(holdings: Holdings, risk: RiskReport, *,
           calibration: CalibrationResult | None = None,
-          override_reason: str | None = None) -> dict:
+          override_reason: str | None = None,
+          stock_holdings: "pd.DataFrame | None" = None,
+          stock_as_of: str | None = None,
+          stock_concentration=None,
+          explanation: dict | None = None) -> dict:
     """寫一筆稽核紀錄，回傳寫進去的內容（方便 cli.py 印出來確認）。
 
     `override_reason` 非 None 代表「風控違規、但人工覆核放行」——這種情況
     一定要記，不能只記「執行完成」。
+
+    🔴 `stock_holdings`／`stock_as_of`（2026-09-10，§8-R4）：**股票層級持股**。
+    對一個宣稱做 fund house 治理的系統，「那天實際持有什麼」是最該留痕的一筆，
+    但舊版只記策略 uid，`resolve_strategy_holdings.py` 算出的實際股票從來沒進紀錄
+    ⇒ IPS §6 合規聲明的第一題根本回答不了。有解析就傳進來，沒有就留 None
+    （誠實記成「本次未解析」，不假裝有）。
+
+    🔴 `explanation`（2026-09-11，§9.7 S4，為 §9.8 前瞻驗證準備）：`app/explain.py`
+    的完整輸出（`{"prompt", "facts", "explanation", "dry_run"}`）。§9.8 的執行紀律
+    明講「三次前瞻驗證的解釋要先記進 audit_log.jsonl 並 git commit，才能算績效」
+    ——這是造出「先預測、後驗證」可稽核軌跡的關鍵一步，不能只顯示在 UI 上就算數。
+    dry-run 產生的內容也記（`dry_run: True` 欄位會如實反映），只是不能拿來當
+    §9.8 正式驗證用。
     """
     if risk.violations and override_reason is None:
         raise RuntimeError(
@@ -100,16 +201,44 @@ def record(holdings: Holdings, risk: RiskReport, *,
             "呼叫端應該先攔下、要求人工確認（C4），不是直接呼叫這裡")
 
     previous_entry = find_previous(holdings.config)
-    diff = diff_holdings(holdings.members, previous_entry)
+    diff = diff_holdings(holdings.members, previous_entry, holdings.window_info)
+
+    if stock_holdings is not None and len(stock_holdings):
+        col = "stock_id" if "stock_id" in stock_holdings.columns else stock_holdings.columns[0]
+        uniq = sorted(stock_holdings[col].astype(str).unique())
+        stocks = {"resolved": True, "as_of": stock_as_of,
+                  "n_rows": int(len(stock_holdings)), "n_unique_stocks": len(uniq),
+                  "stocks": uniq}
+        # §8-R5：股票層級集中度是**風控判決**，必須留痕（不只是資訊）
+        if stock_concentration is not None:
+            sc = stock_concentration
+            stocks["concentration"] = {
+                "max_stock_weight": sc.max_stock_weight,
+                "max_stock_symbol": sc.max_stock_symbol,
+                "max_stock_name": sc.names.get(sc.max_stock_symbol, ""),
+                "cap": holdings.config.single_stock_cap,
+                "n_violations": len(sc.violations),
+                "violations": [dataclasses.asdict(v) for v in sc.violations],
+                "top15": sc.top(15),
+            }
+    else:
+        stocks = {"resolved": False, "as_of": None,
+                  "note": "本次未解析股票層級持股（UI 的『解析持股』是選用步驟）"}
 
     entry = {
         "recorded_at": datetime.now(timezone.utc).isoformat(),
         "config": dataclasses.asdict(holdings.config),
         "window_info": holdings.window_info,
+        "tree_info": holdings.tree_info,
+        "validation": holdings.validation,
+        "input_versions": _input_versions(),       # §8-R4
+        "stock_holdings": stocks,                  # §8-R4
         "n_members": holdings.n_members,
         "members": holdings.members,
         "diff_from_previous": diff,
         "performance": holdings.performance,
+        "has_oos": holdings.has_oos,
+        "reference_oos": holdings.reference_oos,
         "risk": {
             "portfolio_mdd": risk.portfolio_mdd,
             "portfolio_ann_vol": risk.portfolio_ann_vol,
@@ -122,8 +251,12 @@ def record(holdings: Holdings, risk: RiskReport, *,
         },
         "calibration": dataclasses.asdict(calibration) if calibration else None,
         "override_reason": override_reason,
+        "explanation": explanation,   # §9.7 S4：app/explain.py 的完整輸出，§9.8 用
     }
     RUNS_DIR.mkdir(parents=True, exist_ok=True)
     with open(LOG_PATH, "a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        # `default=str`：§9.7 S4 新增的 `explanation["facts"]`（`app/explain.py`）
+        # 有些欄位直接來自 parquet（numpy 純量型別），標準 json 模組不吃這些型別
+        # ——跟 `explain.build_prompt()`／`ui.py` 顯示時同一個處理方式，不是新問題。
+        f.write(json.dumps(entry, ensure_ascii=False, default=str) + "\n")
     return entry
