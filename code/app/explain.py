@@ -30,7 +30,8 @@ import json
 from . import scenario as SC
 from .cluster_kb import ClusterFootprint, build_footprint
 from .engine import Holdings, alt_group_win_rates, historical_same_setting_windows, mechanism_consistency
-from .memo import _call_llm, _fmt_alt, _fmt_diff, _fmt_perf, _fmt_reference, _fmt_violation, _pct
+from .memo import (_call_llm, _fmt_alt, _fmt_diff, _fmt_perf, _fmt_reference, _fmt_violation,
+                   _pct, _ratio, scan_for_leakage)
 from .risk import RiskReport, StockConcentration
 from .calibration import CalibrationResult
 from .audit import diff_holdings, find_previous
@@ -188,6 +189,82 @@ def _rarest_cluster_protection(footprint: ClusterFootprint, n_universe: int | No
     return {"per_cluster": rows, "rarest_cluster": rarest}
 
 
+def _fmt_mechanism_consistency(m: dict | None) -> dict | None:
+    """🔴 2026-09-12（§9.8 正式驗證第一次真呼叫抓到的真 bug）：`mechanism_consistency()`
+    回傳的是**未格式化的原始小數**（例如 `-0.14554961969523622`），但系統提示
+    鐵則 6 要求「數字已事先格式化好，請直接照抄，不要自己重新換算」——原本
+    這裡沒套 `_pct()`，等於違反自己訂的前提。實測後果：同一份未格式化資料，
+    LLM 有時原樣照抄小數（比對得上），有時「好心」幫忙換算成百分比字串
+    （比對不上，被 D2 誤判成洩漏數字而攔下一份其實正確的解釋）。統一格式化
+    後兩種情況都不會再發生。"""
+    if m is None:
+        return None
+    out = {"n_cells": m["n_cells"]}
+    for k in ("cagr_excess_vs_Ball_min", "cagr_excess_vs_Ball_max",
+             "cagr_excess_vs_Ball_median", "win_rate_vs_Ball"):
+        out[k] = _pct(m[k])
+    for k in ("oos_mdd_median_A_hrp", "oos_mdd_median_D_top_cagr", "oos_mdd_median_B_all"):
+        if k in m:
+            out[k] = _pct(m[k])
+    return out
+
+
+def _fmt_historical_windows(rows: list[dict]) -> list[dict]:
+    """同上一個函式的理由：`historical_same_setting_windows()` 也是原始小數，
+    這裡統一格式化，不要指望 LLM 自己判斷該不該換算。"""
+    return [
+        {"scheme": r["scheme"], "window_no": r["window_no"], "k_mode": r["k_mode"],
+         "is_end": r["is_end"], "oos_start": r["oos_start"], "oos_end": r["oos_end"],
+         "oos_cagr": _pct(r["oos_cagr"]), "oos_mdd": _pct(r["oos_mdd"]),
+         "oos_sharpe": _ratio(r["oos_sharpe"])}
+        for r in rows
+    ]
+
+
+def _fmt_stock_analog(d: dict | None) -> dict | None:
+    """同 `_fmt_mechanism_consistency` 的理由：`scenario.stock_level_analog()`
+    的 `year_return`／`avg_return_of_existing` 也是原始小數，統一格式化。"""
+    if d is None:
+        return None
+    per_stock = {s: {"existed_then": v["existed_then"],
+                     "year_return": _pct(v["year_return"]) if v["year_return"] is not None else None}
+                for s, v in d["per_stock"].items()}
+    return {"year": d["year"], "n_checked": d["n_checked"], "n_existed_then": d["n_existed_then"],
+           "avg_return_of_existing": (_pct(d["avg_return_of_existing"])
+                                      if d["avg_return_of_existing"] is not None else None),
+           "per_stock": per_stock}
+
+
+def _fmt_alt_context(d: dict | None) -> dict | None:
+    """同上：`engine.alt_group_win_rates()` 也是原始未四捨五入的小數
+    （例如 `0.16777777777777778`），統一格式化——不只是為了 D2，也是因為
+    這種一長串小數點直接出現在最終解釋文字裡本身就不像正式產出。"""
+    if d is None:
+        return None
+    out = {"n_cells": d["n_cells"]}
+    for k, v in d.items():
+        if k != "n_cells":
+            out[k] = _pct(v)
+    return out
+
+
+def _fmt_regime(d: dict | None) -> dict | None:
+    """同上：`scenario.regime_snapshot()` 的 `pct_change_so_far`／
+    `historical_avg_return_by_regime` 也是原始小數，統一格式化。"""
+    if d is None:
+        return None
+    current = {}
+    for m, v in d["current_regime"].items():
+        if "error" in v:
+            current[m] = v
+        else:
+            current[m] = {**v, "pct_change_so_far": _pct(v["pct_change_so_far"])}
+    return {"current_regime": current,
+           "historical_avg_return_by_regime": {k: _pct(v) for k, v in
+                                               d["historical_avg_return_by_regime"].items()},
+           "note": d["note"]}
+
+
 def _structure_facts(footprint: ClusterFootprint) -> dict:
     used = footprint.clusters_used
     pairs_normal, pairs_crisis = [], []
@@ -198,7 +275,18 @@ def _structure_facts(footprint: ClusterFootprint) -> dict:
             if c is not None:
                 pairs_crisis.append(c)
     story_rows = footprint.story.to_dict("records") if not footprint.story.empty else []
-    co_fail_rows = {cid: footprint.co_fail.get(cid) for cid in used if footprint.co_fail.get(cid)}
+    # 🔴 §9.8 正式驗證同一輪抓到：crisis_dest_share 是原始小數（危機期轉往目的群
+    # 的成員佔比），跟 mechanism_consistency／historical_same_setting_windows
+    # 同一個問題，統一格式化。
+    co_fail_rows = {}
+    for cid in used:
+        row = footprint.co_fail.get(cid)
+        if not row:
+            continue
+        row = dict(row)
+        if row.get("crisis_dest_share") is not None:
+            row["crisis_dest_share"] = _pct(row["crisis_dest_share"])
+        co_fail_rows[cid] = row
     return {
         "clusters_used": used,
         "avg_pair_corr_normal": round(sum(pairs_normal) / len(pairs_normal), 4) if pairs_normal else None,
@@ -272,7 +360,8 @@ def assemble_facts(holdings: Holdings, risk: RiskReport, calib: CalibrationResul
         "mechanism": {
             "rarest_cluster_protection": _rarest_cluster_protection(
                 footprint, holdings.tree_info.get("n_universe")),
-            "consistency_and_drawdown": mechanism_consistency(cfg.market),
+            "consistency_and_drawdown": _fmt_mechanism_consistency(
+                mechanism_consistency(cfg.market)),
         },
 
         "risk": {
@@ -302,15 +391,16 @@ def assemble_facts(holdings: Holdings, risk: RiskReport, calib: CalibrationResul
 
         "scenario": {
             "weighted_annual_returns_by_year": {str(y): _pct(v) for y, v in war.items()},
-            "historical_same_setting_windows": historical_same_setting_windows(cfg),
-            "regime": regime,
-            "stock_level_analog": stock_analog,
+            "historical_same_setting_windows": _fmt_historical_windows(
+                historical_same_setting_windows(cfg)),
+            "regime": _fmt_regime(regime),
+            "stock_level_analog": {k: _fmt_stock_analog(v) for k, v in stock_analog.items()},
         },
 
         "change_vs_previous": _fmt_diff(
             diff_holdings(holdings.members, find_previous(cfg), holdings.window_info)),
         "alternative_groups": {g: _fmt_alt(v) for g, v in holdings.alternative_groups.items()},
-        "alternative_context": alt_group_win_rates(cfg.market),
+        "alternative_context": _fmt_alt_context(alt_group_win_rates(cfg.market)),
 
         "calibration": {
             "status": calib.status,
@@ -355,4 +445,18 @@ def generate(holdings: Holdings, risk: RiskReport, calib: CalibrationResult, *,
             prompt, model, api_key, purpose=purpose, est_tokens=len(prompt) // 3,
             system_prompt=_SYSTEM_PROMPT, schema=_EXPLAIN_SCHEMA)
 
-    return {"prompt": prompt, "facts": facts, "explanation": explanation, "dry_run": dry_run}
+    # 🔴 2026-09-12（§9.8 四層驗證標準·層二「數字錯誤＝0，D2 自動」）：explain.py
+    # 一直沒有接 D2 掃描——`memo.scan_for_leakage()` 本來就是通用的（吃任意
+    # {欄位: 文字} dict 跟 prompt 字串，不綁 memo 的六欄位 schema），這裡直接
+    # 複用，不重寫一份。跟 memo.py 一樣：抓到就攔下，不寫進稽核紀錄——
+    # §9.8 的前瞻驗證需要每一份進 audit_log.jsonl 的解釋都先過這一關。
+    leakage: list[str] = []
+    if not dry_run:
+        leakage = scan_for_leakage(explanation, prompt)
+        if leakage:
+            raise RuntimeError(
+                "D2 洩漏掃描攔下這份解釋，發現無法對應到判決資料的數字：\n  "
+                + "\n  ".join(leakage))
+
+    return {"prompt": prompt, "facts": facts, "explanation": explanation,
+           "dry_run": dry_run, "leakage_check": leakage}

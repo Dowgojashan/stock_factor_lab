@@ -315,7 +315,11 @@ def _call_llm(prompt: str, model: str, api_key: str, *, purpose: str = "app_memo
                  "messages": [{"role": "system", "content": system_prompt},
                              {"role": "user", "content": prompt}],
                  "response_format": {"type": "json_schema", "json_schema": schema}},
-            timeout=90,
+            # 🔴 2026-09-12（§9.8 正式驗證跑到才發現）：90s 對 gpt-5 加上 reasoning
+            # tokens（explain.py 十欄位 schema 實測 completion ~7.5k tokens，其中
+            # reasoning_tokens 近 4.8k）明顯偏緊，跑 9 組時遇到兩次逾時。調寬到
+            # 180s，對 memo.py 自己六欄位的既有流程只有更寬鬆，不影響正確性。
+            timeout=180,
         )
     except requests.exceptions.RequestException as e:
         raise RuntimeError(f"呼叫 OpenAI API 時網路發生問題（逾時/斷線）：{e}") from e
@@ -342,7 +346,13 @@ def _call_llm(prompt: str, model: str, api_key: str, *, purpose: str = "app_memo
     return memo, usage
 
 
-_NUMBER_RE = re.compile(r"-?\d+\.?\d*%?")
+#: 🔴 2026-09-12（§9.8 正式驗證第一次真呼叫抓到的真 bug）：原本 `-?\d+...` 會把
+#: 「2007-2025」「群3-4」這類**範圍／配對用的連字號**誤判成負號，切出一個從沒
+#: 出現過的負數（例如「-2025」），被 D2 誤判成洩漏數字而錯誤攔下一份其實正確
+#: 的解釋。加上 `(?<!\d)` 負向後顧：連字號前一個字元若是數字，就不當作負號
+#: （會在下一輪掃描時把後半段當成獨立的正數重新配對，例如「2007-2025」正確
+#: 切成 2007 跟 2025 兩個正數）。真正的負數（前面接空白/中文/行首）不受影響。
+_NUMBER_RE = re.compile(r"(?<!\d)-?\d+\.?\d*%?")
 
 
 def scan_for_leakage(memo: dict, prompt: str, *, tol: float = 0.06) -> list[str]:

@@ -781,6 +781,15 @@ with tab_ai:
                     st.write(explain_result["explanation"][k])
                 if explain_result["dry_run"]:
                     st.caption("此為 dry-run 內容，未實際呼叫 LLM")
+                else:
+                    # §9.8 層二：D2 數字洩漏掃描——沒抓到問題不代表這份解釋一定
+                    # 沒錯（只查數字，見 memo.py docstring 的已知限制），但這是
+                    # 第一道防線，通過是必要條件不是充分條件。
+                    if explain_result["leakage_check"]:
+                        st.error("D2 洩漏掃描發現問題：\n" +
+                                "\n".join(explain_result["leakage_check"]))
+                    else:
+                        st.success("✅ D2 洩漏掃描通過（解釋裡的數字都能對回判決資料）")
                 with st.expander("查看餵給 LLM 的完整客觀資料（JSON）"):
                     # facts 裡有些欄位直接來自 parquet（numpy 純量型別），st.json()
                     # 不吃這些型別——跟 build_prompt() 一樣先用 json 往返轉成純
