@@ -317,9 +317,11 @@ def _call_llm(prompt: str, model: str, api_key: str, *, purpose: str = "app_memo
                  "response_format": {"type": "json_schema", "json_schema": schema}},
             # 🔴 2026-09-12（§9.8 正式驗證跑到才發現）：90s 對 gpt-5 加上 reasoning
             # tokens（explain.py 十欄位 schema 實測 completion ~7.5k tokens，其中
-            # reasoning_tokens 近 4.8k）明顯偏緊，跑 9 組時遇到兩次逾時。調寬到
-            # 180s，對 memo.py 自己六欄位的既有流程只有更寬鬆，不影響正確性。
-            timeout=180,
+            # reasoning_tokens 近 4.8k）明顯偏緊，跑 9 組時遇到兩次逾時。調到 180s
+            # 後補上 risk_flags 欄位重跑，仍遇到一次逾時，再調到 240s；XM（合併
+            # 台美兩市場，prompt 更大）240s 仍連續逾時兩次，再調到 300s。對
+            # memo.py 自己六欄位的既有流程只有更寬鬆，不影響正確性。
+            timeout=300,
         )
     except requests.exceptions.RequestException as e:
         raise RuntimeError(f"呼叫 OpenAI API 時網路發生問題（逾時/斷線）：{e}") from e
@@ -355,6 +357,22 @@ def _call_llm(prompt: str, model: str, api_key: str, *, purpose: str = "app_memo
 _NUMBER_RE = re.compile(r"(?<!\d)-?\d+\.?\d*%?")
 
 
+def _iter_text_fields(value, path: str):
+    """遞迴攤平 {欄位: 文字} 之外的巢狀結構（list/dict），讓 `scan_for_leakage`
+    也能查到像 `explain.py` 的 `risk_flags`（string 欄位組成的 list[dict]）
+    這種不是「頂層每個值都是字串」的 schema——2026-09-12（§9.8 層四補上
+    `risk_flags` 才發現：原本只查頂層字串欄位，這種巢狀結構會被完全跳過，
+    裡面若有捏造的數字 D2 完全抓不到）。"""
+    if isinstance(value, str):
+        yield path, value
+    elif isinstance(value, dict):
+        for k, v in value.items():
+            yield from _iter_text_fields(v, f"{path}.{k}" if path else k)
+    elif isinstance(value, list):
+        for i, v in enumerate(value):
+            yield from _iter_text_fields(v, f"{path}[{i}]")
+
+
 def scan_for_leakage(memo: dict, prompt: str, *, tol: float = 0.06) -> list[str]:
     """D2 第一道防線：memo 裡出現的每個數字，有沒有對得到 prompt 裡餵過的數字。
 
@@ -363,9 +381,7 @@ def scan_for_leakage(memo: dict, prompt: str, *, tol: float = 0.06) -> list[str]
     """
     prompt_numbers = [float(n.rstrip("%")) for n in _NUMBER_RE.findall(prompt) if n not in ("", "-", ".")]
     suspicious = []
-    for field, text in memo.items():
-        if not isinstance(text, str):
-            continue
+    for field, text in _iter_text_fields(memo, ""):
         for n in _NUMBER_RE.findall(text):
             n_clean = n.rstrip("%")
             if not n_clean or n_clean in ("-", "."):

@@ -94,6 +94,37 @@ def _get_candidate_index() -> pd.DataFrame:
     return pd.read_parquet(CANDIDATE_INDEX_PATH).set_index("strategy_uid")
 
 
+@st.cache_data(show_spinner=False, ttl=3600)
+def _cap_weighted_market_return(market: str, as_of: str, end: str) -> float | None:
+    """真實市值加權大盤同期報酬（TR 報酬指數，含股利）——只有 TW／US 有，
+    沿用 `research/market_benchmark.py` 的方法論（不可用價格指數，見該檔
+    docstring：策略用還原收盤價已含股利，比較基準也必須用報酬指數，否則
+    每個「贏大盤」都會被高估 3~4pp）。查詢失敗回傳 None，呼叫端自行處理。
+    """
+    if market not in ("TW", "US"):
+        return None
+    try:
+        import fcv_core  # noqa: F401  sys.path bootstrap，讓根目錄的 database 找得到
+        from database import Database
+
+        table = {"TW": "taiex_tr", "US": "sp500_tr"}[market]
+        db = Database("TW")   # 兩個 TR 表都在同一個連線可查，市場只是選表名
+        cur = db.create_connection().cursor()
+        cur.execute(f"SELECT date, close FROM {table} ORDER BY date")
+        rows = cur.fetchall()
+        s = pd.DataFrame(rows, columns=["date", "close"])
+        s["date"] = pd.to_datetime(s["date"])
+        s = (s.sort_values("date").drop_duplicates("date")
+             .set_index("date")["close"].astype(float))
+        as_of_ts, end_ts = pd.Timestamp(as_of), pd.Timestamp(end)
+        s0, s1 = s[s.index <= as_of_ts], s[s.index <= end_ts]
+        if s0.empty or s1.empty:
+            return None
+        return float(s1.iloc[-1] / s0.iloc[-1] - 1.0)
+    except Exception:  # noqa: BLE001 — UI 上這是加分資訊，查不到就略過不擋流程
+        return None
+
+
 def _resolve_stock_holdings(members: list[str], as_of: str) -> tuple[pd.DataFrame, dict[str, str]]:
     """把一批 strategy_uid 解析成當天實際持有的股票（跟 resolve_strategy_holdings.py
     同一套機制：從 candidate_index 重建 F1/F2/C/V 條件，丟進 get_mask() 現算）。
@@ -481,6 +512,9 @@ with tab_holdings:
         else:
             st.session_state["stock_detail"] = stock_detail
             st.session_state["stock_detail_date"] = market_dates
+            # §9.8 S5：績效量測要用「使用者實際輸入的查詢日」，不是各市場
+            # 對齊後的交易日字典（那個是拿來顯示的，XM 兩個市場可能不同天）。
+            st.session_state["stock_detail_query_asof"] = _date_options[_date_label]
 
     stock_detail = st.session_state.get("stock_detail")
     if stock_detail is not None:
@@ -544,6 +578,103 @@ with tab_holdings:
                     st.info("**台積電（2330）不在本組合持股中。** 對照它在台股指數約佔 "
                            "**40.23%**（v10 §8 M-17）⇒ 這是完全的低配，也是 M-17"
                            "「輸給市值加權大盤、贏過等權市場」的直接原因。")
+
+            # §9.8 S5：績效量測（app/performance.py）。2026-09-13 使用者要求
+            # 接進 UI——之前只有 explain agent 進了 UI，performance.py 一直只能
+            # 用 scratchpad 腳本手動跑。🔴 設計鐵則：這裡算出來的數字是**事後
+            # 裁判**，絕對不可回頭餵進上面「產生解釋」的 prompt（§9.8 執行紀律）。
+            st.markdown("**已實現績效（S5，事後量測，跟上面的解釋/風控判斷無關）**")
+            st.caption("算的是「這批持股從解析日到某個結束日，實際發生過的股價"
+                      "變動下賺了多少」——跟 explain/memo 的 LLM 輸出完全獨立，"
+                      "只是拿同一批已解析的股票權重去對實際股價。")
+            _custom_end = st.checkbox("自訂結束日（預設抓每個市場最新可用價格）",
+                                      key="perf_custom_end")
+            _perf_end_str = None
+            if _custom_end:
+                _perf_end_date = st.date_input("結束日", value=datetime.date.today(),
+                                               key="perf_end_date")
+                _perf_end_str = _perf_end_date.isoformat()
+            if st.button("查詢已實現報酬"):
+                # 🔴 code review：這個按鈕原本沒有 try/except，是全檔唯一一個沒
+                # 照專案既有慣例（「解析持股」「產生解釋」都用 try/except 顯示
+                # `st.error`）包起來的動作型按鈕——若 `stock_detail_query_asof`
+                # 因故不存在（例如頁面熱重載保留了舊 session_state），
+                # `pd.Timestamp(None)` 會直接把整頁弄崩潰而不是顯示錯誤訊息。
+                try:
+                    from app.performance import measure
+                    _query_as_of = st.session_state.get("stock_detail_query_asof")
+                    if not _query_as_of:
+                        raise ValueError("找不到解析持股當時的起算日，請重新點一次"
+                                         "「解析持股」再查詢已實現報酬")
+                    _perf_idx = _get_candidate_index()
+                    _perf_needed = markets_needed(_perf_idx, holdings.members)
+                    _perf_md_map = {m: _get_market_data(m) for m in _perf_needed}
+
+                    # 🔴 `measure()` 回傳的 `by_market_benchmark[m]["as_of"/"end"]`
+                    # 只是原樣回顯呼叫參數，不是實際用到的（clip 過的）交易日——
+                    # 不能拿它們判斷「起訖日是不是被截斷成同一天」。要判斷，必須
+                    # 自己比對每個市場真正的價格資料涵蓋範圍
+                    # （`md.price_index.max()`），在呼叫 measure() 之前就先擋掉，
+                    # 否則不只顯示會誤導，連下面市值加權大盤那段用同一組（已經
+                    # 失真的）as_of/end 字串去查 TR 表，也會算出方向顛倒、看似
+                    # 合理但實際上「用晚於資料範圍的日期當起點」的錯誤數字。
+                    _as_of_ts = pd.Timestamp(_query_as_of)
+                    _end_ts = pd.Timestamp(_perf_end_str) if _perf_end_str else None
+                    _out_of_range = []
+                    for m, md in _perf_md_map.items():
+                        _cutoff = md.price_index.max()
+                        _this_end = _end_ts if _end_ts is not None else _cutoff
+                        if _as_of_ts >= _cutoff or _as_of_ts >= _this_end:
+                            _out_of_range.append((m, _cutoff, _end_ts))
+
+                    if _out_of_range:
+                        for m, cutoff, custom_end in _out_of_range:
+                            if custom_end is not None and _as_of_ts >= custom_end:
+                                st.warning(f"⚠️ {m}：指定的結束日（{custom_end.date()}）"
+                                          f"不晚於起算日（{_query_as_of}），沒有可衡量的"
+                                          f"區間，請選一個更晚的結束日或更早的起算日。")
+                            else:
+                                st.warning(f"⚠️ {m} 的起算日（{_query_as_of}）已經等於或"
+                                          f"晚於該市場價格資料的最後一天"
+                                          f"（{cutoff.date()}），沒有可衡量的區間——"
+                                          f"不顯示數字，避免誤把「同一天對自己」的 0% "
+                                          f"當成真正的已實現報酬。請選一個更早的起算日。")
+                    else:
+                        with st.spinner("計算已實現報酬中..."):
+                            _perf = measure(_perf_md_map, _sc.weights, as_of=_query_as_of,
+                                           end=_perf_end_str)
+                        pf1, pf2 = st.columns(2)
+                        pf1.metric("投組已實現報酬", f"{_perf['portfolio_realized_return']:.2%}")
+                        pf2.metric("權重涵蓋率", f"{_perf['portfolio_weight_measured']:.2%}",
+                                  f"/{_perf['portfolio_weight_total']:.2%} 目標")
+                        for m, b in _perf["by_market_benchmark"].items():
+                            _eq = b["equal_weight_benchmark_return"]
+                            _eq_str = f"{_eq:.2%}" if _eq is not None else "無法計算"
+                            # 顯示用實際 clip 過的區間，不是原樣回顯的請求參數：
+                            # 後者在使用者選「今天」這種常見情境下會跟真正用到的
+                            # 交易日不同，顯示出來會讓人誤以為量到的是「到今天」
+                            # 而非「到最後可得價」。
+                            _md_cutoff = _perf_md_map[m].price_index.max()
+                            _actual_end = (_end_ts if _end_ts is not None
+                                          and _end_ts < _md_cutoff else _md_cutoff)
+                            st.write(f"**{m}**（{_query_as_of} → {_actual_end.date()}）："
+                                    f"等權大盤 {_eq_str}")
+                            if m in ("TW", "US"):
+                                _cap_ret = _cap_weighted_market_return(
+                                    m, _query_as_of, _actual_end.date().isoformat())
+                                if _cap_ret is not None:
+                                    _excess = _perf["portfolio_realized_return"] - _cap_ret
+                                    st.write(f"　市值加權大盤（真實指數，含股利）：{_cap_ret:.2%}"
+                                            f"　→ 投組對市值加權大盤超額：{_excess:+.2%}")
+                                else:
+                                    st.caption("　市值加權大盤：資料庫查詢失敗或無資料，略過")
+                        if holdings.config.market == "XM":
+                            st.caption("⚠️ XM 混合台美策略，不合成單一「跨市場大盤」數字"
+                                      "（H7 已定案：CAGR/報酬不可跨市場線性合成），"
+                                      "上面台／美兩個市場基準分開看即可。")
+                        st.caption(_perf["caveat"])
+                except Exception as e:  # noqa: BLE001 — 顯示給使用者看，不是要吞掉錯誤
+                    st.error(f"已實現報酬計算失敗：{e}")
 
         st.dataframe(stock_detail, width="stretch", height=280)
 
@@ -779,6 +910,12 @@ with tab_ai:
                 for k, label in labels.items():
                     st.markdown(f"**{label}**")
                     st.write(explain_result["explanation"][k])
+                # §9.8 層四：風險提示，每條自帶事後可查核的判準（新增欄位，
+                # 2026-09-12——原設計漏做進 schema，補上後 9 組全部重跑過）。
+                st.markdown("**八｜風險提示（§9.8 層四，每條附事後檢驗判準）**")
+                for rf in explain_result["explanation"]["risk_flags"]:
+                    st.write(f"- **風險**：{rf['risk']}")
+                    st.caption(f"　檢驗判準：{rf['verification_criterion']}")
                 if explain_result["dry_run"]:
                     st.caption("此為 dry-run 內容，未實際呼叫 LLM")
                 else:

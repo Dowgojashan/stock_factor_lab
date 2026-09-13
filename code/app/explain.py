@@ -67,7 +67,20 @@ _SYSTEM_PROMPT = (
     "9. alternative_note 只陳述提供的替代方案數字，若替代方案數字比目前選定的好，"
     "必須把 `alternative_context` 那段定錨事實一併寫進去，禁止建議換方案、"
     "禁止寫「屬於正常波動」（研究已證實是系統性結果）。\n"
-    "10. change_note 只描述新增/剔除檔數，禁止推測換股原因。"
+    "10. change_note 只描述新增/剔除檔數，禁止推測換股原因。\n"
+    "11. **risk_flags（風險提示，供事後檢驗用）**：不限定固定清單，自由指出你"
+    "認為這批持股/這套方法在**當下的具體狀況**下最值得留意的風險（可以是"
+    "集中度、風格單一化、對特定因子的依賴、規模結構、跟歷史危機期的相似度等"
+    "，但必須是**這一期特有的觀察**，不能是每期都能套用的空泛提醒）。"
+    "**每一條都必須自帶一個具體、可日後查核的判準**：一句話講清楚「之後要"
+    "比對哪個數字/哪個對照組，看到什麼結果就算這個風險應驗了」。判準要在"
+    "你完全不知道之後實際表現的情況下自訂——這正是你現在的處境（沒人給你"
+    "任何未來資訊），不是要你假裝不知道。\n"
+    "⚠️ 這跟鐵則 4「不是預測」並不衝突：判準描述的是「條件式的可驗證關係」"
+    "（例如「若大盤由權值股帶動，本組合因低配該權值股會落後——檢驗：比較"
+    "市值加權大盤與等權大盤同期報酬，前者顯著較高則此風險應驗」），不是"
+    "「本組合將會落後」這種無條件斷言——差別在於你描述的是機制與檢驗方式，"
+    "不是替結果打包票。"
 )
 
 _EXPLAIN_SCHEMA = {
@@ -128,10 +141,32 @@ _EXPLAIN_SCHEMA = {
                 "description": "本份分析的限制：情境比對是少量歷史實現不是統計推論、"
                                "is_* 非預期報酬、群知識庫止於 2025 年底、正式模式無 "
                                "OOS 等，只能根據提供的資訊寫。"},
+            "risk_flags": {
+                "type": "array",
+                "description": "§9.8 層四用：這一期特有的風險提示，每條自帶事後可"
+                               "查核的判準（見系統提示鐵則 11）。1~5 條，不要湊數，"
+                               "沒有值得特別提的就少列，不要為了填滿硬掰空泛提醒。",
+                "minItems": 1, "maxItems": 5,
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "risk": {"type": "string",
+                                "description": "這一期特有的具體風險描述，只能根據"
+                                               "提供的資訊寫，不能引用未提供的事實。"},
+                        "verification_criterion": {"type": "string",
+                                                   "description": "之後要比對哪個數字/"
+                                                   "哪個對照組、看到什麼結果就算這個"
+                                                   "風險應驗——具體到可以照著執行。"},
+                    },
+                    "required": ["risk", "verification_criterion"],
+                    "additionalProperties": False,
+                },
+            },
         },
         "required": ["strategy_footprint_note", "stock_holdings_note", "mechanism_note",
                     "character_note", "concentration_risk_note", "structure_risk_note",
-                    "scenario_note", "change_note", "alternative_note", "caveat"],
+                    "scenario_note", "change_note", "alternative_note", "caveat",
+                    "risk_flags"],
         "additionalProperties": False,
     },
     "strict": True,
@@ -435,7 +470,10 @@ def generate(holdings: Holdings, risk: RiskReport, calib: CalibrationResult, *,
     prompt = build_prompt(facts)
 
     if dry_run:
-        explanation = {k: "(dry-run，未呼叫 LLM)" for k in _EXPLAIN_SCHEMA["schema"]["required"]}
+        explanation = {k: "(dry-run，未呼叫 LLM)" for k in _EXPLAIN_SCHEMA["schema"]["required"]
+                      if k != "risk_flags"}
+        explanation["risk_flags"] = [{"risk": "(dry-run，未呼叫 LLM)",
+                                     "verification_criterion": "(dry-run，未呼叫 LLM)"}]
     else:
         from utils.config import Config
         cfg = Config()
@@ -452,7 +490,14 @@ def generate(holdings: Holdings, risk: RiskReport, calib: CalibrationResult, *,
     # §9.8 的前瞻驗證需要每一份進 audit_log.jsonl 的解釋都先過這一關。
     leakage: list[str] = []
     if not dry_run:
-        leakage = scan_for_leakage(explanation, prompt)
+        # 🔴 2026-09-12：`risk_flags[].verification_criterion` 依鐵則 11 是 LLM
+        # **自訂**的事後檢驗門檻（例如「若回撤超過 5% 則視為應驗」），門檻數字
+        # 本來就不必是 facts 裡已存在的數字——這是它跟其餘欄位唯一的例外，
+        # 不是漏洞。逐字比對這個子欄位會把合理的自訂門檻誤判成洩漏，故只掃
+        # `risk` 本身（那句仍應只描述 facts 裡的既有型態，不能捏造）。
+        scannable = {k: v for k, v in explanation.items() if k != "risk_flags"}
+        scannable["risk_flags"] = [{"risk": rf["risk"]} for rf in explanation.get("risk_flags", [])]
+        leakage = scan_for_leakage(scannable, prompt)
         if leakage:
             raise RuntimeError(
                 "D2 洩漏掃描攔下這份解釋，發現無法對應到判決資料的數字：\n  "

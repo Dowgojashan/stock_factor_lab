@@ -1,7 +1,8 @@
 # stock_factor_lab 環境安裝說明（Python 3.10 / venv）
 
-本說明搭配自動安裝腳本 `setup.bat` 使用。腳本能自動完成大部分工作，但有兩項
-需要你**先手動安裝**（無法用腳本代裝），裝好後執行 `setup.bat` 即可。
+本說明搭配自動安裝腳本 `setup.bat` 使用。腳本能自動完成大部分工作，但有三項
+需要你**先手動安裝**（無法用腳本代裝）：Python 3.10、C++ Build Tools、MariaDB
+資料庫。裝好這三項後執行 `setup.bat` 即可。
 
 ---
 
@@ -19,8 +20,44 @@
      3. 適用於 Windows 的 C++ CMake 工具
    - 裝完**重開機**。沒有這個，第 5 步 Cython 編譯會失敗（其餘套件仍會裝好）。
 
-3. **MySQL 資料庫**：你已用 xampp 建好並匯入 SQL，這部分免處理。
-   - `config.ini` 若你的 xampp 設定不同，請修改 `config.ini`。
+3. **MariaDB 資料庫**（🔴 2026-09-10 起改用**獨立版 MariaDB Server**，不要裝 XAMPP——
+   XAMPP 一次裝進 Apache／PHP／phpMyAdmin／FTP／Mercury Mail，這個專案只用得到
+   MySQL/MariaDB，其餘都是白白多出來的攻擊面，而且 XAMPP 預設 root 空密碼）
+   1. 下載官方安裝檔：https://mariadb.org/download/ → 選 **MariaDB Server**、
+      Windows、目前的 LTS 版本（本專案安裝時是 11.4.3 LTS，之後更新的 LTS 版本
+      也可以，同一個引擎家族、同一套 SQL 語法）
+   2. 安裝時的關鍵設定：
+      - **設一個真的 root 密碼**（不要留空——這是跟 XAMPP 最大的差別）
+      - 保留預設埠 **3306**
+      - 保留預設只監聽 **127.0.0.1**（不要對外開放，這台只是本機開發用）
+      - 安裝畫面會問要不要順便裝 **HeidiSQL**（圖形化管理介面），建議勾選——
+        比 phpMyAdmin 那種要另外跑 Apache 的網頁介面單純
+   3. 匯入資料：**這個專案的 TEJ 股價/財報資料庫本體不會跟著 git 走**，要用
+      `mysqldump` 從舊機器匯出、在新機器匯入：
+      ```
+      # 舊機器（匯出，包含資料庫服務仍在運作時執行即可）
+      mysqldump -u root -p --all-databases > lab_full_dump.sql
+
+      # 新機器（先確認 MariaDB 服務已啟動，再匯入）
+      mysql -u root -p < lab_full_dump.sql
+      ```
+      ⚠️ `lab_full_dump.sql`／`.sql.gz` 這類匯出檔**不要進版控**（`.gitignore` 已排除
+      `*.sql`／`*.sql.gz`），純粹是機器間搬運用的暫存檔，匯入完可以刪掉。
+   4. 修改 `config.ini` 的 `[database]` 區段，填入新機器的 root 密碼（其餘 host/port/db
+      通常不用改，維持 `127.0.0.1`／`3306`）：
+      ```
+      [database]
+      host = 127.0.0.1
+      port = 3306
+      db = lab
+      user = root
+      password = <新機器設定的 root 密碼>
+      charset = utf8
+      ```
+      沒有 `config.ini` 就複製一份 `config.ini.example` 改名，範本裡有完整的欄位
+      說明（含 `[openai]` 區段）。
+   5. 驗證：開 HeidiSQL（或 `mysql -u root -p`）連線成功，且 `lab` 資料庫裡的
+      `company`／`stock` 等表格筆數跟舊機器一致。
 
 ---
 
@@ -103,5 +140,6 @@ setup.bat
 | `error: Microsoft Visual C++ 14.0 or greater is required` | 缺 C++ Build Tools（前置 A-2），裝完重開機再跑 setup.bat |
 | `ModuleNotFoundError: No module named 'database'`（自己寫的 ad-hoc 腳本）| `database.py`／`get_data.py`／`combinations.py` 等在**根目錄**，自己寫的腳本要先 `import fcv_core`（哪怕用不到它，它會把根目錄加進 `sys.path`），或自己手動加 |
 | `ImportError: ... numpy.dtype size changed` | numpy 版本衝突。重裝：`pip install --force-reinstall numpy==1.24.4` |
-| 連不上資料庫 | 確認 xampp 的 MySQL 已啟動，且 `config.ini` 的 host/port/db/user/password 正確 |
+| 連不上資料庫 | 確認 MariaDB 服務已啟動（工作管理員找 `mysqld.exe`，或用 HeidiSQL 連連看），且 `config.ini` 的 host/port/db/user/password 正確（換過機器記得改成新機器設定的 root 密碼，不是沿用舊機器的）|
+| MariaDB 服務起不來 / 系統表壞掉 | 若是硬關機導致，系統表（`mysql` 資料庫下的 `db` 表）可能因 Aria 格式損毀，用 `aria_chk -r "<資料目錄>\mysql\db"` 修復（不是 `myisamchk`，MariaDB 10.4+ 系統表預設用 Aria）。詳見 `CLAUDE.md` 第 5 節 |
 | `py -3.10` 找不到 | Python 3.10 沒裝或沒勾 py launcher。重裝 Python 3.10 |

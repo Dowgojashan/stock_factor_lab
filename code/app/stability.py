@@ -24,18 +24,21 @@ import itertools
 from collections import Counter
 
 from . import explain as EX
-from .memo import _NUMBER_RE
+from .memo import _NUMBER_RE, _iter_text_fields
 
 DEFAULT_N_REPEATS = 5
 
 
-def _numbers_in(text: str) -> frozenset[float]:
+def _numbers_in(value) -> frozenset[float]:
+    """`value` 可能是純字串欄位，也可能是 `risk_flags` 那種 list[dict] 欄位
+    ——用跟 `memo.scan_for_leakage` 同一套攤平邏輯，不重寫一份。"""
     out = set()
-    for n in _NUMBER_RE.findall(text):
-        n_clean = n.rstrip("%")
-        if not n_clean or n_clean in ("-", "."):
-            continue
-        out.add(round(float(n_clean), 4))
+    for _, text in _iter_text_fields(value, ""):
+        for n in _NUMBER_RE.findall(text):
+            n_clean = n.rstrip("%")
+            if not n_clean or n_clean in ("-", "."):
+                continue
+            out.add(round(float(n_clean), 4))
     return frozenset(out)
 
 
