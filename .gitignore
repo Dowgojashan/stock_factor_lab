@@ -321,8 +321,15 @@ credentials.json
 secrets.json
 
 # 應用層（code/app/）執行時累積的稽核紀錄（F2），不是程式碼，
-# 內容含每次執行的覆核理由等自由文字，不上傳版本庫
-code/app/_runs/
+# 內容含每次執行的覆核理由等自由文字，原則上不上傳版本庫。
+# 🔴 2026-09-14 例外：audit_log.jsonl 改成要進版控——裡面是 §9.8 前瞻驗證
+# 9 組真實 LLM 呼叫紀錄（GPT-5 訓練截止日之後的日期，資訊隔離的前瞻證據），
+# 换機器會遺失且無法用同樣方式重造，改版控後跟著 git 走，不用再手動複製。
+# 用 `_runs/*` + 白名單（不是直接排除 `_runs/` 整個目錄），
+# 是因為 git 不會遞迴進「整個目錄被排除」的資料夾去看例外規則，
+# 這種寫法才能只放行 audit_log.jsonl、其餘暫存分析檔仍照舊排除。
+code/app/_runs/*
+!code/app/_runs/audit_log.jsonl
 
 # Unpublished thesis reference material — must never be committed
 /參考資料/
