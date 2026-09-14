@@ -131,8 +131,23 @@ _RISK_FLAGS_RULE_REPLAY = (
 )
 
 
+# 🔴 2026-09-15（§10.10 驗證後發現）：驗證模式九次真呼叫人工檢查後發現
+# `mechanism_note` 讀起來像固定不變的行銷文案——同一套「三個機制都很棒」的
+# 正面敘事，不管這一窗實際賺賠都照樣講，沒有一句話跟本窗的真實結果對話，
+# 導致跟後面 `risk_flags` 解釋「這次為什麼沒賺錢」的內容讀起來像兩份互不
+# 相干的文件。兩模式都會發生（不是 replay 專屬問題），故加進共用的鐵則。
+_SYSTEM_PROMPT_TAIL = (
+    "12. **mechanism_note 要跟本次實際結果對話**：這個欄位講的是方法/機制的"
+    "長期價值來源，但若這一窗（或這次執行）的實際 `performance` 明顯偏離"
+    "文中描述的型態（例如長期勝率很高，這次卻落在後段班；或反之特別亮眼），"
+    "結尾必須用一句話誠實承認「這是機制較弱/較強的一次實現」，不能讓這段話"
+    "讀起來跟其他欄位（例如 `risk_flags`）的風險歸因互相矛盾、脫節。"
+)
+
+
 def _build_system_prompt(is_live: bool) -> str:
-    return _SYSTEM_PROMPT_HEAD + (_RISK_FLAGS_RULE_LIVE if is_live else _RISK_FLAGS_RULE_REPLAY)
+    return (_SYSTEM_PROMPT_HEAD + (_RISK_FLAGS_RULE_LIVE if is_live else _RISK_FLAGS_RULE_REPLAY)
+           + _SYSTEM_PROMPT_TAIL)
 
 def _risk_flags_field(is_live: bool) -> dict:
     if is_live:
@@ -240,14 +255,40 @@ _EXPLAIN_SCHEMA = {
 }
 
 
-def _build_schema(is_live: bool) -> dict:
+# 🔴 2026-09-15（§10.10 驗證後發現）：多檢查點驗證（同一窗次、不同 as_of
+# 各呼叫一次）實測發現，11 欄位裡有 6 個根本不吃 as_of（群層/機制/風控上限
+# 這些是策略層固定屬性，同一窗次不管哪個 as_of 都算出同一份 facts），逼
+# LLM 對著同一份資料重講三次，讀起來高度重複；只有這裡列的 5 個欄位會
+# 隨 as_of（股票層持股、regime、個股類比）真的變。拆成兩組，讓多檢查點
+# 驗證可以「窗次層只呼叫一次、檢查點層才逐點呼叫」，不強迫 LLM 對沒有
+# 新資訊的欄位硬掰出差異（硬要求每次都不一樣反而會誘發杜撰，違反鐵則 1）。
+# 一般 UI 單次呼叫的 `generate()` 預設 `fields=None`＝全部 11 欄位一次要齊，
+# 行為完全不變，這只是加一個可選的呼叫方式。
+WINDOW_FIELDS = ["strategy_footprint_note", "mechanism_note", "structure_risk_note",
+                 "alternative_note", "change_note", "caveat"]
+CHECKPOINT_FIELDS = ["stock_holdings_note", "character_note", "concentration_risk_note",
+                     "scenario_note", "risk_flags"]
+
+
+def _build_schema(is_live: bool, fields: list[str] | None = None) -> dict:
     """§10.7：`risk_flags` 欄位描述依模式而異（見 `_build_system_prompt`
     同一段說明），其餘欄位兩模式共用，故用淺層複製只換掉那一個欄位，
-    不整份重新定義一次。"""
-    if is_live:
-        return _EXPLAIN_SCHEMA
-    schema = copy.deepcopy(_EXPLAIN_SCHEMA)
-    schema["schema"]["properties"]["risk_flags"] = _risk_flags_field(is_live=False)
+    不整份重新定義一次。
+
+    `fields`（§10.10）：只保留這幾個欄位（`WINDOW_FIELDS`／`CHECKPOINT_FIELDS`
+    之一，或呼叫端自訂子集），`None` 就是全部 11 欄位（預設行為，`generate()`
+    原本的單次呼叫用這個，不受影響）。
+    """
+    schema = (_EXPLAIN_SCHEMA if (is_live and fields is None)
+             else copy.deepcopy(_EXPLAIN_SCHEMA))
+    schema["schema"]["properties"]["risk_flags"] = _risk_flags_field(is_live)
+    if fields is not None:
+        all_props = schema["schema"]["properties"]
+        unknown = [f for f in fields if f not in all_props]
+        if unknown:
+            raise ValueError(f"_build_schema 收到未知的欄位名稱：{unknown}")
+        schema["schema"]["properties"] = {k: all_props[k] for k in fields}
+        schema["schema"]["required"] = list(fields)
     return schema
 
 
@@ -571,11 +612,27 @@ def assemble_facts(holdings: Holdings, risk: RiskReport, calib: CalibrationResul
     return facts
 
 
-def build_prompt(facts: dict) -> str:
+def build_prompt(facts: dict, *, fields: list[str] | None = None,
+                 window_context: dict | None = None) -> str:
+    """`fields`／`window_context`（§10.10，多檢查點驗證用）：`fields` 是這次
+    要 LLM 填哪幾個欄位（`None`＝全部 11 個，原本行為不變）；`window_context`
+    是同一窗次先前 `generate(..., fields=WINDOW_FIELDS)` 產生的窗次層結果，
+    當作背景附進去，讓檢查點層的 `risk_flags`／`scenario_note` 可以直接引用
+    裡面已經講過的機制，不用自己重新推導一遍、也不會跟窗次層的敘述脫節。
+    """
+    n = len(fields) if fields is not None else len(_EXPLAIN_SCHEMA["schema"]["required"])
+    context_block = ""
+    if window_context is not None:
+        context_block = (
+            "【這一窗已經產生的窗次層分析，當作背景參考，不用重新展開，"
+            "但你的欄位若要引用其中提到的機制，須跟它保持一致，不能矛盾】\n"
+            f"{json.dumps(window_context, ensure_ascii=False, indent=2, default=str)}\n\n"
+        )
     return (
         "【客觀資料 · 由程式算出，不可推翻，數字已格式化，請直接照抄】\n"
         f"{json.dumps(facts, ensure_ascii=False, indent=2, default=str)}\n\n"
-        "請依給定的 JSON schema 輸出十個欄位。每個欄位都要做出實質的分析判斷"
+        f"{context_block}"
+        f"請依給定的 JSON schema 輸出{n}個欄位。每個欄位都要做出實質的分析判斷"
         "（不是把數字複誦一遍），但只能根據以上資料——事實推論可以，價值判決"
         "（例如建議換方案）不行，見系統提示的鐵則 1。"
     )
@@ -586,19 +643,26 @@ def generate(holdings: Holdings, risk: RiskReport, calib: CalibrationResult, *,
             market_dates: dict[str, str] | None = None,
             footprint: ClusterFootprint | None = None, md_map: dict | None = None,
             face_comparison=None, dry_run: bool = True, model: str | None = None,
-            purpose: str = "app_memo") -> dict:
+            purpose: str = "app_memo",
+            fields: list[str] | None = None, window_context: dict | None = None) -> dict:
+    """`fields`／`window_context`：見 `build_prompt()` 的說明。UI 目前的單次
+    呼叫（`ui.py` AI 解讀分頁）不傳這兩個參數，行為與 §10.9 以前完全相同；
+    這兩個參數只給多檢查點驗證腳本用，`WINDOW_FIELDS`／`CHECKPOINT_FIELDS`
+    是預先分好的兩組欄位名稱。
+    """
     is_live = holdings.config.mode == "live"
-    schema = _build_schema(is_live)
+    schema = _build_schema(is_live, fields=fields)
     facts = assemble_facts(holdings, risk, calib, stock_detail=stock_detail,
                            stock_concentration=stock_concentration, market_dates=market_dates,
                            footprint=footprint, md_map=md_map, face_comparison=face_comparison)
-    prompt = build_prompt(facts)
+    prompt = build_prompt(facts, fields=fields, window_context=window_context)
 
+    required = schema["schema"]["required"]
     if dry_run:
-        explanation = {k: "(dry-run，未呼叫 LLM)" for k in schema["schema"]["required"]
-                      if k != "risk_flags"}
-        explanation["risk_flags"] = [{"risk": "(dry-run，未呼叫 LLM)",
-                                     "verification_criterion": "(dry-run，未呼叫 LLM)"}]
+        explanation = {k: "(dry-run，未呼叫 LLM)" for k in required if k != "risk_flags"}
+        if "risk_flags" in required:
+            explanation["risk_flags"] = [{"risk": "(dry-run，未呼叫 LLM)",
+                                         "verification_criterion": "(dry-run，未呼叫 LLM)"}]
     else:
         from utils.config import Config
         cfg = Config()
@@ -621,7 +685,8 @@ def generate(holdings: Holdings, risk: RiskReport, calib: CalibrationResult, *,
         # 不是漏洞。逐字比對這個子欄位會把合理的自訂門檻誤判成洩漏，故只掃
         # `risk` 本身（那句仍應只描述 facts 裡的既有型態，不能捏造）。
         scannable = {k: v for k, v in explanation.items() if k != "risk_flags"}
-        scannable["risk_flags"] = [{"risk": rf["risk"]} for rf in explanation.get("risk_flags", [])]
+        if "risk_flags" in explanation:
+            scannable["risk_flags"] = [{"risk": rf["risk"]} for rf in explanation["risk_flags"]]
         leakage = scan_for_leakage(scannable, prompt)
         if leakage:
             raise RuntimeError(
