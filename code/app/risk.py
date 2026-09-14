@@ -80,12 +80,14 @@ class StockConcentration:
     n_unique_stocks: int
     n_strategies: int
     n_empty_strategies: int            # 🔴 2026-09-11：解出 0 檔股票的策略數（見下方 bug 註記）
-    weights: dict[str, float]          # stock_symbol -> 權重
+    weights: dict[str, float]          # stock_symbol -> 權重（auto_trim=True 時是修剪後的）
     names: dict[str, str]              # stock_symbol -> 公司名
     appear_in: dict[str, int]          # stock_symbol -> 被幾個策略選中
     max_stock_weight: float
     max_stock_symbol: str
     violations: list[Violation]
+    trimmed: bool = False              # F2：這份 .weights 是不是自動修剪過的
+    raw_weights: dict[str, float] | None = None   # F2：修剪前的原始權重（trimmed=True 才有值）
 
     @property
     def ok(self) -> bool:
@@ -98,12 +100,99 @@ class StockConcentration:
                 for s, w in rows]
 
 
+#: F2：修剪演算法跟違規判定共用同一個浮點容差，避免「trim_to_cap 認為已收斂」
+#: 但 `assess_stock_level` 的違規檢查用零容差判定成「還在違規」這種不一致
+#: （2026-09-14 code review 抓到的真 bug：兩處容差原本各寫各的，1e-12 vs
+#: 零容差，重新分配算出來的浮點數可能落在 (cap, cap+1e-12] 這個縫隙裡，
+#: 被 `trim_to_cap` 判定「沒有超標」但被 `assess_stock_level` 判定「超標」）。
+_CAP_EPS = 1e-9
+
+
+def trim_to_cap(weights: dict[str, float], cap: float) -> dict[str, float]:
+    """F2（應用層開發追蹤.md §10.2／§10.5-R-A5）：迭代式等比例修剪。
+
+    超過上限的股票砍到上限，砍下來的部分按「原始權重的相對比例」分給還沒
+    超過上限的股票；分完可能又有別的股票被推過上限，重複到全部合規為止
+    （業界標準的 capped-weight／waterfall 演算法，不是自創）。
+
+    🔴 可行性邊界（R-A5）：把 `sum(weights)` 平分給 `len(weights)` 檔股票，
+    每檔至少會拿到 `total/n`——如果 `cap` 比這個數字還低，數學上**不可能**
+    修剪到合規（無論怎麼分都會有股票超標）。這裡直接拒絕執行，不讓演算法
+    自己去試（試了也不會收斂，只會無限迭代或悄悄回傳一個仍然違規的結果）。
+
+    🔴 2026-09-14 code review 抓到的真 bug：每一輪最多讓「目前還沒被卡住的
+    股票裡，權重超標的那些」一次全部被卡住，最壞情況（每輪剛好只多卡一檔）
+    需要到 `n` 輪才會收斂——原本寫死 `range(50)`，股票數一多（例如混合多個
+    腳位、或 ratio 選比較大的比例，輕易超過 50 檔不重複股票）就會在合法情境
+    下誤炸 `AssertionError`。改成 `range(n + 1)`，剛好覆蓋理論最壞情況。
+    """
+    n = len(weights)
+    if n == 0:
+        return dict(weights)
+    total = sum(weights.values())
+    floor = total / n
+    if cap < floor - _CAP_EPS:
+        raise ValueError(
+            f"上限 {cap:.4%} 低於 {n} 檔股票平均分配的最低權重 {floor:.4%}，"
+            f"數學上無法修剪到合規，請調高上限或增加候選股票數")
+
+    w = dict(weights)
+    capped: set[str] = set()
+    for _ in range(n + 1):
+        over = {s for s, v in w.items() if s not in capped and v > cap + _CAP_EPS}
+        if not over:
+            break
+        capped |= over
+        free_syms = [s for s in w if s not in capped]
+        remaining_total = total - cap * len(capped)
+        if not free_syms:
+            # 全部都被 cap 卡住——只有 total 剛好等於 cap*n 這個邊界情況會走到這裡
+            break
+        free_raw_total = sum(weights[s] for s in free_syms)
+        if free_raw_total <= 0:
+            per = max(remaining_total, 0.0) / len(free_syms)
+            for s in free_syms:
+                w[s] = per
+        else:
+            for s in free_syms:
+                w[s] = remaining_total * (weights[s] / free_raw_total)
+        for s in capped:
+            w[s] = cap
+    else:
+        raise AssertionError(f"修剪迭代 {n + 1} 輪仍未收斂，程式邏輯可能有誤")
+
+    assert max(w.values()) <= cap + _CAP_EPS, "修剪後仍有違規，程式邏輯有錯"
+    assert abs(sum(w.values()) - total) < 1e-6, "總權重不守恆"
+    return w
+
+
+def blend_stock_weights(items: list[tuple["StockConcentration", float]]) -> dict[str, float]:
+    """F1（應用層開發追蹤.md §10.1／§10.5-R-A1）：把各腳位已經算好的股票層級
+    權重（`assess_stock_level().weights`）依混合比例線性組合。純算術，不重新
+    查資料庫、不重新解析持股——每個腳位的 `StockConcentration` 由呼叫端
+    （`ui.py`）先各自解析好再傳進來。
+    """
+    if abs(sum(w for _, w in items) - 1.0) > 1e-6:
+        raise ValueError("混合比例總和必須是 100%")
+    blended: dict[str, float] = {}
+    for sc, weight in items:
+        for sym, w in sc.weights.items():
+            blended[sym] = blended.get(sym, 0.0) + weight * w
+    return blended
+
+
 def assess_stock_level(holdings: Holdings, stock_detail, *,
-                       as_of: str = "", cap: float | None = None) -> StockConcentration:
+                       as_of: str = "", cap: float | None = None,
+                       auto_trim: bool = False) -> StockConcentration:
     """把解析出來的股票明細換算成真實權重，並用 C2 上限判定（§8-R5）。
 
     `stock_detail`：`resolve_strategy_holdings` / `ui._resolve_stock_holdings` 的輸出，
     需要有 `strategy_uid`／`stock_symbol` 兩欄（`company_name` 選填）。
+
+    `auto_trim`（F2，2026-09-14）：True 時，超過上限的股票會被修剪
+    （見 `trim_to_cap`），`.weights`／`.violations`／`.max_stock_weight` 換成
+    修剪後的版本（違規理論上會清空），原始未修剪的權重保留在 `.raw_weights`。
+    預設 `False`——維持現有「攔下＋人工覆核」路徑不變，不是取代，是並存的選項。
     """
     if stock_detail is None or len(stock_detail) == 0:
         raise ValueError("沒有股票明細可算——請先解析持股")
@@ -147,22 +236,29 @@ def assess_stock_level(holdings: Holdings, stock_detail, *,
         names = (stock_detail.drop_duplicates("stock_symbol")
                  .set_index("stock_symbol")["company_name"].fillna("").to_dict())
 
+    raw_weights = dict(weights)
+    trimmed = False
+    if auto_trim and any(w > cap for w in weights.values()):
+        weights = trim_to_cap(weights, cap)
+        trimmed = True
+
     top_sym = max(weights, key=weights.get)
     top_w = weights[top_sym]
     violations = []
     for s, w in sorted(weights.items(), key=lambda kv: kv[1], reverse=True):
-        if w > cap:
+        if w > cap + _CAP_EPS:   # 跟 trim_to_cap 共用同一個容差，見該函式上方說明
             violations.append(Violation(
                 kind="stock_weight",
                 detail=(f"單一股票 {s}（{names.get(s, '')}）權重 {w:.2%}，"
-                        f"超過上限 {cap:.2%}（C2 股票層級，§8-R5）"),
+                        f"超過上限 {cap:.2%}"),
                 value=w, limit=cap))
     return StockConcentration(
         as_of=as_of, n_unique_stocks=len(weights), n_strategies=n_strat,
         n_empty_strategies=n_empty,
         weights=weights, names={k: str(v) for k, v in names.items()},
         appear_in={k: int(v) for k, v in appear.items()},
-        max_stock_weight=top_w, max_stock_symbol=top_sym, violations=violations)
+        max_stock_weight=top_w, max_stock_symbol=top_sym, violations=violations,
+        trimmed=trimmed, raw_weights=raw_weights if trimmed else None)
 
 
 @dataclasses.dataclass
@@ -199,13 +295,13 @@ def assess(holdings: Holdings) -> RiskReport:
         violations.append(Violation(
             kind="single_stock",
             detail=f"本次共選 {n} 檔，等權下單檔權重 {equal_weight:.2%}，"
-                   f"超過上限 {cfg.single_stock_cap:.2%}（C2）",
+                   f"超過上限 {cfg.single_stock_cap:.2%}",
             value=equal_weight, limit=cfg.single_stock_cap))
     if max_share > cfg.cluster_cap:
         violations.append(Violation(
             kind="cluster_share",
-            detail=f"最大單一 HRP 群佔比 {max_share:.2%}，"
-                   f"超過上限 {cfg.cluster_cap:.2%}（C3，{cfg.allocation} 分配）",
+            detail=f"最大單一策略群佔比 {max_share:.2%}，"
+                   f"超過上限 {cfg.cluster_cap:.2%}",
             value=max_share, limit=cfg.cluster_cap))
 
     return RiskReport(

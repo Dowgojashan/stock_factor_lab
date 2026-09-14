@@ -95,7 +95,6 @@ def measure(md_map: dict, weights: dict[str, float], as_of: str,
         "portfolio_weight_total": sum(weights.values()),
         "n_stocks_in_weights": len(weights), "n_stocks_priced": n_priced,
         "by_market_benchmark": by_market,
-        "caveat": ("portfolio_realized_return 是把 `portfolio_weight_measured` 那部分"
-                  "權重的實際報酬加總，量不到的部分（權重缺口）視同 0% 報酬，"
-                  "不重新分配給其他持股，也不假裝涵蓋率是 100%。"),
+        "caveat": ("投組已實現報酬只加總算得出價格的那部分持股，量不到股價的部分"
+                  "視同 0% 報酬處理，不會把權重重新分配給其他持股。"),
     }

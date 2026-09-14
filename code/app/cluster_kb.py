@@ -29,6 +29,7 @@ import dataclasses
 import pandas as pd
 
 from research import freeze, paths
+from research import walkforward_matrix as WF
 
 LEVEL = "L1"
 
@@ -134,4 +135,100 @@ def build_footprint(market: str, members: list[str]) -> ClusterFootprint:
         corr_normal=corr_normal, corr_crisis=corr_crisis,
         annual_returns=annual_returns, co_fail=co_fail,
         story=story_df.reset_index(drop=True),
+    )
+
+
+def _annual_from_series(monthly: pd.Series) -> pd.DataFrame:
+    """月報酬序列 → 逐年複利報酬（跟 `cluster_annual_returns` 同一種算法：
+    年內用複利，不是簡單加總）。`monthly.index` 必須是 `pd.Period("...", "M")`。"""
+    years = [p.year for p in monthly.index]
+    tmp = pd.DataFrame({"year": years, "ret": monthly.to_numpy()})
+    out = (tmp.groupby("year")["ret"]
+           .apply(lambda r: float((1.0 + r).prod() - 1.0))
+           .reset_index(name="ret"))
+    out["n_months"] = tmp.groupby("year")["ret"].size().to_numpy()
+    return out[["year", "ret", "n_months"]]
+
+
+def build_window_footprint(tree, members: list[str],
+                          candidate_index: pd.DataFrame) -> ClusterFootprint:
+    """R15／H8 修補版（應用層開發追蹤.md §9.7 → §10.7，2026-09-15）：給**驗證模式**
+    用的「這一窗自己的」群足跡——不讀主線樹的全樣本群知識庫，全部從這一窗自己的
+    `tree.wide_is`／`tree.assign` 現算，確保不含這一窗 IS 結束日之後的任何資訊。
+
+    `tree` 必須是 `clustering.build_window_tree()` 現場重建的那一窗的樹（有自己的
+    `wide_is`／`assign`），不是 `load_mainline_tree()` 的主線樹——用主線樹等於
+    繞了一圈又用回全樣本，白修。
+
+    跟 `build_footprint()`（正式模式用）比較，**刻意拿掉**的部分，沒有替代品：
+    - `identity`（LLM 產生的群身份標籤／機制敘述）：對主線樹（全樣本）的解讀，
+      套用在任意驗證窗次的自建樹上沒有對應版本，也無法無中生有——寧可不給，
+      不要給錯的群安上錯的標籤（H8 的核心）。
+    - `co_fail`／`story`（危機期共跌／群間互補故事）：同樣是主線樹全樣本分析。
+    - `corr_crisis`：危機期矩陣是另一棵獨立的樹，跟任意 IS 窗次沒有對應關係。
+
+    **改成從這一窗自己算**的部分（天然不含 IS 結束日之後的資訊）：
+    - 群內策略的 CAGR/MDD 中位數、逐年報酬、群間相關矩陣：全部只用
+      `tree.wide_is`（這一窗自己的 IS 報酬矩陣）現算。
+    - `top1_F1`／`top1_C_source`：策略的因子定義（`candidate_index` 的
+      `F1_factor`／`C_source` 欄）是策略本身的固定屬性、不隨時間變化，任何
+      時候查都一樣，不算前視資訊。
+    """
+    col = f"cluster_{LEVEL}"
+    assign = tree.assign
+    member_set = set(members)
+    sub = assign[assign["strategy_uid"].isin(member_set)]
+    if len(sub) < len(member_set):
+        missing = member_set - set(sub["strategy_uid"])
+        raise ValueError(f"{len(missing)} 個策略在這一窗的樹裡找不到分群，"
+                         f"例如 {sorted(missing)[:3]}")
+    counts = {int(k): int(v) for k, v in sub[col].value_counts().items()}
+    total_in_tree = {int(k): int(v) for k, v in assign[col].value_counts().items()}
+
+    cagr_is = WF._cagr_matrix(tree.wide_is)
+    mdd_is = WF._mdd_matrix(tree.wide_is)
+    # `candidate_index` 呼叫端可能傳「已經 set_index("strategy_uid")」的版本，
+    # 也可能傳原始（strategy_uid 是普通欄位）的版本——兩種都接受，不要求呼叫端
+    # 記住哪一種（之前用 `isinstance(...index, pd.Index)` 判斷是錯的，任何
+    # DataFrame 的 .index 都是 pd.Index，那個判斷式恆真，等於永遠不會走
+    # set_index 那一支）。
+    idx_cols = (candidate_index if candidate_index.index.name == "strategy_uid"
+               else candidate_index.set_index("strategy_uid"))[["F1_factor", "C_source"]]
+
+    profile: dict[int, dict] = {}
+    annual_returns: dict[int, pd.DataFrame] = {}
+    cluster_series: dict[int, pd.Series] = {}
+    for cid in counts:
+        cmembers = assign.loc[assign[col] == cid, "strategy_uid"].tolist()
+        f1_counts = idx_cols.reindex(cmembers)["F1_factor"].value_counts()
+        top1_f1 = f1_counts.index[0] if len(f1_counts) else None
+        top1_f1_pct = float(f1_counts.iloc[0] / len(cmembers)) if len(f1_counts) else None
+        c_counts = idx_cols.reindex(cmembers)["C_source"].value_counts()
+        top1_c = c_counts.index[0] if len(c_counts) else None
+        profile[cid] = {
+            "CAGR_median": float(cagr_is.reindex(cmembers).median()),
+            "MDD_median": float(mdd_is.reindex(cmembers).median()),
+            "top1_F1": top1_f1, "top1_F1_pct": top1_f1_pct, "top1_C_source": top1_c,
+            # 逐年細節（best/worst year）留給下面用 annual_returns 現算，
+            # 不在這裡塞 pct_years_positive 等全樣本口徑的欄位，避免呼叫端
+            # 誤用成跟 build_footprint() 同一種欄位語意（值域已經不同：
+            # 這裡只涵蓋 IS 期間，不是完整歷史）。
+        }
+        series = WF._portfolio_series(tree.wide_is, cmembers)
+        cluster_series[cid] = series
+        annual_returns[cid] = _annual_from_series(series)
+
+    cids = sorted(cluster_series)
+    corr_normal = pd.DataFrame(index=cids, columns=cids, dtype=float)
+    for i in cids:
+        for j in cids:
+            corr_normal.loc[i, j] = (1.0 if i == j else
+                                     float(cluster_series[i].corr(cluster_series[j])))
+
+    return ClusterFootprint(
+        market=tree.tree_key, tree_id=tree.tree_id, counts=counts,
+        total_in_tree=total_in_tree, identity={}, profile=profile,
+        corr_normal=corr_normal, corr_crisis=None,
+        annual_returns=annual_returns, co_fail={},
+        story=pd.DataFrame(columns=["cluster_a", "cluster_b"]),
     )

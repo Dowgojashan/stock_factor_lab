@@ -49,11 +49,12 @@ from app.calibration import check as check_calibration  # noqa: E402
 from app.config import DEFAULT_CLUSTER_CAP_EQUAL  # noqa: E402
 from app.config import DEFAULT_CLUSTER_CAP_PROPORTIONAL  # noqa: E402
 from app.config import DEFAULT_SINGLE_STOCK_CAP  # noqa: E402
+from app.config import GROUP_LABELS  # noqa: E402
 from app.config import ReplayAnchor, RunConfig  # noqa: E402
 from app.engine import DETAIL_PATH  # noqa: E402
+from app.engine import BlendLeg, blend_holdings  # noqa: E402
 from app.engine import run as run_engine  # noqa: E402
-from app.memo import generate as generate_memo  # noqa: E402
-from app.risk import assess, assess_stock_level  # noqa: E402
+from app.risk import assess, assess_stock_level, blend_stock_weights  # noqa: E402
 # 2026-09-10 使用者回饋：股票層級持股明細（原本是獨立腳本 resolve_strategy_holdings.py，
 # 使用者要求接進 UI）。直接重用同一套邏輯，不重寫一份——避免兩邊對 C_rule/F1/F2
 # 條件重建規則各自維護一份、日後改一邊忘了改另一邊。
@@ -157,67 +158,56 @@ st.title("因子選股應用層")
 # ---------- 設定與執行（L0/L1） ----------
 st.sidebar.header("設定與執行")
 
-# 2026-09-10（§7 P2）：兩種模式並存。正式模式用凍結主線樹即時挑代表（無 OOS），
-# 驗證模式讀凍結窗次（有 OOS）。⚠️ 探索模式（任意 IS 區間）決定不做，見 §7.5 G5。
 MODE_LABELS = {
-    "live": "正式模式（用全歷史建的樹選出現在該持有什麼）",
-    "replay": "驗證模式（重放某個歷史窗次，有樣本外可比對）",
+    "live": "正式模式（依全部歷史資料，建議目前應持有的組合）",
+    "replay": "回測檢視（重現某個歷史時間點，可對照後續實際表現）",
 }
 mode = st.sidebar.radio("模式", ["live", "replay"],
                         format_func=lambda m: MODE_LABELS[m])
 
-# 🔴 2026-09-11（§9.5 H2）：原 A1「先只做台股」已作廢，三市場全開。
-# 理由：研究唯一證實的 HRP 貢獻是跨市場回撤控制（M-03），且 XM 樹 3 群完全按
-# 市場切開（群1=100%台股／群2/3=100%美股）——只有用 XM 樹才拿得到跨市場分散。
-MARKET_LABELS = {"TW": "台股（TW）", "US": "美股（US）", "XM": "跨市場（XM）"}
+MARKET_LABELS = {"TW": "台股", "US": "美股", "XM": "跨市場（台股＋美股）"}
 market = st.sidebar.selectbox("市場", ["TW", "US", "XM"],
                               format_func=lambda m: MARKET_LABELS[m])
 if market == "XM":
-    st.sidebar.caption("⚠️ XM 不是真實市場，是 TW＋US 策略的聯集（3 群完全按市場"
-                       "切開，不混合）。股票層級解析會依策略歸屬分派到兩個市場的"
-                       "資料庫，兩者交易日曆不同，可能對到不同日期")
+    st.sidebar.caption("跨市場組合是台股與美股策略的合併（各自依所屬市場分群，"
+                       "不混合）。股票明細會分別查詢兩地市場資料，兩地交易日不同，"
+                       "對應日期可能不同。")
 
-# 三市場的 IS 長度／k 不同（contracts.HRP_WINDOWS／H-03），不可共用同一句文字
+# 三個市場的建模區間與分群數量不同，各自對應真實的資料涵蓋範圍。
 _MARKET_IS_INFO = {
-    "TW": {"is_range": "2007-01~最新可用月（228 個月）", "k": 6},
-    "US": {"is_range": "2002-01~最新可用月（288 個月）", "k": 7},
-    "XM": {"is_range": "2007-01~最新可用月（228 個月）", "k": 3},
+    "TW": {"is_range": "2007-01～最新可用月（228 個月）", "k": 6},
+    "US": {"is_range": "2002-01～最新可用月（288 個月）", "k": 7},
+    "XM": {"is_range": "2007-01～最新可用月（228 個月）", "k": 3},
 }
 if mode == "live":
     _info = _MARKET_IS_INFO[market]
-    st.caption(f"**正式模式**：IS＝{_info['is_range']}，用 `_frozen/stage3` 凍結主線樹"
-               f"（k={_info['k']}）即時挑代表。依定義沒有樣本外——IS 用掉全部資料。")
+    st.caption(f"**正式模式**：以 {_info['is_range']} 的完整歷史資料建立分群模型"
+               f"（共 {_info['k']} 群），即時挑選代表策略。因使用全部歷史資料建模，"
+               f"本次結果沒有樣本外表現可供驗證。")
 else:
-    st.caption("**驗證模式**：讀凍結的 walk-forward 窗次，有真實 OOS 可比對。"
-               "用來檢視方法在歷史上的表現，不是「現在該買什麼」。")
+    st.caption("**回測檢視**：讀取過去某個時間點的歷史選股結果，並可對照其後續"
+               "實際表現。用於檢視方法的歷史績效，不是目前建議持股。")
 
-group = st.sidebar.selectbox("group", ["A_hrp", "D_top_cagr", "E_top_calmar"])
+group = st.sidebar.selectbox("選股邏輯", ["A_hrp", "D_top_cagr", "E_top_calmar"],
+                             format_func=lambda g: GROUP_LABELS[g])
 
-# 2026-09-10 使用者回饋：「分配」（等量/比例）改用「採樣」；下拉選單顯示中文說明，
-# 底層值（"equal"/"proportional"）不變——RunConfig／CSV 欄位仍用原字串，只改顯示文字。
 ALLOCATION_LABELS = {"equal": "等量採樣", "proportional": "比例採樣"}
 allocation = st.sidebar.selectbox(
     "採樣方式", ["equal", "proportional"], format_func=lambda a: ALLOCATION_LABELS[a])
 
 if mode == "live":
-    st.sidebar.caption(f"k_mode：mainline_h03——k 來自 `_frozen/stage3` 主線樹，"
-                       f"由 H-03 用輪廓係數在完整共同窗上選出（{MARKET_LABELS[market]} "
-                       f"k={_MARKET_IS_INFO[market]['k']}）。"
-                       "語意上就是 silhouette_is，因為正式模式的 IS 即完整窗（§7.4b）")
+    st.sidebar.caption(f"分群數量由統計方法依歷史資料自動決定"
+                       f"（{MARKET_LABELS[market]} 目前為 {_MARKET_IS_INFO[market]['k']} 群）")
     k_mode = "mainline_h03"
 else:
-    st.sidebar.caption("k_mode：silhouette_is（B2 決定：慢時鐘固定用這個，"
-                       "H-26 驗證勝率 94.3% 高於 fixed 的 92.3%，且無前視偏誤）")
+    st.sidebar.caption("每個歷史時間窗的分群數量，各自依統計方法自動決定")
     k_mode = "silhouette_is"
 
 def _default_index(options: list, preferred) -> int:
-    """優先選研究部驗證過的預設值（RunConfig.default_replay 同一組），沒有才退回第一個。"""
+    """優先選預設建議值，沒有才退回第一個。"""
     return options.index(preferred) if preferred in options else 0
 
 
-# 2026-09-10 使用者回饋：窗口方案不要只顯示代號（A/B/C...），沒有人會去背每個代號
-# 對應的窗長——直接把 IS/OOS 月數跟窗次數顯示出來。底層值仍是代號字串，
-# 對應 walkforward_matrix_detail.csv 的 scheme 欄位，不影響資料篩選邏輯。
 _scheme_info = detail_df.drop_duplicates("scheme").set_index("scheme")
 
 
@@ -225,42 +215,49 @@ def _scheme_label(code: str) -> str:
     if code not in _scheme_info.index:
         return code
     row = _scheme_info.loc[code]
-    tag = "" if row["mode"] == "anchored" else "・rolling對照組"
-    return (f"IS {int(row['min_is_months'])} 個月／OOS {int(row['oos_len_months'])} 個月"
-           f"（共 {int(row['n_windows'])} 窗{tag}）")
+    tag = "" if row["mode"] == "anchored" else "・滾動對照組"
+    return (f"建模期 {int(row['min_is_months'])} 個月／驗證期 {int(row['oos_len_months'])} 個月"
+           f"（共 {int(row['n_windows'])} 期{tag}）")
 
 
-# ratio 的可選集合取自凍結表（驗證過的參數空間）。正式模式雖然不查表，但刻意
-# 沿用同一組選項——G2/G7 的「✅ 方法已驗證」就是靠「方法論參數落在驗證集合內」
-# 成立的，開放表外的比例會讓那個標籤失效。
+RATIO_LABELS = {"legacy": "標準配置（每群精選 5 檔代表）", "all": "全部策略（不篩選）"}
+
+
+def _ratio_label(r: str) -> str:
+    if r in RATIO_LABELS:
+        return RATIO_LABELS[r]
+    try:
+        return f"擴大配置（全市場的 {float(r):.0%}）"
+    except ValueError:
+        return r
+
+
+# ratio 的可選集合取自歷史回測資料（已驗證過的參數空間），確保「✅ 方法已驗證」
+# 這個標籤是有依據的——超出這個範圍的設定不在已驗證的範圍內。
 _ratio_src = detail_df[(detail_df.tree_key == market) & (detail_df.group == group)
                        & (detail_df.allocation == allocation)]
 ratio_options = sorted(_ratio_src["ratio"].unique().tolist()) or ["legacy"]
-ratio = st.sidebar.selectbox("ratio", ratio_options, index=_default_index(ratio_options, "legacy"))
+ratio = st.sidebar.selectbox("持股規模", ratio_options,
+                             index=_default_index(ratio_options, "legacy"),
+                             format_func=_ratio_label)
 
 scheme = window_no = None
 if mode == "replay":
     _avail = _ratio_src[(_ratio_src.k_mode == k_mode) & (_ratio_src.ratio == ratio)]
     scheme_options = sorted(_avail["scheme"].unique().tolist()) or ["A"]
-    scheme = st.sidebar.selectbox("窗口方案（H-26）", scheme_options,
+    scheme = st.sidebar.selectbox("回測方案", scheme_options,
                                   index=_default_index(scheme_options, "A"),
                                   format_func=_scheme_label)
     _avail3 = _avail[_avail.scheme == scheme]
     window_options = sorted(int(w) for w in _avail3["window_no"].unique().tolist()) or [1]
-    window_no = st.sidebar.selectbox("window_no", window_options,
+    window_no = st.sidebar.selectbox("回測期次", window_options,
                                      index=_default_index(window_options, max(window_options)))
 else:
-    # 正式模式依定義只有一個 IS（contracts.HRP_WINDOWS[market]），沒有窗次可選。
-    # §7.5 G5：不給日期選擇器——探索模式決定不做。
-    st.sidebar.caption(f"正式模式沒有「窗次」可選：IS 依定義就是錨點到最新可用月"
-                       f"（{MARKET_LABELS[market]} {_MARKET_IS_INFO[market]['is_range']}）")
+    st.sidebar.caption(f"正式模式沒有「期次」可選：建模區間固定為"
+                       f"{MARKET_LABELS[market]} {_MARKET_IS_INFO[market]['is_range']}")
 
 st.sidebar.markdown("---")
-st.sidebar.caption("風控上限（C1：可自訂，預設值依市場各自反推，見應用層開發追蹤.md §3 C2/C3、"
-                   "§9.7 I-4）")
-# 🔴 2026-09-11（§9.7 I-4）：三市場門檻不同（US/XM 沿用 TW 數字會讓門檻形同虛設，
-# 見 S0 的實測反推），不可寫死同一組預設值。用市場名當 widget key 的一部分，
-# 讓 Streamlit 換市場時重新以該市場的預設值渲染（同 key 只在首次渲染吃 value=）。
+st.sidebar.caption("風控上限（可自行調整，預設值依各市場歷史資料設定）")
 single_stock_cap = st.sidebar.number_input(
     "單一股票上限 %", value=DEFAULT_SINGLE_STOCK_CAP[market] * 100,
     min_value=0.1, max_value=100.0, step=0.5, key=f"single_cap_{market}") / 100
@@ -272,20 +269,38 @@ cluster_cap_proportional = st.sidebar.number_input(
     min_value=0.1, max_value=100.0, step=1.0, key=f"cluster_prop_{market}") / 100
 
 st.sidebar.markdown("---")
-st.sidebar.caption("E2：純手動觸發。B2 慢時鐘「距下次重跑還有多久」需要 live 模式"
-                   "才有實際時鐘可比對，尚未實作前不顯示假倒數")
+st.sidebar.caption("系統採手動觸發執行，不會自動排程重跑。")
+
+
+def _current_config() -> RunConfig:
+    """把左側目前的設定組成一份 RunConfig——「執行」跟「加入比較清單」共用，
+    避免兩處各寫一份，日後改一邊忘了改另一邊。"""
+    return RunConfig(
+        mode=mode, market=market, group=group, ratio=ratio, allocation=allocation,
+        k_mode=k_mode, single_stock_cap=single_stock_cap,
+        cluster_cap_equal=cluster_cap_equal, cluster_cap_proportional=cluster_cap_proportional,
+        replay_anchor=(ReplayAnchor(scheme=scheme, window_no=int(window_no))
+                      if mode == "replay" else None),
+    )
+
 
 run_clicked = st.sidebar.button("執行", type="primary")
 
+# F3（應用層開發追蹤.md §10.3／§10.5-R-A6，輕量版）：加入比較清單，
+# 完全不碰現有的 holdings/risk/calib 等 11 個 session_state 鍵——比較清單
+# 跟比較結果各自存在新的 key 裡，不干擾現有單組流程。
+_compare_configs: list[RunConfig] = st.session_state.setdefault("compare_configs", [])
+add_compare_clicked = st.sidebar.button(
+    f"加入比較清單（{len(_compare_configs)}/3）",
+    disabled=len(_compare_configs) >= 3)
+if add_compare_clicked:
+    _compare_configs.append(_current_config())
+    st.session_state.pop("compare_results", None)   # 清單變了，舊比較結果過期
+    st.rerun()
+
 if run_clicked:
     try:
-        cfg = RunConfig(
-            mode=mode, market=market, group=group, ratio=ratio, allocation=allocation,
-            k_mode=k_mode, single_stock_cap=single_stock_cap,
-            cluster_cap_equal=cluster_cap_equal, cluster_cap_proportional=cluster_cap_proportional,
-            replay_anchor=(ReplayAnchor(scheme=scheme, window_no=int(window_no))
-                          if mode == "replay" else None),
-        )
+        cfg = _current_config()
         # 正式模式要現場建相關矩陣＋挑代表（6,679×6,679，約 340MB RAM），
         # 比 replay 的查表慢得多，給個 spinner 免得使用者以為當掉
         with st.spinner("正在載入凍結主線樹並挑選代表策略…"
@@ -315,8 +330,192 @@ holdings = st.session_state.get("holdings")
 risk = st.session_state.get("risk")
 calib = st.session_state.get("calib")
 
+# ---------- F3 並排比較（輕量版，§10.3／§10.5-R-A6） ----------
+# 只比較彙總數字＋股票層級持股重疊度，不支援 3 組各自解析持股/AI解釋/寫入
+# 稽核（那是「完整版」，這次定案不做）。選定一組後按「採用這組設定」，
+# 才切回下面正常的單組流程繼續操作。
+if _compare_configs:
+    with st.expander(f"並排比較（{len(_compare_configs)}/3 組）", expanded=True):
+        for i, c in enumerate(_compare_configs):
+            cc1, cc2 = st.columns([5, 1])
+            cc1.write(f"{i+1}. {MARKET_LABELS[c.market]}｜"
+                     f"{GROUP_LABELS.get(c.group, c.group)}｜{_ratio_label(c.ratio)}／"
+                     f"{ALLOCATION_LABELS[c.allocation]}"
+                     + (f"｜{c.replay_anchor.scheme}-{c.replay_anchor.window_no}"
+                        if c.replay_anchor else ""))
+            if cc2.button("移除", key=f"remove_compare_{i}"):
+                _compare_configs.pop(i)
+                st.session_state.pop("compare_results", None)
+                st.rerun()
+
+        if st.button("開始比較（依序執行，正式模式每組約 1-2 分鐘）"):
+            _results = []
+            for c in _compare_configs:
+                try:
+                    with st.spinner(f"執行 {MARKET_LABELS[c.market]}／"
+                                    f"{GROUP_LABELS.get(c.group, c.group)} 中…"):
+                        h = run_engine(c)
+                    r = assess(h)
+                    cb = check_calibration(h)
+                except Exception as e:  # noqa: BLE001 — 顯示給使用者看，不是要吞掉錯誤
+                    st.error(f"{MARKET_LABELS[c.market]}／{GROUP_LABELS.get(c.group, c.group)}"
+                            f" 執行失敗：{e}")
+                    _results.append(None)
+                else:
+                    _results.append((h, r, cb))
+            st.session_state["compare_results"] = _results
+
+        _results = st.session_state.get("compare_results")
+        if _results:
+            rows = []
+            for c, res in zip(_compare_configs, _results):
+                if res is None:
+                    rows.append({"設定": f"{MARKET_LABELS[c.market]}／{GROUP_LABELS.get(c.group, c.group)}",
+                                "狀態": "執行失敗"})
+                    continue
+                h, r, cb = res
+                perf = h.performance
+                row = {
+                    "設定": f"{MARKET_LABELS[c.market]}／{GROUP_LABELS.get(c.group, c.group)}／"
+                            f"{_ratio_label(c.ratio)}",
+                    "持股數": h.n_members,
+                    "驗證狀態": h.validation.get("label", "") if h.validation else "",
+                }
+                if h.has_oos:
+                    row["樣本外年化報酬"] = f"{perf['oos_cagr']:.2%}"
+                    row["樣本外最大回撤"] = f"{perf['oos_mdd']:.2%}"
+                    row["樣本外 Sharpe"] = f"{perf['oos_sharpe']:.2f}"
+                else:
+                    row["建模期年化報酬"] = f"{perf['is_cagr']:.2%}"
+                    if h.reference_oos:
+                        row["同類設定歷史樣本外中位數"] = f"{h.reference_oos['oos_cagr_median']:.2%}"
+                row["最大單檔權重(等權)"] = f"{r.max_single_weight:.2%}"
+                row["最大群佔比"] = f"{r.max_cluster_share:.2%}"
+                row["風控違規數"] = len(r.violations)
+                rows.append(row)
+            st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
+            st.caption("⚠️ 不同市場的建模區間長度、風控上限預設值本來就不同"
+                      "（台股／跨市場 228 個月、美股 288 個月），並排呈現不代表"
+                      "三者是完全同質的比較基準。")
+
+            _adopt_options = [i for i, res in enumerate(_results) if res is not None]
+            if _adopt_options:
+                _pick = st.selectbox(
+                    "採用哪一組設定，切回單組模式繼續操作（解析持股／AI解讀／寫入稽核）？",
+                    _adopt_options,
+                    format_func=lambda i: f"{i+1}. {MARKET_LABELS[_compare_configs[i].market]}／"
+                                          f"{GROUP_LABELS.get(_compare_configs[i].group, _compare_configs[i].group)}")
+                if st.button("採用這組設定"):
+                    h, r, cb = _results[_pick]
+                    st.session_state["holdings"] = h
+                    st.session_state["risk"] = r
+                    st.session_state["calib"] = cb
+                    st.session_state["recorded"] = False
+                    st.session_state["recorded_at"] = None
+                    st.session_state["memo_result"] = None
+                    st.session_state.pop("override_reason", None)
+                    st.session_state.pop("stock_detail", None)
+                    st.session_state.pop("stock_detail_date", None)
+                    st.session_state.pop("face_comparison", None)
+                    # 🔴 2026-09-15 code review 抓到的真 bug：這裡原本沒清掉
+                    # 比較清單／比較結果／混合結果——「採用這組設定」的說明文字
+                    # 明講是「切回單組模式」，但沒清掉的話，下面「並排比較」
+                    # 跟「可調式混合」兩個 expander 還是會留在畫面上，讓人以為
+                    # 剛採用的單組結果還跟舊的比較/混合綁在一起。
+                    st.session_state["compare_configs"] = []
+                    st.session_state.pop("compare_results", None)
+                    st.session_state.pop("blend_result", None)
+                    st.rerun()
+
+# ---------- F1 可調式混合（ensemble，§10.1／§10.5-R-A1~R-A4） ----------
+# 直接沿用上面「加入比較清單」的同一份清單當混合腳位，不用再另外做一套
+# 選腳位的介面——使用者本來就要先在側邊欄挑好每一組設定再加進清單。
+if len(_compare_configs) >= 2:
+    with st.expander(f"可調式混合（從上面 {len(_compare_configs)} 組裡混合）",
+                     expanded=False):
+        st.caption("拉滑桿決定各腳位的資金比例，總和必須是 100%。混合只是把"
+                  "已經驗證過的方法／市場依比例線性組合，不是新的獨立方法，"
+                  "混合比例本身也沒有被歷史回測驗證過——結果畫面上會清楚標示。")
+        _blend_pcts = []
+        # 🔴 2026-09-14 code review 抓到的真 bug：`round(100/n)` 在 n=3 時是
+        # 33，三個滑桿預設值加總是 99 不是 100——使用者什麼都沒調就會看到
+        # 「必須剛好 100%」的警告、按鈕預設是灰的，違背「預設值就能直接用」
+        # 的期待。改成餘數塞給最後一個腳位，保證預設值總和一定是 100。
+        _n_legs = len(_compare_configs)
+        _base_pct = 100 // _n_legs
+        _default_pcts = [_base_pct] * (_n_legs - 1) + [100 - _base_pct * (_n_legs - 1)]
+        for i, c in enumerate(_compare_configs):
+            p = st.slider(
+                f"{i+1}. {MARKET_LABELS[c.market]}／{GROUP_LABELS.get(c.group, c.group)} "
+                f"比例 %", 0, 100, _default_pcts[i], key=f"blend_pct_{i}")
+            _blend_pcts.append(p)
+        _pct_total = sum(_blend_pcts)
+        st.caption(f"目前總和：{_pct_total}%" +
+                  ("" if _pct_total == 100 else " ⚠️ 必須剛好 100% 才能混合"))
+
+        if st.button("混合並檢視結果", disabled=(_pct_total != 100)):
+            try:
+                with st.spinner("執行各腳位並混合中（含股票層級持股解析，"
+                                "第一次連新市場約 1-2 分鐘）…"):
+                    # 🔴 2026-09-15 code review 抓到的真 bug：原本只要清單裡有
+                    # 任一個 None（可能是還沒跑過、也可能是曾經執行失敗），
+                    # 就把**全部**腳位重跑一次——即使已經成功、花了 1-2 分鐘
+                    # 建好樹的正式模式腳位也會被丟掉重建。改成只補跑缺的那
+                    # 幾個，已經成功的直接沿用快取結果。
+                    _results = st.session_state.get("compare_results")
+                    if not _results or len(_results) != len(_compare_configs):
+                        _results = [None] * len(_compare_configs)
+                    for _i, _c in enumerate(_compare_configs):
+                        if _results[_i] is None:
+                            _h = run_engine(_c)
+                            _results[_i] = (_h, assess(_h), check_calibration(_h))
+                    st.session_state["compare_results"] = _results
+                    legs = [BlendLeg(holdings=res[0], weight=p / 100)
+                           for res, p in zip(_results, _blend_pcts) if res is not None]
+                    _blend = blend_holdings(legs)
+
+                    _idx = _get_candidate_index()
+                    _scs = []
+                    for leg in legs:
+                        h = leg.holdings
+                        _as_of = (datetime.date.today().isoformat() if h.config.mode == "live"
+                                 else h.window_info["is_end"])
+                        _sd, _dates = _resolve_stock_holdings(h.members, _as_of)
+                        _sc = assess_stock_level(
+                            h, _sd, as_of="、".join(f"{m}:{d}" for m, d in _dates.items()))
+                        _scs.append((_sc, leg.weight))
+                    _blend.stock_weights = blend_stock_weights(_scs)
+            except Exception as e:  # noqa: BLE001 — 顯示給使用者看，不是要吞掉錯誤
+                st.error(f"混合失敗：{e}")
+            else:
+                st.session_state["blend_result"] = _blend
+
+        _blend = st.session_state.get("blend_result")
+        if _blend is not None:
+            st.success(f"**{_blend.validation['label']}**　{_blend.validation['reason']}")
+            st.warning(_blend.validation["structural_caveat"])
+            perf = _blend.performance
+            prefix = "oos" if _blend.has_oos else "is"
+            bc1, bc2, bc3 = st.columns(3)
+            bc1.metric(f"{'樣本外' if _blend.has_oos else '建模期'}年化報酬",
+                      f"{perf[f'{prefix}_cagr']:.2%}")
+            bc2.metric(f"{'樣本外' if _blend.has_oos else '建模期'}最大回撤",
+                      f"{perf[f'{prefix}_mdd']:.2%}")
+            bc3.metric(f"{'樣本外' if _blend.has_oos else '建模期'}Sharpe",
+                      f"{perf[f'{prefix}_sharpe']:.2f}")
+            st.caption(f"混合序列取各腳位共同重疊的 {perf['n_months_compared']} 個月計算，"
+                      f"不是把各腳位的績效點估計直接加權平均。")
+            if _blend.reference_oos:
+                st.caption(f"⚠️ {_blend.reference_oos['caveat']}")
+            st.markdown(f"**混合後前 15 大持股（{_blend.n_unique_stocks} 檔不重複股票）**")
+            _blend_top = sorted(_blend.stock_weights.items(), key=lambda kv: kv[1],
+                               reverse=True)[:15]
+            st.dataframe(pd.DataFrame(
+                [{"股票代號": s, "混合後權重": f"{w:.3%}"} for s, w in _blend_top]),
+                width="stretch", hide_index=True)
+
 if holdings is None:
-    st.info("左側設定完成後按「執行」開始。")
+    st.info("左側設定完成後按「執行」開始，或用「加入比較清單」同時比較多組設定。")
     st.stop()
 
 tab_holdings, tab_risk, tab_ai, tab_history = st.tabs(
@@ -324,9 +523,10 @@ tab_holdings, tab_risk, tab_ai, tab_history = st.tabs(
 
 # ---------- 本期持倉（L1） ----------
 with tab_holdings:
-    st.subheader(f"{holdings.config.market}｜{holdings.config.group}｜"
-                f"{holdings.config.ratio}／{holdings.config.allocation}")
-    # G7 三態驗證標籤 + 結構性限制（一定要一起顯示，不能只放 ✅）
+    st.subheader(f"{MARKET_LABELS[holdings.config.market]}｜"
+                f"{GROUP_LABELS.get(holdings.config.group, holdings.config.group)}｜"
+                f"{_ratio_label(holdings.config.ratio)}／"
+                f"{ALLOCATION_LABELS[holdings.config.allocation]}")
     if holdings.validation:
         st.success(f"**{holdings.validation['label']}**　{holdings.validation['reason']}")
         st.warning(holdings.validation["structural_caveat"])
@@ -335,26 +535,23 @@ with tab_holdings:
     if holdings.has_oos:
         c1, c2, c3 = st.columns(3)
         c1.metric("持股（策略層級）數", holdings.n_members)
-        c2.metric("OOS CAGR", f"{holdings.performance['oos_cagr']:.2%}")
-        c3.metric("OOS Sharpe", f"{holdings.performance['oos_sharpe']:.2f}")
+        c2.metric("樣本外年化報酬", f"{holdings.performance['oos_cagr']:.2%}")
+        c3.metric("樣本外 Sharpe", f"{holdings.performance['oos_sharpe']:.2f}")
     else:
-        # 🔴 R13：正式模式沒有 OOS。**主要績效顯示改成歷史參照分布**，
-        # 不把本次的 is_cagr 放在 metric 位置——那是樣本內配適值，放在最醒目的
-        # 位置會被讀成「預期報酬」，而實測 IS CAGR 中位數比 OOS 高 7.62pp。
+        # 正式模式沒有樣本外數字可看，主要顯示改成「同類設定的歷史樣本外表現」，
+        # 避免把樣本內配適值誤讀成預期報酬。
         c1, c2, c3 = st.columns(3)
         c1.metric("持股（策略層級）數", holdings.n_members)
         if _ref:
-            c2.metric("同類設定歷史 OOS 中位數", f"{_ref['oos_cagr_median']:.2%}",
-                     help=f"取自凍結表 {_ref['n_cells']} 格同 market/group/ratio/allocation "
-                          f"的設定。這是歷史參照，不是本期預測。")
-            c3.metric("歷史 OOS p10（警戒線）", f"{_ref['oos_cagr_p10']:.2%}")
-        st.info("**本模式沒有樣本外數字**——IS 用掉全部可用資料，依定義沒有 OOS。"
-               "上面兩個數字是「同類設定在歷史上的樣本外表現分布」，"
-               "**不是這一期的預測**。本期的樣本內數字在下方「績效」區，"
-               "並附有為什麼不能當預期報酬的說明。")
+            c2.metric("同類設定歷史樣本外報酬中位數", f"{_ref['oos_cagr_median']:.2%}",
+                     help=f"取自 {_ref['n_cells']} 組相同市場與選股設定的歷史資料。"
+                          f"這是歷史參照，不是本期預測。")
+            c3.metric("歷史樣本外報酬警戒線", f"{_ref['oos_cagr_p10']:.2%}")
+        st.info("**本次沒有樣本外數字**——因為建模時已使用全部可得的歷史資料，"
+               "沒有保留未來可供驗證。上面兩個數字是「同樣設定在歷史上的實際"
+               "表現分布」，**不是這一期的預測**。本期建模期間的數字在下方"
+               "「績效」區，並附有為什麼不能當預期報酬的說明。")
 
-    # 2026-09-10（應用層§6落差①）：跟上一次同一組 RunConfig 身份執行結果的比較。
-    # §8-R6：傳入 window_info 讓它能判斷是不是逆序比較。
     _diff = diff_holdings(holdings.members, find_previous(holdings.config),
                           holdings.window_info)
     if _diff["has_previous"]:
@@ -364,66 +561,63 @@ with tab_holdings:
         if _diff.get("is_chronological") is False:
             st.warning(_diff["direction_note"])
     else:
-        st.caption("這是這組設定（mode/market/group/ratio/allocation/k_mode）第一次執行，"
-                  "沒有前一期可比較。")
+        st.caption("這是這組設定第一次執行，沒有前一期可比較。")
 
-    _cw1, _cw2 = st.columns(2)
-    with _cw1:
-        st.markdown("**窗次資訊**")
-        st.json(holdings.window_info)
-    with _cw2:
-        st.markdown("**樹**")
-        st.json(holdings.tree_info)
+    with st.expander("時間區間與分群模型（詳細資訊）"):
+        _cw1, _cw2 = st.columns(2)
+        with _cw1:
+            st.markdown("**時間區間**")
+            st.json(holdings.window_info)
+        with _cw2:
+            st.markdown("**分群模型**")
+            st.json(holdings.tree_info)
 
     st.markdown("**績效**")
-    # 2026-09-10 使用者回饋：數字一律顯示到小數點第二位——原始 dict 是未格式化的
-    # 浮點數（例如 0.1424137781102339），直接 st.json 會整串洩出來，這裡先轉成
-    # 格式化字串再顯示，底層 holdings.performance 的原始精度不受影響。
     perf = holdings.performance
-    _shown = {"is_cagr": f"{perf['is_cagr']:.2%}", "is_mdd": f"{perf['is_mdd']:.2%}"}
+    _shown = {"建模期年化報酬": f"{perf['is_cagr']:.2%}",
+             "建模期最大回撤": f"{perf['is_mdd']:.2%}"}
     if "is_sharpe" in perf:
-        _shown["is_sharpe"] = f"{perf['is_sharpe']:.2f}"
+        _shown["建模期 Sharpe"] = f"{perf['is_sharpe']:.2f}"
     if holdings.has_oos:
-        _shown.update({"oos_cagr": f"{perf['oos_cagr']:.2%}",
-                      "oos_mdd": f"{perf['oos_mdd']:.2%}",
-                      "oos_sharpe": f"{perf['oos_sharpe']:.2f}"})
-    _shown["n_backfilled"] = perf.get("n_backfilled")
+        _shown.update({"樣本外年化報酬": f"{perf['oos_cagr']:.2%}",
+                      "樣本外最大回撤": f"{perf['oos_mdd']:.2%}",
+                      "樣本外 Sharpe": f"{perf['oos_sharpe']:.2f}"})
+    _shown["候補遞補檔數"] = perf.get("n_backfilled")
     st.json(_shown)
-    # 🔴 R13：IS 不是預期報酬，而且跟 OOS 不可比——兩種模式都要講，
-    # 因為 replay 也會把 is_* 跟 oos_* 並排顯示。
-    st.caption("⚠️ **is_\\* 是樣本內配適值，不是預期報酬**：歷史上 IS CAGR 中位數比實際 "
-              "OOS 高 7.62pp（1.48 倍，900 格中 74.2% 皆然）。但方向不一致——"
-              "IS MDD 與 IS Sharpe 反而比 OOS **更差**，因為 IS 涵蓋 2008 金融海嘯而 "
-              "OOS 窗都從 2013 之後開始。**兩者不可並排比較或相減**（應用層 §8-R13）。")
+    st.caption("⚠️ **建模期的數字是樣本內配適值，不是預期報酬**：歷史上建模期年化"
+              "報酬中位數比實際樣本外報酬高 7.62 個百分點（1.48 倍，900 組歷史"
+              "資料中 74.2% 皆然）。但方向不一致——建模期的最大回撤與 Sharpe 反而"
+              "比樣本外**更差**，因為建模期涵蓋了 2008 年金融海嘯而樣本外驗證期"
+              "都從 2013 年之後開始。**兩者不可並排比較或直接相減。**")
 
-    # R8②：基準對照。之前 UI 完全沒有基準，一份不含基準的投資備忘錄不成立。
     if _ref:
-        st.markdown("**歷史參照與基準**（R8②）")
+        st.markdown("**歷史參照與基準**")
         st.json({
-            "同類設定 OOS CAGR p10／中位數／p90":
+            "同類設定樣本外報酬 p10／中位數／p90":
                 f"{_ref['oos_cagr_p10']:.2%} ／ {_ref['oos_cagr_median']:.2%} ／ "
                 f"{_ref['oos_cagr_p90']:.2%}",
-            "同類設定 OOS MDD 中位數": f"{_ref['oos_mdd_median']:.2%}",
-            "自建宇宙基準 CAGR": f"{_ref['benchmark_cagr']:.2%}",
-            "樣本格數": _ref["n_cells"],
+            "同類設定樣本外最大回撤中位數": f"{_ref['oos_mdd_median']:.2%}",
+            "市場長期平均報酬基準": f"{_ref['benchmark_cagr']:.2%}",
+            "樣本組數": _ref["n_cells"],
         })
-        _m17_note = ("　另注意：台股 A_hrp 相對**市值加權**大盤是輸的（M-17：19.55% vs "
+        _cap_note = ("　另注意：台股組合相對**市值加權**大盤是落後的（19.55% vs "
                     "20.91%），贏的是**等權市場**（15.02%）——差異來自加權方式"
                     "（台積電佔指數 40.23%），**不可說成「贏大盤」**。"
                     if market == "TW" else "")
-        st.caption(f"⚠️ {_ref['caveat']}{_m17_note}")
+        st.caption(f"⚠️ {_ref['caveat']}{_cap_note}")
 
     if holdings.alternative_groups:
-        st.markdown("**候選方案對照**（應用層§6落差③：同一格設定下的其他 H-12 對照組，"
-                   "純呈現既有比較結果，不代表建議改用哪一個——H-26/H-27/M-03 已用"
-                   "統計證據回答過這個問題）")
-        # 正式模式沒有 OOS，替代方案只能給 is_*；欄位名跟著換，不硬套同一個名字。
+        st.markdown("**候選方案對照**（同一設定下，其他選股邏輯的表現，"
+                   "純呈現既有比較結果，不代表建議改用哪一個——這個問題已用"
+                   "長期歷史資料回答過）")
+        # 正式模式沒有樣本外數字，替代方案只能給建模期數字；欄位名跟著換，
+        # 不硬套同一個名字。
         _p = "oos" if holdings.has_oos else "is"
         def _alt_row(name, n, src, note):
-            return {"group": name, "n_members": n,
-                    f"{_p}_cagr": f"{src[f'{_p}_cagr']:.2%}",
-                    f"{_p}_mdd": f"{src[f'{_p}_mdd']:.2%}",
-                    f"{_p}_sharpe": f"{src[f'{_p}_sharpe']:.2f}",
+            return {"選股邏輯": GROUP_LABELS.get(name, name), "持股數": n,
+                    "年化報酬": f"{src[f'{_p}_cagr']:.2%}",
+                    "最大回撤": f"{src[f'{_p}_mdd']:.2%}",
+                    "Sharpe": f"{src[f'{_p}_sharpe']:.2f}",
                     "會增/減幾檔": note}
         alt_rows = [_alt_row(holdings.config.group, holdings.n_members, perf, "（目前選定）")]
         for g, a in holdings.alternative_groups.items():
@@ -434,73 +628,61 @@ with tab_holdings:
         # 🔴 §8-R12 定錨句：單一窗次「看起來選錯」是常態不是例外。
         # 2026-09-11（§9.7 S2）：改成依市場現算，不可沿用寫死的 TW 數字——三市場
         # 開放後那組數字若原樣顯示在 US/XM 上，會把 TW 專屬事實講成通用事實。
+        # 🔴 2026-09-15 code review 抓到的真 bug：這一段原本手動重組跟 memo.py
+        # 的 `_alt_context()` 幾乎一樣的句子（含同一個 `group == "A_hrp"` 特例
+        # 措辭），兩份各自維護，日後改一邊很容易忘記改另一邊（2026-09-14 的
+        # baseline bug 就是這樣同時存在於兩邊）。改成直接呼叫 `_alt_context()`，
+        # UI 只負責套上自己的顯示格式，不重寫句子本身。
         from app.engine import alt_group_win_rates
-        _wr = alt_group_win_rates(market)
-        if _wr is not None:
-            st.caption(
-                f"⚠️ **A_hrp 在報酬類指標上輸給 D／E 是已知的系統性結果，不是本期特例**——"
-                f"{_wr['n_cells']} 格{MARKET_LABELS[market]}歷史逐格對照中，A_hrp 僅"
-                f"**{_wr['calmar_vs_E_top_calmar']:.1%}**（Calmar）／"
-                f"**{_wr['oos_cagr_vs_E_top_calmar']:.1%}**（OOS CAGR）勝過 E_top_calmar。"
-                f"選用 A_hrp 的理由不是報酬優勢"
-                "（M-03/M-03b 已證實 HRP 分群不提供報酬優勢），而是分散度與跨市場回撤控制。"
-                "是否更換方法屬政策層決定，不是單期可以判斷的事。")
+        from app.memo import _alt_context
+        if alt_group_win_rates(market, baseline=group) is not None:
+            st.caption(f"⚠️ {_alt_context(market, group)}")
 
-    st.markdown(f"**持股清單**（{holdings.n_members} 檔 strategy_uid，"
-               "⚠️ 策略層級不是股票層級，見 engine.py 的範圍限定）")
-    st.dataframe(pd.DataFrame({"strategy_uid": holdings.members}),
+    st.markdown(f"**持股清單**（{holdings.n_members} 檔策略，"
+               "⚠️ 這是策略層級，不是實際持有的個股）")
+    st.dataframe(pd.DataFrame({"策略": holdings.members}),
                 width="stretch", height=320)
 
     st.markdown("---")
     st.markdown("**股票層級持股明細**（選填）")
-    st.caption("即時查資料庫、用 candidate_index 重建每個策略的選股條件現算——"
+    st.caption("即時查詢資料庫、依每個策略的選股條件現算實際持股——"
               "不是重跑回測。第一次解析要連整個市場的資料，約 1~2 分鐘；"
               "同一個市場之後點擊會用快取，秒開。")
 
-    # 2026-09-10（應用層 §6 落差⑤）：A2「live 模式暫緩」原本把慢時鐘（重建 HRP
-    # 樹，卡在 returns_monthly.parquet 只到 2025-12）跟快時鐘（凍結的策略清單
-    # 現在實際持有哪些股票）混在一起一起暫緩——但快時鐘完全不需要重建樹，
-    # `resolve_holdings()` 對任意日期都成立，「今天」只是眾多可能日期之一。
-    # 這裡加這個選項，把已經驗證過的機制接上真正即時的一半。
-    # 正式模式沒有 OOS 邊界日，那兩個選項要拿掉——留著會出現 None 日期。
-    _date_options = {"IS 結束日（is_end）": holdings.window_info["is_end"]}
+    # 正式模式沒有樣本外邊界日，那兩個選項要拿掉——留著會出現 None 日期。
+    _date_options = {"建模期結束日": holdings.window_info["is_end"]}
     if holdings.has_oos:
-        _date_options["OOS 起始日（oos_start）"] = holdings.window_info["oos_start"]
-        _date_options["OOS 結束日（oos_end）"] = holdings.window_info["oos_end"]
-    _date_options["今天（即時／快時鐘）"] = datetime.date.today().isoformat()
+        _date_options["驗證期起始日"] = holdings.window_info["oos_start"]
+        _date_options["驗證期結束日"] = holdings.window_info["oos_end"]
+    _date_options["今天（即時）"] = datetime.date.today().isoformat()
 
     # ⚠️ 先固定「預設選項」再加自訂日期——不然預設值會被新加的自訂選項擠掉，
     # 改變既有行為（原本正式模式預設選「今天」，不該因為多了一個選項就變成
     # 預設選別的）。
     _default_date_idx = 1 if holdings.has_oos else len(_date_options) - 1
 
-    # 🔴 2026-09-11（§9.8 前瞻驗證）：正式模式需要能指定任意日期（2026-01-01／
-    # 03-31／05-15 三次前瞻驗證的執行時點），不是只有「IS結束日」跟「今天」兩個
-    # 選項。⚠️ 這不是重開「探索模式」的口子——策略選擇仍固定用主線樹（§7.5 G5
-    # 決定不做的是任意 IS 區間／手動 k），這裡動的只是快時鐘的解析日期，
-    # `resolve_holdings(md, row, as_of)` 本來就支援任意日期，只是 UI 沒開。
     if not holdings.has_oos:
         _is_end_ym = pd.Period(holdings.window_info["is_end"], "M")
-        _min_date = (_is_end_ym + 1).start_time.date()   # IS 結束後第一天，避免前視
+        _min_date = (_is_end_ym + 1).start_time.date()   # 建模期結束後第一天，避免前視
         _custom_date = st.date_input(
-            "或自訂日期（§9.8 前瞻驗證：2026-01-01／2026-03-31／2026-05-15）",
+            "或自訂日期",
             value=max(_min_date, datetime.date.today()), min_value=_min_date,
             key="custom_resolve_date")
         _date_options[f"自訂：{_custom_date.isoformat()}"] = _custom_date.isoformat()
     _date_label = st.selectbox("解析哪個時間點的持股", list(_date_options),
                                index=_default_date_idx)
-    if _date_label == "今天（即時／快時鐘）":
+    if _date_label == "今天（即時）":
         if holdings.has_oos:
-            st.caption("⚠️ 策略選擇是這個**歷史窗次**凍結驗證過的結果，只有股票持股是"
-                      "即時算的——這個組合（舊窗的策略＋今天的股票）**不是**正式模式"
+            st.caption("⚠️ 策略選擇是這個**歷史時間點**驗證過的結果，只有股票持股是"
+                      "即時算的——這個組合（過去的策略＋今天的股票）**不是**正式模式"
                       "該有的樣子。要看「現在該持有什麼」請切到正式模式。")
         else:
-            st.caption("✅ **這就是正式模式的完整輸出**：慢時鐘（策略）用到 2025-12 為止的"
-                      "全歷史選出，快時鐘（股票）解析到最新可得的交易日。"
-                      "⚠️ 實際落點通常不是日曆上的今天——財報套各市場自己的法定公告"
-                      "期限、且會被該市場最新股價日截斷（§7.4）。"
-                      + ("XM 混合台美策略，兩個市場的截斷點可能不同（見下方「實際對到"
-                         "交易日」）。" if market == "XM" else ""))
+            st.caption("✅ **這就是正式模式的完整輸出**：策略組合用全部歷史資料選出，"
+                      "個股持股解析到最新可得的交易日。"
+                      "⚠️ 實際落點通常不是日曆上的今天——財報依各市場自己的法定"
+                      "公告期限生效，且會被該市場最新股價日截斷。"
+                      + ("跨市場組合混合台美策略，兩個市場的截斷點可能不同（見下方"
+                         "「實際對到交易日」）。" if market == "XM" else ""))
 
     if st.button("解析持股"):
         try:
@@ -522,40 +704,55 @@ with tab_holdings:
         _dates_display = "、".join(f"{m}:{d}" for m, d in _market_dates.items())
         st.caption(f"實際對到交易日：{_dates_display}"
                   f"（要求日期不是交易日時，取小於等於它的最後一個交易日；"
-                  f"XM 投組混合台美策略，兩個市場的交易日曆不同，可能對到不同日期）")
+                  f"跨市場組合混合台美策略，兩個市場的交易日曆不同，可能對到"
+                  f"不同日期）")
         n_unique = stock_detail["stock_symbol"].nunique()
         st.write(f"{len(stock_detail)} 筆策略-股票對應，{n_unique} 檔不重複股票")
 
-        # 🔴 §8-R5（P3）：真正的股票層級集中度風控。上面 C2 量的是「單一策略」
-        # 權重（1/n_members），在正常組合規模下永遠不會觸發，而且量錯對象——
-        # 老師 9-8 講的台積電集中度是股票層級的事。
-        # ⚠️ 權重公式（1/N策略 × 1/n_i）純以 uid/股票代號計數，跟市場/幣別無關，
-        # XM 混合台美持股不需要另外處理——見 risk.py assess_stock_level docstring。
+        # F2（應用層開發追蹤.md §10.2）：違規時可選擇自動修剪，不是取代
+        # 「攔下＋人工覆核」，是並存的選項——這個開關的狀態全程用同一個
+        # session_state key，稽核紀錄與 AI 解釋兩處呼叫也讀同一個值，
+        # 確保整個畫面對「這次要不要修剪」的認知一致。
+        auto_trim = st.checkbox(
+            "違規時自動修剪（將超額權重依比例分給其他持股，取代人工覆核）",
+            value=False, key="auto_trim_stock_cap")
         try:
-            _sc = assess_stock_level(holdings, stock_detail, as_of=_dates_display)
+            _sc = assess_stock_level(holdings, stock_detail, as_of=_dates_display,
+                                     auto_trim=auto_trim)
         except Exception as e:  # noqa: BLE001
             st.warning(f"股票層級集中度算不出來：{e}")
             _sc = None
         if _sc is not None:
-            st.markdown("**股票層級集中度（C2 真正該量的東西，§8-R5）**")
+            st.markdown("**個股集中度**")
             sc1, sc2, sc3 = st.columns(3)
             sc1.metric("最大單一股票權重", f"{_sc.max_stock_weight:.2%}",
                       f"上限 {holdings.config.single_stock_cap:.2%}",
                       delta_color="inverse" if _sc.violations else "off")
             sc2.metric("最大持股", f"{_sc.max_stock_symbol} "
                                   f"{_sc.names.get(_sc.max_stock_symbol, '')}")
-            sc3.metric("股票層級違規", len(_sc.violations))
-            st.caption("權重定義：w(股票 s) = Σ_{持有 s 的策略 i} (1/N策略) × (1/n_i)，"
-                      "即「策略等權、策略內部對自己的持股等權」——跟研究鏈"
-                      "`_portfolio_series` 的每月拉回等權是同一套慣例。")
+            sc3.metric("違規檔數", len(_sc.violations))
+            st.caption("權重計算方式：每檔策略平分整體資金，再由該策略平分給"
+                      "自己選中的股票——即「策略等權、策略內持股也等權」。")
             if _sc.n_empty_strategies:
                 st.caption(f"ℹ️ 其中 {_sc.n_empty_strategies}/{_sc.n_strategies} 個策略在"
-                          f"{_dates_display} 這天篩選條件湊不出任何股票（視同該份額持有現金，"
-                          f"其權重份額不會轉嫁給其他策略，故 Σweight 可能 < 100%）。")
+                          f"{_dates_display} 這天篩選條件湊不出任何股票（視同該份額"
+                          f"持有現金，其權重不會轉嫁給其他策略，故總權重可能 < 100%）。")
+            if _sc.trimmed:
+                _n_trimmed = sum(1 for s, w in (_sc.raw_weights or {}).items()
+                                 if w > holdings.config.single_stock_cap)
+                st.info(f"✂️ 已自動修剪 {_n_trimmed} 檔超標股票至上限，超額部分已"
+                       f"按比例分給其他持股。下面顯示的都是**修剪後**的權重。")
             if _sc.violations:
-                st.error("🔴 股票層級集中度違規：")
+                st.error("🔴 個股集中度違規：")
                 for v in _sc.violations[:10]:
                     st.write(f"- {v.detail}")
+            elif _sc.trimmed:
+                # 修剪後最大權重會剛好卡在上限（trim_to_cap 的定義就是壓到
+                # cap），不能講「遠低於上限」——那句只適用於本來就沒違規的
+                # 自然狀態，兩種情況要分開講，不然會誤導成「本來就很分散」。
+                st.success(f"✅ 已修剪至合規：{_sc.n_unique_stocks} 檔股票中最大權重"
+                          f"為 {_sc.max_stock_weight:.2%}，不超過 "
+                          f"{holdings.config.single_stock_cap:.2%} 上限")
             else:
                 st.success(f"✅ 通過：{_sc.n_unique_stocks} 檔股票中最大權重僅 "
                           f"{_sc.max_stock_weight:.2%}，遠低於 "
@@ -564,28 +761,25 @@ with tab_holdings:
             _top = pd.DataFrame(_sc.top(15))
             _top["weight"] = _top["weight"].map(lambda x: f"{x:.3%}")
             st.dataframe(_top, width="stretch", hide_index=True)
-            # 台積電對照——這是老師 9-8 直接問的那件事，也連到 v10 §8 的 M-17
-            # ⚠️ XM 投組可能含 TW 策略解出的持股，故 TW／XM 都要檢查，不是只有 TW
+            # 台積電對照可用來檢視組合對單一權值股的實際曝險程度。
+            # 跨市場組合可能含台股策略解出的持股，故台股／跨市場都要檢查。
             _tsmc = _sc.weights.get("2330")
             if holdings.config.market in ("TW", "XM"):
                 if _tsmc:
                     st.info(f"**台積電（2330）在本組合的權重：{_tsmc:.3%}**"
                            f"（被 {_sc.appear_in.get('2330', 0)}/{_sc.n_strategies} 個策略選中）。"
-                           f"對照它在台股指數約佔 **40.23%**（v10 §8 M-17）⇒ "
+                           f"對照它在台股指數約佔 **40.23%** ⇒ "
                            f"本組合對台積電是**極度低配**，不是超配。"
-                           f"這正是 M-17「輸給市值加權大盤、贏過等權市場」的直接原因。")
+                           f"這正是本組合長期落後市值加權大盤、但贏過等權市場"
+                           f"的直接原因。")
                 else:
                     st.info("**台積電（2330）不在本組合持股中。** 對照它在台股指數約佔 "
-                           "**40.23%**（v10 §8 M-17）⇒ 這是完全的低配，也是 M-17"
-                           "「輸給市值加權大盤、贏過等權市場」的直接原因。")
+                           "**40.23%** ⇒ 這是完全的低配，也是本組合長期落後"
+                           "市值加權大盤、但贏過等權市場的直接原因。")
 
-            # §9.8 S5：績效量測（app/performance.py）。2026-09-13 使用者要求
-            # 接進 UI——之前只有 explain agent 進了 UI，performance.py 一直只能
-            # 用 scratchpad 腳本手動跑。🔴 設計鐵則：這裡算出來的數字是**事後
-            # 裁判**，絕對不可回頭餵進上面「產生解釋」的 prompt（§9.8 執行紀律）。
-            st.markdown("**已實現績效（S5，事後量測，跟上面的解釋/風控判斷無關）**")
+            st.markdown("**已實現績效**（事後量測，跟上面的解釋／風控判斷無關）")
             st.caption("算的是「這批持股從解析日到某個結束日，實際發生過的股價"
-                      "變動下賺了多少」——跟 explain/memo 的 LLM 輸出完全獨立，"
+                      "變動下賺了多少」——跟下方 AI 解讀的內容完全獨立，"
                       "只是拿同一批已解析的股票權重去對實際股價。")
             _custom_end = st.checkbox("自訂結束日（預設抓每個市場最新可用價格）",
                                       key="perf_custom_end")
@@ -669,34 +863,37 @@ with tab_holdings:
                                 else:
                                     st.caption("　市值加權大盤：資料庫查詢失敗或無資料，略過")
                         if holdings.config.market == "XM":
-                            st.caption("⚠️ XM 混合台美策略，不合成單一「跨市場大盤」數字"
-                                      "（H7 已定案：CAGR/報酬不可跨市場線性合成），"
+                            st.caption("⚠️ 跨市場組合混合台美策略，不合成單一「跨市場"
+                                      "大盤」數字（報酬無法跨市場線性合成），"
                                       "上面台／美兩個市場基準分開看即可。")
                         st.caption(_perf["caveat"])
                 except Exception as e:  # noqa: BLE001 — 顯示給使用者看，不是要吞掉錯誤
                     st.error(f"已實現報酬計算失敗：{e}")
 
-        st.dataframe(stock_detail, width="stretch", height=280)
+        st.dataframe(stock_detail.rename(columns={
+            "strategy_uid": "策略", "stock_symbol": "股票代號",
+            "company_name": "公司名稱", "stock_market": "市場"}),
+            width="stretch", height=280)
 
-        st.markdown("**跨策略重疊度**（同一檔股票被幾個選中策略同時持有——"
-                    "呼應老師 9-8 的 fund house 風控意見，見應用層開發追蹤.md §2.4）")
+        st.markdown("**跨策略重疊度**（同一檔股票被幾個選中策略同時持有）")
         overlap = (stock_detail.groupby(["stock_symbol", "company_name"])["strategy_uid"]
                   .nunique().reset_index(name="n_strategies")
-                  .sort_values("n_strategies", ascending=False))
+                  .sort_values("n_strategies", ascending=False)
+                  .rename(columns={"stock_symbol": "股票代號", "company_name": "公司名稱",
+                                   "n_strategies": "被幾個策略選中"}))
         st.dataframe(overlap, width="stretch", height=240)
 
-        # 🔴 P3：新面孔 vs 老面孔（老師 9-8 逐字稿原話查證，見 app/new_faces.py docstring）
-        # 「現在這些股票最火的，還是說以前都還不錯都蠻賺錢的」——拿策略選定當下（is_end）
-        # 跟現在的持股做差集回答這個問題。只在有 is_end 可比、且解析日期不是 is_end 本身時顯示。
+        # 拿策略選定當下跟現在的持股做差集，呈現目前持股裡有多少是長期常客、
+        # 多少是近期才符合條件的新面孔。只在解析日期不是策略選定當下時顯示。
         st.markdown("---")
-        st.markdown("**新面孔 vs 老面孔**（P3，老師 9-8 逐字稿原話：「現在這些股票最火的，"
-                    "還是說以前都還不錯都蠻賺錢的」）")
+        st.markdown("**新面孔 vs 老面孔**（目前持股裡，哪些是長期都在的常客、"
+                    "哪些是最近才符合條件的新進成分）")
         _is_end = holdings.window_info.get("is_end")
         if _date_options[_date_label] == _is_end:
-            st.caption("目前解析的日期就是策略選定當下（is_end），沒有時間差可比較。"
+            st.caption("目前解析的日期就是策略選定當下，沒有時間差可比較。"
                       "選別的日期（例如「今天」）才能看出新舊面孔。")
         elif _is_end is None:
-            st.caption("這組設定沒有 is_end 可當比較基準。")
+            st.caption("這組設定沒有可當比較基準的時間點。")
         else:
             if st.button("比較新舊面孔"):
                 try:
@@ -720,15 +917,15 @@ with tab_holdings:
                 st.caption(f"比較：{_prev_disp}（策略選定當下）→ "
                           f"{_cur_disp}（{_date_label}）")
                 f1, f2, f3 = st.columns(3)
-                f1.metric("老面孔（persistent）", len(_fc.old_faces),
+                f1.metric("老面孔", len(_fc.old_faces),
                          f"佔現在持股 {_fc.persistence_rate:.1%}",
-                         help="兩個時點都持有——對應老師說的「以前都還不錯都蠻賺錢」")
-                f2.metric("新面孔（new）", len(_fc.new_faces),
+                         help="兩個時點都持有——長期都在的常客")
+                f2.metric("新面孔", len(_fc.new_faces),
                          f"佔現在持股 {_fc.turnover_rate:.1%}",
-                         help="只在現在持有——對應老師說的「現在這些股票最火的」")
-                f3.metric("淡出（exited）", len(_fc.exited),
+                         help="只在現在持有——最近才符合條件的新進成分")
+                f3.metric("淡出", len(_fc.exited),
                          help="只在策略選定當下持有，現在已經不符合條件")
-                st.caption("⚠️ 這個比較橫跨財報更新（快時鐘 B1，季度），"
+                st.caption("⚠️ 這個比較橫跨了財報更新（季度換股），"
                           "高換手率是正常現象，不代表策略異常。")
                 names_map = _get_company_names(holdings.config.market)
                 for label, syms in (("老面孔", _fc.old_faces), ("新面孔", _fc.new_faces),
@@ -736,59 +933,67 @@ with tab_holdings:
                     with st.expander(f"{label}（{len(syms)} 檔）"):
                         if syms:
                             st.dataframe(pd.DataFrame(
-                                {"stock_symbol": syms,
-                                 "company_name": [names_map.get(s, "") for s in syms]}),
+                                {"股票代號": syms,
+                                 "公司名稱": [names_map.get(s, "") for s in syms]}),
                                 width="stretch", hide_index=True, height=200)
                         else:
                             st.caption("（無）")
 
 # ---------- 風險儀表板（L2） ----------
 with tab_risk:
-    st.subheader("風控檢查（C2/C3）")
+    st.subheader("風控檢查")
     c1, c2, c3 = st.columns(3)
     c1.metric("單檔權重（等權）", f"{risk.max_single_weight:.2%}",
              f"上限 {holdings.config.single_stock_cap:.2%}")
-    c2.metric("最大群佔比", f"{risk.max_cluster_share:.2%}",
-             f"上限 {holdings.config.cluster_cap:.2%}（{holdings.config.allocation}）")
+    c2.metric("最大策略群佔比", f"{risk.max_cluster_share:.2%}",
+             f"上限 {holdings.config.cluster_cap:.2%}"
+             f"（{ALLOCATION_LABELS[holdings.config.allocation]}）")
     c3.metric("涵蓋群數", risk.n_clusters_covered)
     if risk.portfolio_mdd is not None:
-        st.caption(f"組合 MDD：{risk.portfolio_mdd:.2%}　"
+        st.caption(f"組合最大回撤：{risk.portfolio_mdd:.2%}　"
                   f"組合年化波動：{risk.portfolio_ann_vol:.2%}")
 
-    st.markdown("**因子曝險與市場/情境分布**（應用層§6落差②：T8 本來就算好、先前沒接進 UI 的數字）")
-    st.json({
-        "factor_exposure_F1": {k: f"{v:.2%}" for k, v in risk.factor_exposure_f1.items()},
-        "market_share": {k: f"{v:.2%}" for k, v in risk.market_share.items()},
-        "regime_avg_ret": {k: f"{v:.2%}" for k, v in risk.regime_avg_ret.items()},
-    })
+    st.markdown("**因子曝險與市場／情境分布**")
+    _risk_json = {
+        "主力因子曝險": {k: f"{v:.2%}" for k, v in risk.factor_exposure_f1.items()},
+        "市場分布": {k: f"{v:.2%}" for k, v in risk.market_share.items()},
+    }
+    # 🔴 2026-09-15 code review 抓到的真 bug：這個統計是用策略完整歷史算出來的
+    # 條件式報酬，驗證模式下對早期窗次而言含這一窗當下還沒發生的未來資料，
+    # 跟今天在 explain.py／scenario.py 修過的前視問題是同一類，只是這裡（風控
+    # 儀表板的顯示）之前沒同步修。只在正式模式顯示，驗證模式改給說明。
+    if holdings.config.mode == "live":
+        _risk_json["各景氣情境平均報酬"] = {k: f"{v:.2%}" for k, v in risk.regime_avg_ret.items()}
+    st.json(_risk_json)
+    if holdings.config.mode == "replay":
+        st.caption("ℹ️ 驗證模式不顯示「各景氣情境平均報酬」——該統計用策略完整"
+                  "歷史計算，對這一窗而言會含當下還沒發生的未來資料，只在正式"
+                  "模式提供。")
 
     st.markdown("---")
-    st.subheader("校準監控（C5）")
-    st.caption(f"對 {calib.thresholds.n_cells} 個歷史格子的 p10 分位反推的警戒線"
+    st.subheader("校準監控")
+    st.caption(f"依 {calib.thresholds.n_cells} 組歷史資料設定的警戒線"
               "（示警用，不是強制關卡）")
     if calib.evaluable:
         cc1, cc2 = st.columns(2)
-        cc1.metric("OOS CAGR", f"{calib.oos_cagr:.2%}",
-                  f"p10 門檻 {calib.thresholds.oos_cagr_p10:.2%}",
+        cc1.metric("樣本外年化報酬", f"{calib.oos_cagr:.2%}",
+                  f"警戒線 {calib.thresholds.oos_cagr_p10:.2%}",
                   delta_color="inverse" if calib.below_cagr else "off")
-        cc2.metric("OOS Calmar", f"{calib.oos_calmar:.2f}",
-                  f"p10 門檻 {calib.thresholds.oos_calmar_p10:.2f}",
+        cc2.metric("樣本外風險調整後報酬", f"{calib.oos_calmar:.2f}",
+                  f"警戒線 {calib.thresholds.oos_calmar_p10:.2f}",
                   delta_color="inverse" if calib.below_calmar else "off")
         if calib.flagged:
             st.warning("⚠️ 這次表現明顯偏離歷史常態分布，只是提醒，不會攔下執行")
     else:
-        # 🔴 §8-R3：正式模式沒有 OOS，不假裝判定得出來。門檻仍顯示，當作日後基準。
-        st.info(f"**狀態：{calib.status}**（門檻已立起來，尚未判定）")
+        st.info("**狀態：尚無樣本外資料可比對**（警戒線已設定，等待未來實際表現）")
         cc1, cc2 = st.columns(2)
-        cc1.metric("OOS CAGR 警戒線（日後基準）", f"{calib.thresholds.oos_cagr_p10:.2%}")
-        cc2.metric("OOS Calmar 警戒線（日後基準）", f"{calib.thresholds.oos_calmar_p10:.2f}")
+        cc1.metric("年化報酬警戒線（日後基準）", f"{calib.thresholds.oos_cagr_p10:.2%}")
+        cc2.metric("風險調整後報酬警戒線（日後基準）", f"{calib.thresholds.oos_calmar_p10:.2f}")
         st.caption(calib.note)
 
     st.markdown("---")
-    st.subheader("執行覆核與稽核紀錄（C4/F2）")
+    st.subheader("執行覆核與稽核紀錄")
 
-    # 🔴 §8-R4：把「這次實際持有哪些股票」一併寫進稽核紀錄。有解析過就帶上，
-    # 沒解析就誠實記成「本次未解析」——不假裝有。
     _sd = st.session_state.get("stock_detail")
     _sd_date = st.session_state.get("stock_detail_date")   # {市場: 交易日} dict
     if _sd is not None and len(_sd):
@@ -807,7 +1012,8 @@ with tab_risk:
             try:      # §8-R5：股票層級集中度判決要一起留痕
                 _dates = st.session_state.get("stock_detail_date") or {}
                 _conc = assess_stock_level(
-                    holdings, _s, as_of="、".join(f"{m}:{d}" for m, d in _dates.items()))
+                    holdings, _s, as_of="、".join(f"{m}:{d}" for m, d in _dates.items()),
+                    auto_trim=st.session_state.get("auto_trim_stock_cap", False))
             except Exception:  # noqa: BLE001 — 算不出來就不記，不能因此擋掉稽核寫入
                 _conc = None
         # §9.7 S4：live 模式若已產生過解釋（app/explain.py），一併存進稽核紀錄——
@@ -843,141 +1049,116 @@ with tab_risk:
 
 # ---------- AI 解讀（L3） ----------
 with tab_ai:
-    # 🔴 2026-09-11（§9）：解釋 agent（10 欄位，能做獨立分析判斷）只在 live 模式
-    # 啟用——R15（群檔案全樣本前視）／R16（基準只涵蓋 62.2% 窗次）／H8（每窗 k
-    # 不同，群 id 對不上）三個問題全部只存在於 replay 模式。replay 模式繼續用
-    # 下面的六欄位 memo（程式判決、LLM 只負責轉述），不套用新邏輯。
-    if holdings.config.mode == "live":
-        st.subheader("AI 解讀（解釋 Agent · §9，10 欄位獨立分析）")
-        st.caption("跟 replay 模式的六欄位備忘錄不同：這裡的 LLM **可以做事實推論**"
-                  "（把提供的數字放在一起講出關聯或型態），但**不能做價值判決**"
-                  "（例如建議換方案）——界線見應用層開發追蹤.md §9.7 R17。")
+    # 🔴 2026-09-15：兩種模式現在共用同一套解釋 agent（原本驗證模式只有六欄位
+    # 的轉譯器 memo.py，使用者明確要求「不是我要的」，改成跟正式模式一樣）。
+    # 能這樣做是因為 R15（群知識庫全樣本前視）／H8（每窗群 id 對不上）已經在
+    # `explain.assemble_facts()` 裡修好：驗證模式改用該窗次自己現場重建的樹
+    # 現算群統計，不讀主線樹的全樣本群知識庫。R16（基準涵蓋率）查證後不適用
+    # （這裡用的基準跟 R16 講的那組是不同的東西）。細節見
+    # 應用層開發追蹤.md §10.7。`memo.py` 六欄位版本仍保留給 `cli.py` 用，
+    # 不刪除，只是這個分頁不再呼叫它。
+    st.subheader("AI 解讀")
+    st.caption("這裡的 LLM **可以做事實推論**（把提供的數字放在一起講出關聯"
+              "或型態），但**不能做價值判決**（例如建議換方案）。")
+    if holdings.config.mode == "replay":
+        st.caption("ℹ️ 驗證模式：群身份與機制敘述改用這一窗自己重建的樹現場"
+                  "計算，只涵蓋這一窗的建模期間，不套用正式模式那種全樣本"
+                  "群知識庫（避免引用這一窗當下還沒發生的未來資訊）——需要"
+                  "現場重建樹，第一次執行約需 1-2 分鐘。")
 
-        stock_detail = st.session_state.get("stock_detail")
-        if stock_detail is None:
-            st.info("請先到「本期持倉」分頁按「解析持股」——解釋 agent 需要股票層級"
-                    "持股（老師 9-8 原話①②③都要用到）才能產生。")
-        else:
-            dry_run = st.checkbox("dry-run（不花錢，不真的呼叫 LLM）", value=True,
-                                  key="explain_dry_run")
-            purpose = "app_memo"
-            if not dry_run:
-                st.warning("⚠️ config.ini 還沒設定 `[openai] app_memo_model` 這個 key，"
-                          "需要借用既有 purpose 的模型設定跟額度記帳")
-                purpose = st.text_input("借用哪個 purpose 的模型設定", value="cluster_story",
-                                        key="explain_purpose")
-
-            if st.button("產生解釋"):
-                try:
-                    from app.explain import generate as generate_explain
-                    from app.cluster_kb import build_footprint
-
-                    _market_dates = st.session_state["stock_detail_date"]
-                    _sc = assess_stock_level(
-                        holdings, stock_detail,
-                        as_of="、".join(f"{m}:{d}" for m, d in _market_dates.items()))
-                    _footprint = build_footprint(holdings.config.market, holdings.members)
-                    _idx = _get_candidate_index()
-                    _needed = markets_needed(_idx, holdings.members)
-                    _md_map = {m: _get_market_data(m) for m in _needed}
-                    with st.spinner("組裝資料並產生解釋中…"):
-                        result = generate_explain(
-                            holdings, risk, calib, stock_detail=stock_detail,
-                            stock_concentration=_sc, market_dates=_market_dates,
-                            footprint=_footprint, md_map=_md_map,
-                            face_comparison=st.session_state.get("face_comparison"),
-                            dry_run=dry_run, purpose=purpose)
-                except RuntimeError as e:
-                    st.error(f"🔴 {e}")
-                    st.session_state["explain_result"] = None
-                else:
-                    st.session_state["explain_result"] = result
-
-            explain_result = st.session_state.get("explain_result")
-            if explain_result:
-                labels = {
-                    "strategy_footprint_note": "一之1｜策略層：群足跡與身份",
-                    "stock_holdings_note": "一之2｜股票層：持股與重疊度",
-                    "mechanism_note": "二｜為什麼這樣挑會賺錢",
-                    "character_note": "三｜這批的性格：追火 vs 一直賺",
-                    "concentration_risk_note": "四之1/2｜集中度風險",
-                    "structure_risk_note": "四之3/4/5｜結構風險",
-                    "scenario_note": "五｜情境比對",
-                    "change_note": "六之a｜跟上次相比",
-                    "alternative_note": "六之b｜候選方案對照",
-                    "caveat": "七｜限制說明",
-                }
-                for k, label in labels.items():
-                    st.markdown(f"**{label}**")
-                    st.write(explain_result["explanation"][k])
-                # §9.8 層四：風險提示，每條自帶事後可查核的判準（新增欄位，
-                # 2026-09-12——原設計漏做進 schema，補上後 9 組全部重跑過）。
-                st.markdown("**八｜風險提示（§9.8 層四，每條附事後檢驗判準）**")
-                for rf in explain_result["explanation"]["risk_flags"]:
-                    st.write(f"- **風險**：{rf['risk']}")
-                    st.caption(f"　檢驗判準：{rf['verification_criterion']}")
-                if explain_result["dry_run"]:
-                    st.caption("此為 dry-run 內容，未實際呼叫 LLM")
-                else:
-                    # §9.8 層二：D2 數字洩漏掃描——沒抓到問題不代表這份解釋一定
-                    # 沒錯（只查數字，見 memo.py docstring 的已知限制），但這是
-                    # 第一道防線，通過是必要條件不是充分條件。
-                    if explain_result["leakage_check"]:
-                        st.error("D2 洩漏掃描發現問題：\n" +
-                                "\n".join(explain_result["leakage_check"]))
-                    else:
-                        st.success("✅ D2 洩漏掃描通過（解釋裡的數字都能對回判決資料）")
-                with st.expander("查看餵給 LLM 的完整客觀資料（JSON）"):
-                    # facts 裡有些欄位直接來自 parquet（numpy 純量型別），st.json()
-                    # 不吃這些型別——跟 build_prompt() 一樣先用 json 往返轉成純
-                    # Python 型別再顯示，不是顯示邏輯本身能處理，是資料型別問題。
-                    st.json(json.loads(json.dumps(explain_result["facts"],
-                                                  ensure_ascii=False, default=str)))
+    stock_detail = st.session_state.get("stock_detail")
+    if stock_detail is None:
+        st.info("請先到「本期持倉」分頁按「解析持股」——AI 解讀需要股票層級"
+                "持股資料才能產生。")
     else:
-        st.subheader("AI 解讀（D1/D2 · IC memo）")
-        st.caption("架構比照 cluster_story／cluster_identity：程式先算出判決，"
-                  "LLM 只負責把「為什麼是這個判決」轉述成人話，不准自己推論、"
-                  "不准引用沒被餵給它的數字")
-
-        dry_run = st.checkbox("dry-run（不花錢，不真的呼叫 LLM）", value=True)
+        dry_run = st.checkbox("dry-run（不花錢，不真的呼叫 LLM）", value=True,
+                              key="explain_dry_run")
         purpose = "app_memo"
         if not dry_run:
-            st.warning("⚠️ config.ini 還沒設定 `[openai] app_memo_model` 這個 key，"
-                      "需要借用既有 purpose 的模型設定跟額度記帳（帳本上會記成那個 "
-                      "purpose 的用量）")
-            purpose = st.text_input("借用哪個 purpose 的模型設定", value="cluster_story")
+            st.warning("⚠️ 尚未設定此功能專用的 AI 模型，需要借用其他功能"
+                      "已設定的模型")
+            purpose = st.text_input("借用哪一組模型設定", value="cluster_story",
+                                    key="explain_purpose")
 
-        if st.button("產生備忘錄"):
+        if st.button("產生解釋"):
             try:
-                result = generate_memo(holdings, risk, calib, dry_run=dry_run, purpose=purpose)
+                from app.explain import generate as generate_explain
+
+                _market_dates = st.session_state["stock_detail_date"]
+                _sc = assess_stock_level(
+                    holdings, stock_detail,
+                    as_of="、".join(f"{m}:{d}" for m, d in _market_dates.items()),
+                    auto_trim=st.session_state.get("auto_trim_stock_cap", False))
+                _idx = _get_candidate_index()
+                _needed = markets_needed(_idx, holdings.members)
+                _md_map = {m: _get_market_data(m) for m in _needed}
+                # ⚠️ 不在這裡先建 footprint——讓 `generate_explain` 內部依
+                # `holdings.config.mode` 自己決定要用主線樹（live）還是這一窗
+                # 現場重建的樹（replay），呼叫端傳錯樹的風險就不存在。
+                with st.spinner("組裝資料並產生解釋中…" if holdings.config.mode == "live"
+                                else "重建這一窗的分群樹並組裝資料中（約 1-2 分鐘）…"):
+                    result = generate_explain(
+                        holdings, risk, calib, stock_detail=stock_detail,
+                        stock_concentration=_sc, market_dates=_market_dates,
+                        md_map=_md_map,
+                        face_comparison=st.session_state.get("face_comparison"),
+                        dry_run=dry_run, purpose=purpose)
             except RuntimeError as e:
                 st.error(f"🔴 {e}")
-                st.session_state["memo_result"] = None
+                st.session_state["explain_result"] = None
             else:
-                st.session_state["memo_result"] = result
+                st.session_state["explain_result"] = result
 
-        memo_result = st.session_state.get("memo_result")
-        if memo_result:
-            labels = {"summary": "本期選股摘要", "risk_note": "風控說明",
-                     "calibration_note": "校準監控說明",
-                     "change_note": "跟上次相比（應用層§6落差①）",
-                     "alternative_note": "候選方案對照（應用層§6落差③）",
-                     "caveat": "限制說明"}
+        explain_result = st.session_state.get("explain_result")
+        if explain_result:
+            labels = {
+                "strategy_footprint_note": "策略組成與群特性",
+                "stock_holdings_note": "持股與重疊度",
+                "mechanism_note": "為什麼這樣選股會賺錢",
+                "character_note": "追高股 或 長期績優股",
+                "concentration_risk_note": "集中度風險",
+                "structure_risk_note": "結構風險",
+                "scenario_note": "情境比對",
+                "change_note": "跟上次相比",
+                "alternative_note": "其他選股邏輯比較",
+                "caveat": "限制說明",
+            }
             for k, label in labels.items():
                 st.markdown(f"**{label}**")
-                st.write(memo_result["memo"][k])
-            if memo_result["dry_run"]:
+                st.write(explain_result["explanation"][k])
+            if holdings.config.mode == "replay":
+                st.markdown("**事後機制歸因**（已知這一窗實際結果後回頭指出可能"
+                           "機制，不是預測；每條皆附可查核的歸因判準）")
+                flag_label, crit_label = "觀察", "歸因判準"
+            else:
+                st.markdown("**風險提示**（每條皆附可事後驗證的檢驗標準）")
+                flag_label, crit_label = "風險", "檢驗標準"
+            for rf in explain_result["explanation"]["risk_flags"]:
+                st.write(f"- **{flag_label}**：{rf['risk']}")
+                st.caption(f"　{crit_label}：{rf['verification_criterion']}")
+            if explain_result["dry_run"]:
                 st.caption("此為 dry-run 內容，未實際呼叫 LLM")
-            elif holdings.config.mode == "replay":
-                if memo_result["leakage_check"]:
-                    st.error("D2 洩漏掃描發現問題：\n" + "\n".join(memo_result["leakage_check"]))
+            else:
+                # 自動一致性檢查——沒抓到問題不代表這份解釋一定沒錯（只查
+                # 數字，不查敘述邏輯），但這是第一道防線，通過是必要條件
+                # 不是充分條件。
+                if explain_result["leakage_check"]:
+                    st.error("自動一致性檢查發現問題：\n" +
+                            "\n".join(explain_result["leakage_check"]))
                 else:
-                    st.success("✅ D2 洩漏掃描通過（memo 裡的數字都能對回判決資料）")
+                    st.success("✅ 自動一致性檢查通過（解釋裡的數字都能對回"
+                              "判決資料）")
+            with st.expander("查看提供給 AI 的完整客觀資料"):
+                # facts 裡有些欄位直接來自 parquet（numpy 純量型別），st.json()
+                # 不吃這些型別——跟 build_prompt() 一樣先用 json 往返轉成純
+                # Python 型別再顯示，不是顯示邏輯本身能處理，是資料型別問題。
+                st.json(json.loads(json.dumps(explain_result["facts"],
+                                              ensure_ascii=False, default=str)))
 
 # ---------- 歷史版本比較（F1） ----------
 with tab_history:
     st.subheader("歷史版本比較")
-    st.caption("F1：全部保留。讀取 audit_log.jsonl 的每筆執行紀錄")
+    st.caption("每一次執行都會留下紀錄，全部保留、可回頭查詢比對")
     rows = []
     if LOG_PATH.exists():
         with open(LOG_PATH, encoding="utf-8") as f:
@@ -989,14 +1170,16 @@ with tab_history:
                 cfg = e["config"]
                 anchor = cfg.get("replay_anchor") or {}
                 rows.append({
-                    "執行時間": e["recorded_at"], "市場": cfg["market"], "group": cfg["group"],
-                    "ratio": cfg["ratio"], "allocation": cfg["allocation"],
-                    "scheme": anchor.get("scheme"), "window_no": anchor.get("window_no"),
+                    "執行時間": e["recorded_at"],
+                    "市場": MARKET_LABELS.get(cfg["market"], cfg["market"]),
+                    "選股邏輯": GROUP_LABELS.get(cfg["group"], cfg["group"]),
+                    "持股規模": _ratio_label(cfg["ratio"]),
+                    "採樣方式": ALLOCATION_LABELS.get(cfg["allocation"], cfg["allocation"]),
+                    "回測方案": anchor.get("scheme"), "回測期次": anchor.get("window_no"),
                     "持股數": e["n_members"],
-                    # 2026-09-10 使用者回饋：數字一律顯示到小數點第二位（跟其他分頁一致）。
-                    "OOS CAGR": (f"{e['performance']['oos_cagr']:.2%}"
+                    "樣本外年化報酬": (f"{e['performance']['oos_cagr']:.2%}"
                                 if e["performance"].get("oos_cagr") is not None else None),
-                    "OOS MDD": (f"{e['performance']['oos_mdd']:.2%}"
+                    "樣本外最大回撤": (f"{e['performance']['oos_mdd']:.2%}"
                                if e["performance"].get("oos_mdd") is not None else None),
                     "違規數": len(e["risk"]["violations"]),
                     "覆核原因": e.get("override_reason") or "",

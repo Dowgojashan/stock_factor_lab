@@ -107,13 +107,14 @@ def check(holdings: Holdings) -> CalibrationResult:
             thresholds=th, oos_cagr=None, oos_calmar=None,
             below_cagr=False, below_calmar=False,
             status="tracking_started",
-            note=(f"正式模式無 OOS（IS {holdings.window_info['is_start']}~"
-                  f"{holdings.window_info['is_end']} 用掉全部資料）。門檻已立起來"
-                  f"作為日後基準：OOS CAGR < {th.oos_cagr_p10:.2%} 或 "
-                  f"OOS Calmar < {th.oos_calmar_p10:.3f} 時示警（取自 {th.n_cells} "
-                  f"格歷史）。⚠️ 實現績效要等 returns_monthly 延長到 IS 結束之後"
-                  f"才算得出來，目前資料上不存在，故本次不做判定。"
-                  f"⚠️ 另注意此門檻本身已被候選池全樣本篩選高估（§8-R1）。"))
+            note=(f"本次使用了 {holdings.window_info['is_start']}～"
+                  f"{holdings.window_info['is_end']} 的全部歷史資料建模，尚無後續"
+                  f"實際表現可比對。已依歷史資料設定警戒線：年化報酬率低於 "
+                  f"{th.oos_cagr_p10:.2%}，或風險調整後報酬低於 "
+                  f"{th.oos_calmar_p10:.3f} 時將發出警示（取自 {th.n_cells} 組"
+                  f"歷史資料）。實際績效需待未來持有一段時間後才能評估。"
+                  f"⚠️ 此警戒線本身取自長期績效篩選後的策略池，數字可能偏高，"
+                  f"僅供參考。"))
 
     oos_cagr = holdings.performance["oos_cagr"]
     oos_mdd = holdings.performance["oos_mdd"]

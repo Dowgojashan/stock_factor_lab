@@ -51,11 +51,22 @@ import dataclasses
 import pandas as pd
 
 from research import paths
+from research import stage3_hrp as S3
+from research import walkforward_matrix as WF
 from research.contracts import BENCHMARK_CAGR   # R8②：基準對照
-from .config import RunConfig
+from . import clustering
+from .config import GROUP_LABELS, RunConfig
 
 MEMBERS_PATH = paths.ROOT / "_analysis_outputs_robustness" / "walkforward_members.parquet"
 DETAIL_PATH = paths.ROOT / "_analysis_outputs_robustness" / "walkforward_matrix_detail.csv"
+
+#: F1（應用層開發追蹤.md §10.1／§10.5-R-A2）：跨市場混合的貨幣揭露——
+#: 台股報酬以 TWD 計、美股以 USD 計，混合時直接加權組合，未做匯率調整
+#: （v10 §8 既有限制，M-06）。抽成常數讓 XM 既有處與這裡共用同一份文字，
+#: 不要各寫一份、以後改一邊忘了改另一邊。
+FX_CAVEAT = ("跨市場混合的報酬序列以各自幣別計算後直接加權組合"
+            "（台股 TWD／美股 USD），未做匯率調整——真實投資人配置美股"
+            "會承擔匯率波動，這裡的混合績效無法反映這個效果。")
 
 # H-12 四組對照裡，跟 RunConfig.group 同義的候選方案代號（B_all/C_random 沒有
 # 固定的 members 清單可比，不納入並列比較）。
@@ -189,12 +200,13 @@ def _run_replay(cfg: RunConfig) -> Holdings:
                   "is_start": str(row["is_start"]), "is_end": str(row["is_end"]),
                   "n_is_months": int(perf["n_is_months"])},
         validation={
-            "label": "✅ 方法已驗證",          # G7：replay 直接讀凍結窗次，定義上已驗證
-            "reason": (f"直接讀 H-26/H-27 凍結矩陣的第 {int(row['window_no'])} 窗"
-                      f"（方案 {row['scheme']}），該格本身就是驗證資料的一部分"),
+            "label": "✅ 方法已驗證",
+            "reason": (f"這是歷史回測資料庫中第 {int(row['window_no'])} 個時間窗"
+                      f"（{row['scheme']} 方案）的實際結果，屬於已驗證的歷史資料"),
             "structural_caveat": (
-                "本窗有真實 OOS 可比對，但 OOS 絕對數字已被候選池全樣本篩選高估"
-                "（§8-R1），只可作相對比較與校準基準，不可當預期報酬。"),
+                "本期有實際的後續表現可供比對，但候選策略池本身是用長期累積績效"
+                "篩選出來的，數字會系統性偏高，僅適合用於相對比較與基準校準，"
+                "不代表未來實際可達到的報酬。"),
         },
         reference_oos=reference_oos_distribution(cfg),
     )
@@ -223,40 +235,52 @@ def reference_oos_distribution(cfg: RunConfig) -> dict | None:
         "oos_cagr_p90": float(sub.oos_cagr.quantile(0.90)),
         "oos_mdd_median": float(sub.oos_mdd.median()),
         "oos_sharpe_median": float(sub.oos_sharpe.median()),
-        "benchmark_cagr": float(BENCHMARK_CAGR.get(cfg.market, float("nan"))),  # R8②
-        "caveat": ("歷史參照，非本期預測；且此分布本身已被候選池全樣本篩選高估"
-                   "（應用層 §8-R1），只可作相對比較與校準基準"),
+        "benchmark_cagr": float(BENCHMARK_CAGR.get(cfg.market, float("nan"))),
+        "caveat": ("此為歷史參照數字，並非本期預測；候選策略池本身以長期績效篩選"
+                   "而成，分布數字會系統性偏高，僅適合作相對比較與基準校準之用。"),
     }
 
 
-def alt_group_win_rates(market: str) -> dict | None:
-    """🔴 2026-09-11（§9.7 S2）：§8-R12 定錨句要用的「A_hrp 對其他候選方案的勝率」，
-    改成依市場現算，不可沿用寫死的 TW 數字（16.8%／13.2%）——三市場開放後那組
-    數字若原樣顯示在 US／XM 的 memo 或 UI 上，會把 TW 專屬事實講成通用事實，
-    是真正的正確性錯誤，不只是措辭問題。
+def alt_group_win_rates(market: str, baseline: str = "A_hrp") -> dict | None:
+    """🔴 2026-09-11（§9.7 S2）：§8-R12 定錨句要用的「目前方法對其他候選方案的
+    勝率」，改成依市場現算，不可沿用寫死的 TW 數字（16.8%／13.2%）——三市場
+    開放後那組數字若原樣顯示在 US／XM 的 memo 或 UI 上，會把 TW 專屬事實講成
+    通用事實，是真正的正確性錯誤，不只是措辭問題。
 
-    實測三市場都有效（900 格 legacy~10% 逐格對照，`walkforward_matrix_detail.csv`）：
+    🔴 2026-09-14 code review 抓到的真 bug：`baseline` 原本寫死是 `"A_hrp"`，
+    呼叫端（`memo._alt_context()`／`ui.py` 候選方案對照）卻把結果講成「目前
+    採用的邏輯」——如果使用者選的 `group` 其實是 `D_top_cagr`／`E_top_calmar`
+    （側邊欄「選股邏輯」下拉選單本來就三個都能選），memo 會講出「目前採用
+    hrp」這種跟實際設定不符、甚至自己比自己的荒謬句子。現在 `baseline` 可以
+    是任何一個 `_ALL_GROUPS` 成員，「其他兩個」動態算出，不寫死是哪兩個。
+
+    實測三市場都有效（900 格 legacy~10% 逐格對照，`walkforward_matrix_detail.csv`，
+    `baseline="A_hrp"` 時）：
         TW：A_hrp 贏 E_top_calmar  Calmar 16.8%／CAGR 13.2%；贏 D_top_cagr 27.0%／23.1%
         US：A_hrp 贏 E_top_calmar  Calmar  8.0%／CAGR  4.2%；贏 D_top_cagr 21.9%／ 2.4%
         XM：A_hrp 贏 E_top_calmar  Calmar 34.0%／CAGR 17.1%；贏 D_top_cagr 45.0%／17.7%
     """
+    if baseline not in _ALL_GROUPS:
+        raise ValueError(f"baseline 必須是 {_ALL_GROUPS} 之一，收到 {baseline!r}")
+    others = [g for g in _ALL_GROUPS if g != baseline]
+
     df = pd.read_csv(DETAIL_PATH)
     df["ratio"] = df["ratio"].astype(str)
     df["calmar"] = df.oos_cagr / df.oos_mdd.abs().where(df.oos_mdd.abs() != 0)
     key = ["scheme", "window_no", "k_mode", "ratio", "allocation"]
-    sub = df[(df.tree_key == market) & df.group.isin(("A_hrp", "E_top_calmar", "D_top_cagr"))]
+    sub = df[(df.tree_key == market) & df.group.isin(_ALL_GROUPS)]
     piv = sub.pivot_table(index=key, columns="group", values=["calmar", "oos_cagr"],
                           aggfunc="first").dropna()
     if piv.empty:
         return None
-    out = {"n_cells": int(len(piv))}
-    for other in ("E_top_calmar", "D_top_cagr"):
+    out = {"n_cells": int(len(piv)), "baseline": baseline, "others": others}
+    for other in others:
         for metric in ("calmar", "oos_cagr"):
-            out[f"{metric}_vs_{other}"] = float((piv[(metric, "A_hrp")] > piv[(metric, other)]).mean())
+            out[f"{metric}_vs_{other}"] = float((piv[(metric, baseline)] > piv[(metric, other)]).mean())
     return out
 
 
-def historical_same_setting_windows(cfg: RunConfig) -> list[dict]:
+def historical_same_setting_windows(cfg: RunConfig, as_of_is_end: str | None = None) -> list[dict]:
     """🆕 2026-09-11（§9.4 情境比對②）：同一組設定（market/group/ratio/allocation，
     跟 `reference_oos_distribution()` 用**完全相同的篩選條件**，故列表長度＝
     該函式的 `n_cells`——這裡給的是逐格明細，不是分位數彙總）在凍結矩陣裡逐窗的
@@ -265,11 +289,27 @@ def historical_same_setting_windows(cfg: RunConfig) -> list[dict]:
 
     ⚠️ 跟 `reference_oos_distribution()` 一樣只能當**歷史參照**，不是本次預測；
     且這份分布本身已被候選池全樣本篩選高估（§8-R1）。
+
+    `as_of_is_end`（2026-09-15，驗證模式解釋 agent 用）：只保留 `is_end` **嚴格
+    小於**這個日期的窗次——正式模式不傳（`None`，本來就是全樣本，沒有「未來
+    窗次」這回事）；驗證模式必須傳目前這一窗自己的 `is_end`，否則會把還沒發生
+    （相對這一窗的決策時點）的其他窗次結果也餵給 LLM，是跟群知識庫全樣本前視
+    （R15）同一類問題。
+
+    🔴 2026-09-15 code review 抓到的真 bug：原本用 `<=`（含等號），因為呼叫端
+    傳的就是**這一窗自己的** `is_end`，這一窗自己那一列會通過篩選、混進「歷史
+    對照窗次」清單——等於這一窗的真實 is_end→oos 結果被算了兩次：一次正確地
+    當作「這一窗的績效」（`holdings.performance`），一次又被包裝成「獨立的
+    歷史先例」之一餵給 LLM。改成 `<`（嚴格小於）排除自己，跟姊妹函式
+    `mechanism_consistency()` 用 `oos_end <= as_of_is_end`（因為比較的是不同
+    欄位，天生就不含自己）的安全性質對齊。
     """
     df = pd.read_csv(DETAIL_PATH)
     df["ratio"] = df["ratio"].astype(str)
     sub = df[(df.tree_key == cfg.market) & (df.group == cfg.group)
              & (df.ratio == cfg.ratio) & (df.allocation == cfg.allocation)]
+    if as_of_is_end is not None:
+        sub = sub[sub.is_end < as_of_is_end]
     if sub.empty:
         return []
     sub = sub.sort_values("is_end")
@@ -282,7 +322,7 @@ def historical_same_setting_windows(cfg: RunConfig) -> list[dict]:
     ]
 
 
-def mechanism_consistency(market: str) -> dict | None:
+def mechanism_consistency(market: str, as_of_is_end: str | None = None) -> dict | None:
     """🆕 2026-09-11（§9.4 機制二／三：穩定性＋回撤品質）：A_hrp 對 B_all 的
     OOS CAGR 超額分布，以及三組候選方案的 OOS MDD 排名，依市場現算，不寫死
     投影片上那組 TW 專屬數字（+2.79pp~+3.86pp、勝率 85%~100%）——三市場開放後
@@ -297,9 +337,18 @@ def mechanism_consistency(market: str) -> dict | None:
     `(scheme, window_no, k_mode)` 三欄跟 A_hrp/D_top_cagr 對齊，**不能**用
     `reference_oos_distribution()` 那種含 ratio/allocation 的完整 key，
     不然會撞成 0 列（2026-09-11 實跑抓到過這個問題）。
+
+    `as_of_is_end`（2026-09-15，驗證模式解釋 agent 用）：只納入 `oos_end` 小於
+    等於這個日期的窗次——這個統計本來就是跨全部窗次聚合，若不限制，驗證模式
+    引用它等於在講「這個方法論長期穩不穩」時，用到了對這一窗而言還沒發生的
+    其他窗次結果，是跟 R15 同一類問題（實作這次補丁時才發現也適用在這裡，
+    不是原本 R15/R16/H8 清單裡點名的項目）。早期窗次限制後可能完全沒有
+    可比較的「更早」窗次，此時直接回傳 `None`——這是誠實的結果，不是 bug。
     """
     df = pd.read_csv(DETAIL_PATH)
     df["ratio"] = df["ratio"].astype(str)
+    if as_of_is_end is not None:
+        df = df[df.oos_end <= as_of_is_end]
     base_key = ["scheme", "window_no", "k_mode"]
     full_key = base_key + ["ratio", "allocation"]
 
@@ -385,14 +434,13 @@ def _run_live(cfg: RunConfig) -> Holdings:
                    "is_start": tree.is_start, "is_end": tree.is_end,
                    "n_is_months": int(tree.wide_is.shape[1])},
         validation={
-            "label": "✅ 方法已驗證",              # G7
-            "reason": (f"方法論參數（group={cfg.group}／ratio={cfg.ratio}／"
-                       f"allocation={cfg.allocation}）在 H-26/H-27 驗證集合內，"
-                       f"且樹為 _frozen/stage3 主線樹（{tree.tree_id}，k={tree.k}），"
-                       "是 H-03／ENB／群身份／M 系列共同的基礎"),
+            "label": "✅ 方法已驗證",
+            "reason": (f"本次的分群模型（{tree.tree_id}，共 {tree.k} 群）與選股規則"
+                       "皆屬於已經過長期歷史回測驗證的方法"),
             "structural_caveat": (
-                "本模式的**組合績效**無 OOS 可驗證——IS 用掉全部資料，依定義沒有"
-                "樣本外可留（§7.4b）。已驗證的是方法，不是這一期的績效。"),
+                "本次分群與選股使用了全部可得的歷史資料，沒有保留可驗證的未來"
+                "區間，因此**這一期的組合表現**目前無法驗證——已驗證的是方法本身"
+                "在過去的有效性，不是這一期實際會賺多少。"),
         },
         reference_oos=reference_oos_distribution(cfg),
     )
@@ -400,3 +448,168 @@ def _run_live(cfg: RunConfig) -> Holdings:
 
 def run(cfg: RunConfig) -> Holdings:
     return _run_replay(cfg) if cfg.mode == "replay" else _run_live(cfg)
+
+
+# ============================================================================
+# F1 · 可調式混合（ensemble，應用層開發追蹤.md §10.1／§10.5-R-A1~R-A4）
+# ============================================================================
+#
+# 🔴 設計原則（R-A1）：**不改 `RunConfig`／`Holdings` 本身**。31 處既有程式碼
+# （calibration.py／cli.py／engine.py／explain.py／memo.py／ui.py）直接讀
+# `.config.market`／`.config.group`，假設剛好一個市場、一個方法——混合物件
+# 完全不去碰這些既有路徑，只在新寫的顯示邏輯裡處理，31 處一行都不用改。
+#
+# 每個 leg 都是一份完整、合法、已經跑過 `run()` 的既有 `Holdings`，混合只發生
+# 在算完之後這一層（線性組合已驗證方法的結果，不是重新選股、不是新的統計方法）。
+
+@dataclasses.dataclass
+class BlendLeg:
+    holdings: Holdings
+    weight: float
+
+
+@dataclasses.dataclass
+class BlendHoldings:
+    """F1 混合結果。**刻意不繼承 `Holdings`**——下游任何預期單一
+    market/group 的程式碼都不會意外吃到這個型別（見上方 R-A1 說明）。
+    """
+    legs: list[BlendLeg]
+    stock_weights: dict[str, float]        # stock_symbol -> 混合後權重
+    performance: dict                      # is_*或oos_*（依 has_oos）
+    has_oos: bool
+    reference_oos: dict | None
+    validation: dict
+    is_cross_market: bool
+
+    @property
+    def markets(self) -> list[str]:
+        return sorted({leg.holdings.config.market for leg in self.legs})
+
+    @property
+    def n_unique_stocks(self) -> int:
+        return len(self.stock_weights)
+
+
+def _leg_monthly_series(holdings: Holdings, phase: str, months_long) -> pd.Series:
+    """單一 leg 在 IS 或 OOS 期間的等權投組逐月報酬序列，供 F1 混合用。
+
+    🔴 重用研究部既有公式（`WF._portfolio_series`），不重刻一份算法——兩份
+    算法哪天對不上，會是很難抓到的錯（同一類教訓見 pitfalls.md 六）。
+    """
+    cfg = holdings.config
+    if cfg.mode == "live":
+        if phase != "is":
+            raise ValueError("正式模式沒有樣本外，只能取 is 序列")
+        tree = clustering.load_mainline_tree(cfg.market, months_long, log=lambda *a, **k: None)
+        return WF._portfolio_series(tree.wide_is, holdings.members)
+    wi = holdings.window_info
+    start, end = ((wi["is_start"], wi["is_end"]) if phase == "is"
+                 else (wi["oos_start"], wi["oos_end"]))
+    wide = S3._pivot_window(months_long, pd.Index(holdings.members), start, end)
+    return WF._portfolio_series(wide, holdings.members)
+
+
+def blend_performance(legs: list[BlendLeg]) -> tuple[dict, bool]:
+    """把各 leg 的逐月報酬序列依權重線性組合，回傳 (performance dict, has_oos)。
+
+    🔴 R-A2：CAGR/MDD/Sharpe **不可**直接對點估計做加權平均（v10 §8 已有 XM
+    那次的教訓）——必須先混合逐月序列，再用同一套公式重算。跨市場的兩腳位
+    建模區間長度不同（TW/XM 228 個月、US 288 個月），混合前先對齊到共同重疊
+    月份，不足 12 個月直接拒絕（R-A2 的靜默錯誤防線）。
+    """
+    if len(legs) < 2:
+        raise ValueError("混合至少需要兩個腳位")
+    total_w = sum(leg.weight for leg in legs)
+    if abs(total_w - 1.0) > 1e-6:
+        raise ValueError(f"混合比例總和必須是 100%（目前 {total_w:.1%}）")
+
+    has_oos_flags = {leg.holdings.has_oos for leg in legs}
+    if len(has_oos_flags) > 1:
+        raise ValueError("要混合的腳位必須同時都有樣本外、或同時都沒有——不能混用"
+                         "正式模式（無 OOS）與驗證模式（有 OOS）")
+    has_oos = has_oos_flags.pop()
+    phase = "oos" if has_oos else "is"
+
+    months_long, _meta, _f_combo_map = clustering.load_inputs(log=lambda *a, **k: None)
+    series_list = [(_leg_monthly_series(leg.holdings, phase, months_long), leg.weight)
+                   for leg in legs]
+
+    common_idx = series_list[0][0].index
+    for s, _w in series_list[1:]:
+        common_idx = common_idx.intersection(s.index)
+    if len(common_idx) < 12:
+        raise ValueError("各腳位的可比較期間不足 12 個月，無法混合"
+                         "（可能是跨市場建模區間差異太大）")
+
+    blended = sum(w * s.reindex(common_idx) for s, w in series_list)
+    perf = {
+        f"{phase}_cagr": WF._cagr(blended),
+        f"{phase}_mdd": WF._mdd(blended),
+        f"{phase}_sharpe": WF._sharpe(blended),
+        "n_months_compared": int(len(common_idx)),
+    }
+    return perf, has_oos
+
+
+def blend_reference_oos(legs: list[BlendLeg]) -> dict | None:
+    """R-A4：混合後的歷史參照分布——不重新生成聯合分布（那需要真的把每一格
+    歷史資料重跑一次），改用各 leg 的既有分布依權重加權平均關鍵分位數，並
+    誠實標注這只是加權平均，不是重新算出的聯合分布。
+
+    🔴 2026-09-15 code review 提醒（統計上的正確性，非程式邏輯錯誤）：對
+    p10/p90 這種分位數做加權平均，**結果本身不是任何真實或假設聯合分布的
+    分位數**（分位數不是線性運算，只有在各腳位完全同分布/完全相關等特殊
+    情況下才會剛好等於聯合分布的分位數；一般情況下這只是一個沒有嚴謹統計
+    意義的啟發式數字）。目前這組數字**沒有在畫面上直接顯示**（`ui.py` 只
+    印出 `caveat` 這句話，不印 `oos_cagr_p10` 等實際數值），所以現況不構成
+    誤導使用者的問題；但如果之後有人想把這些數字加進畫面顯示，一定要先
+    看這段說明，不能當成「10% 分位數」的正常意義使用。"""
+    refs = [(leg.holdings.reference_oos, leg.weight) for leg in legs]
+    if any(r is None for r, _ in refs):
+        return None
+    blended = {
+        "oos_cagr_p10": sum(r["oos_cagr_p10"] * w for r, w in refs),
+        "oos_cagr_median": sum(r["oos_cagr_median"] * w for r, w in refs),
+        "oos_cagr_p90": sum(r["oos_cagr_p90"] * w for r, w in refs),
+        "oos_mdd_median": sum(r["oos_mdd_median"] * w for r, w in refs),
+        "benchmark_cagr": sum(r["benchmark_cagr"] * w for r, w in refs),
+        "n_cells": min(r["n_cells"] for r, _ in refs),
+        "caveat": ("此為各腳位歷史分布關鍵分位數的加權平均，不是重新算出的"
+                  "聯合分布，加權平均後的 p10／p90 本身也不是任何真實分布的"
+                  "分位數，只是一個粗略的啟發式數字；且各腳位本身的分布已被"
+                  "候選池全樣本篩選高估，只可作相對比較與基準校準之用，"
+                  "不可解讀成「10% 機率會低於這個數字」。"),
+    }
+    return blended
+
+
+def blend_holdings(legs: list[BlendLeg]) -> BlendHoldings:
+    """組出 F1 的混合結果。呼叫端（`ui.py`）負責先把每個 leg 的 `Holdings`
+    跑出來、把股票層級權重（`risk.assess_stock_level().weights`）解析好，
+    再包成 `BlendLeg` 傳進來——這裡只做混合這一步的算術。
+    """
+    perf, has_oos = blend_performance(legs)
+    ref = blend_reference_oos(legs) if not has_oos else None
+    is_cross_market = len({leg.holdings.config.market for leg in legs}) > 1
+
+    # G7 第四態（R-A4）：混合本身不是被驗證過的獨立方法，各腳位方法／市場
+    # 才是已驗證的——措辭不可跟單一方法的「✅ 方法已驗證」混淆。
+    leg_desc = "、".join(
+        f"{leg.holdings.config.market}/"
+        f"{GROUP_LABELS.get(leg.holdings.config.group, leg.holdings.config.group)}"
+        f"×{leg.weight:.0%}" for leg in legs)
+    validation = {
+        "label": "🔷 已驗證方法／市場的加權組合",
+        "reason": f"各腳位（{leg_desc}）本身都是已驗證的方法，但這個混合比例"
+                 f"是使用者自訂的線性組合",
+        "structural_caveat": ("各腳位方法本身都已驗證，但**這個特定的混合比例**"
+                             "未被歷史回測驗證過整體表現——這是您自訂的線性組合，"
+                             "不是被驗證過的獨立方法。是否採用這個比例屬於"
+                             "您自己的判斷，系統不對這個比例的優劣背書。"),
+    }
+    if is_cross_market:
+        validation["structural_caveat"] += "　" + FX_CAVEAT
+
+    return BlendHoldings(
+        legs=legs, stock_weights={}, performance=perf, has_oos=has_oos,
+        reference_oos=ref, validation=validation, is_cross_market=is_cross_market)

@@ -31,6 +31,7 @@ import re
 
 from .audit import diff_holdings, find_previous
 from .calibration import CalibrationResult
+from .config import GROUP_LABELS
 from .engine import Holdings, alt_group_win_rates
 from .risk import RiskReport, Violation
 
@@ -68,7 +69,10 @@ _SYSTEM_PROMPT = (
     "**禁止寫「贏過大盤」**。\n"
     "10. 若 `change_vs_previous` 裡有 `direction_warning`，代表這是回溯比較不是本期異動，"
     "change_note 必須照實說明，不可寫成「本期換了幾檔」。\n"
-    "11. 若 `validation` 有 `structural_caveat`，caveat 欄位必須包含它的意思。"
+    "11. 若 `validation` 有 `structural_caveat`，caveat 欄位必須包含它的意思。\n"
+    "12. `risk.regime_avg_ret` 在 `mode=\"replay\"` 下會是 `null`——這是刻意的"
+    "設計（該統計用策略完整歷史計算，驗證模式提供會有前視風險），不是資料"
+    "遺漏，看到 `null` 直接略過，不要猜測或補上你自己的版本。"
 )
 
 _MEMO_SCHEMA = {
@@ -181,8 +185,8 @@ def _fmt_reference(ref: dict | None) -> dict | None:
         "n_cells": ref["n_cells"],
         "caveat": ref["caveat"],
         "_benchmark_note": (
-            "benchmark_cagr 是自建宇宙基準（contracts.BENCHMARK_CAGR）。"
-            "⚠️ 台股 A_hrp 相對**市值加權**大盤是輸的（M-17：19.55% vs 20.91%），"
+            "benchmark_cagr 是投資組合所在市場全部股票的長期平均報酬基準。"
+            "⚠️ 台股組合相對**市值加權**大盤是落後的（19.55% vs 20.91%），"
             "贏的是**等權市場**（15.02%）——差異來自加權方式（台積電佔指數 40.23%），"
             "不可寫成「贏大盤」。"),
     }
@@ -215,20 +219,37 @@ def _fmt_alt(alt: dict) -> dict:
 #: 🔴 2026-09-11（§9.7 S2）：原本是寫死 TW 數字（16.8%／13.2%）的靜態字串，三市場
 #: 開放後**不可原樣沿用**——那會把 TW 專屬事實講成通用事實，是正確性錯誤，不只是
 #: 措辭問題。改成依 `holdings.config.market` 現算（`engine.alt_group_win_rates()`）。
-def _alt_context(market: str) -> str:
-    r = alt_group_win_rates(market)
+#:
+#: 🔴 2026-09-14 code review 抓到的真 bug：`market` 是唯一參數，函式內部卻寫死
+#: 「目前採用的『hrp』邏輯」——如果使用者實際選的 `group` 是
+#: `D_top_cagr`／`E_top_calmar`（側邊欄本來就三個都能選，不是只能選 hrp），
+#: 這句話會講錯使用者正在用的方法，甚至出現「目前用 hrp，贏過 hrp」這種
+#: 自己比自己的荒謬句子。改成吃 `group` 當第二個參數，`alt_group_win_rates()`
+#: 也已經同步改成能接受任意 `baseline`（不再寫死 `"A_hrp"`）。
+def _alt_context(market: str, group: str) -> str:
+    r = alt_group_win_rates(market, baseline=group)
     if r is None:
         return ("（此市場沒有可算出定錨句的歷史對照資料，本段從缺——"
                 "不可自行杜撰數字頂替。）")
-    return (
-        f"A_hrp 在報酬類指標上輸給 D_top_cagr／E_top_calmar 是**已知的系統性結果**，"
-        f"不是本期特例——{r['n_cells']} 格{market}市場歷史逐格對照中，A_hrp 僅"
-        f"{r['calmar_vs_E_top_calmar']:.1%}（Calmar）／{r['oos_cagr_vs_E_top_calmar']:.1%}"
-        f"（OOS CAGR）勝過 E_top_calmar；對 D_top_cagr 則是"
-        f"{r['calmar_vs_D_top_cagr']:.1%}／{r['oos_cagr_vs_D_top_cagr']:.1%}。"
-        f"選用 A_hrp 的理由不是報酬優勢（M-03/M-03b 已證實 HRP 分群不提供報酬優勢），"
-        f"而是分散度與跨市場回撤控制。是否更換方法屬政策層決定，"
-        f"不在單期備忘錄的權責內。")
+    _base = GROUP_LABELS.get(group, group)
+    _o1, _o2 = r["others"]
+    _o1_label, _o2_label = GROUP_LABELS.get(_o1, _o1), GROUP_LABELS.get(_o2, _o2)
+    text = (
+        f"目前採用的「{_base}」邏輯在報酬類指標上輸給"
+        f"「{_o1_label}」／「{_o2_label}」是**已知的長期一致現象**，不是本期特例——"
+        f"{r['n_cells']} 格{market}市場歷史逐期對照中，目前邏輯僅"
+        f"{r[f'calmar_vs_{_o1}']:.1%}（風險調整後報酬）／"
+        f"{r[f'oos_cagr_vs_{_o1}']:.1%}（報酬率）勝過「{_o1_label}」；"
+        f"對「{_o2_label}」則是"
+        f"{r[f'calmar_vs_{_o2}']:.1%}／{r[f'oos_cagr_vs_{_o2}']:.1%}。")
+    if group == "A_hrp":
+        # 「為什麼還要用它」的理由是 M-03 對 A_hrp 具體驗證過的結論（分散度與
+        # 跨市場回撤控制），不能原樣套用在另外兩個方法上——我們沒有對
+        # D_top_cagr／E_top_calmar 做過同等的機制研究，硬套等於杜撰理由。
+        text += ("採用目前邏輯的理由不是報酬優勢（長期實證顯示分散配置本身不提供"
+                "額外報酬優勢），而是分散度與跨市場回撤控制。")
+    text += "是否更換選股邏輯屬政策層決定，不在單期報告的權責內。"
+    return text
 
 
 def build_prompt(holdings: Holdings, risk: RiskReport, calib: CalibrationResult) -> str:
@@ -260,7 +281,14 @@ def build_prompt(holdings: Holdings, risk: RiskReport, calib: CalibrationResult)
             # 2026-09-10（應用層 §6 落差②）：T8 本來就算好、先前沒接進 memo 的三組數字。
             "factor_exposure_F1": {k: _pct(v) for k, v in risk.factor_exposure_f1.items()},
             "market_share": {k: _pct(v) for k, v in risk.market_share.items()},
-            "regime_avg_ret": {k: _pct(v) for k, v in risk.regime_avg_ret.items()},
+            # 🔴 2026-09-15 code review 抓到的真 bug：`regime_avg_ret`（T8）是用
+            # 策略**完整 2000-2025 歷史**算出的條件式報酬，驗證模式下對早期窗次
+            # 而言含這一窗當下還沒發生的未來資料，是跟群知識庫全樣本前視（R15）
+            # 同一類問題——`explain.py`／`scenario.regime_snapshot()` 那條路已經
+            # 修過，這裡（`cli.py --memo` 仍在用的六欄位版本）原本沒同步修，
+            # 一併補上：只有正式模式才提供，驗證模式給 `None`。
+            "regime_avg_ret": ({k: _pct(v) for k, v in risk.regime_avg_ret.items()}
+                              if holdings.config.mode == "live" else None),
         },
         "calibration": {
             # §8-R3：正式模式 status="tracking_started"，oos_* 是 None
@@ -279,7 +307,7 @@ def build_prompt(holdings: Holdings, risk: RiskReport, calib: CalibrationResult)
                           holdings.window_info)),
         # 2026-09-10（應用層 §6 落差③）：同一格設定下的其他候選方案（H-12 四組對照）。
         "alternative_groups": {g: _fmt_alt(v) for g, v in holdings.alternative_groups.items()},
-        "alternative_context": _alt_context(holdings.config.market),  # §8-R12 定錨句，照抄用
+        "alternative_context": _alt_context(holdings.config.market, holdings.config.group),  # §8-R12 定錨句，照抄用
     }
     return (
         "【程式判決 · 不可推翻，數字已格式化，請照抄】\n"

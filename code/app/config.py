@@ -38,6 +38,15 @@ Market = Literal["TW", "US", "XM"]
 DEFAULT_SINGLE_STOCK_CAP = {"TW": 0.08, "US": 0.10, "XM": 0.14}
 DEFAULT_CLUSTER_CAP_EQUAL = {"TW": 0.25, "US": 0.30, "XM": 0.40}
 DEFAULT_CLUSTER_CAP_PROPORTIONAL = {"TW": 0.50, "US": 0.55, "XM": 0.60}
+
+#: 選股邏輯代號的顯示名稱——內部代號（A_hrp/D_top_cagr/E_top_calmar/B_all）
+#: 對應到研究資料的欄位值，不能改；這裡只提供給畫面與 AI 說明文字用的人話名稱。
+GROUP_LABELS = {
+    "A_hrp": "hrp",
+    "D_top_cagr": "top_CAGR",
+    "E_top_calmar": "top_calmar",
+    "B_all": "全市場等權買入",
+}
 Allocation = Literal["equal", "proportional"]
 #: `mainline_h03` 是 2026-09-10（§7 P2）為正式模式新增的：k 來自 `_frozen/stage3/`
 #: 主線樹，由 H-03 用輪廓係數在**完整共同窗**（TW 2007-01~2025-12，228 個月）上選出

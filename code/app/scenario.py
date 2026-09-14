@@ -55,7 +55,8 @@ def weighted_annual_returns(footprint: ClusterFootprint) -> dict[int, float]:
     return out
 
 
-def regime_snapshot(market: str, as_of_map: dict[str, str], regime_avg_ret: dict[str, float]) -> dict:
+def regime_snapshot(market: str, as_of_map: dict[str, str],
+                    regime_avg_ret: dict[str, float] | None) -> dict:
     """③：現在是牛/熊/危機/盤整哪一段（`ops.tools.t11_get_current_regime`，跟
     研究部階段 2a 同一套 zigzag 規則），對照這批策略歷史上在該 regime 標籤下的
     平均報酬（`risk.RiskReport.regime_avg_ret`，T8 已經算好，這裡不重算）。
@@ -65,6 +66,15 @@ def regime_snapshot(market: str, as_of_map: dict[str, str], regime_avg_ret: dict
     `"TW:2026-01-01"` 展示用字串的 `as_of`——那不是可解析的單一日期。
     XM 混合台美，沒有單一大盤指數可判——分別給 TW／US 兩份現況，不硬併成一個，
     各自用自己市場對到的交易日。
+
+    🔴 2026-09-15（驗證模式解釋 agent 補丁，實作時才發現的第三個全樣本前視點，
+    不在原本 R15/R16/H8 清單裡）：`regime_avg_ret`（T8）讀的是
+    `_frozen/stage4/regime_performance.parquet`，那是用策略**完整 2000-2025
+    歷史**算出的「這個策略在牛/熊/危機/盤整標籤下平均賺賠多少」，對任何 IS
+    結束在 2025 年之前的驗證窗次來說都含未來資訊，跟 R15 的群知識庫是同一類
+    問題。目前**沒有**逐窗重算這個統計的版本（要重算需要另外接上該窗次自己
+    IS 期間的 regime 標籤切割，工作量不小，這次沒做）——呼叫端對驗證模式一律
+    傳 `None`，這裡改成不假裝有資料。
     """
     from ops import tools as T
 
@@ -81,7 +91,12 @@ def regime_snapshot(market: str, as_of_map: dict[str, str], regime_avg_ret: dict
         "note": ("current_regime 是暫定判定（zigzag 回顧式演算法，最後一段可能尚未"
                  "被下一次反轉確認，見 T11 docstring）；historical_avg_return_by_regime "
                  "是這批策略過去在各 regime 標籤下的歷史平均報酬，不是本期預測，"
-                 "兩者不可混為一談。"),
+                 "兩者不可混為一談。"
+                 if regime_avg_ret is not None else
+                 "current_regime 是暫定判定（zigzag 回顧式演算法，最後一段可能尚未"
+                 "被下一次反轉確認）。此為驗證模式：這批策略在各 regime 標籤下的"
+                 "歷史平均報酬需要用到超出這一窗建模期間的資料才能算，為避免"
+                 "前視偏誤這裡刻意不提供，只給目前的 regime 標籤本身。"),
     }
 
 
