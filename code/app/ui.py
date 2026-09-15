@@ -761,21 +761,6 @@ with tab_holdings:
             _top = pd.DataFrame(_sc.top(15))
             _top["weight"] = _top["weight"].map(lambda x: f"{x:.3%}")
             st.dataframe(_top, width="stretch", hide_index=True)
-            # 台積電對照可用來檢視組合對單一權值股的實際曝險程度。
-            # 跨市場組合可能含台股策略解出的持股，故台股／跨市場都要檢查。
-            _tsmc = _sc.weights.get("2330")
-            if holdings.config.market in ("TW", "XM"):
-                if _tsmc:
-                    st.info(f"**台積電（2330）在本組合的權重：{_tsmc:.3%}**"
-                           f"（被 {_sc.appear_in.get('2330', 0)}/{_sc.n_strategies} 個策略選中）。"
-                           f"對照它在台股指數約佔 **40.23%** ⇒ "
-                           f"本組合對台積電是**極度低配**，不是超配。"
-                           f"這正是本組合長期落後市值加權大盤、但贏過等權市場"
-                           f"的直接原因。")
-                else:
-                    st.info("**台積電（2330）不在本組合持股中。** 對照它在台股指數約佔 "
-                           "**40.23%** ⇒ 這是完全的低配，也是本組合長期落後"
-                           "市值加權大盤、但贏過等權市場的直接原因。")
 
             st.markdown("**已實現績效**（事後量測，跟上面的解釋／風控判斷無關）")
             st.caption("算的是「這批持股從解析日到某個結束日，實際發生過的股價"
@@ -927,7 +912,13 @@ with tab_holdings:
                          help="只在策略選定當下持有，現在已經不符合條件")
                 st.caption("⚠️ 這個比較橫跨了財報更新（季度換股），"
                           "高換手率是正常現象，不代表策略異常。")
-                names_map = _get_company_names(holdings.config.market)
+                # 🔴 2026-09-15 使用者抓到的真 bug：XM 不是資料庫層的真實市場
+                # （見 IPS §1），Database("XM") 會直接丟 ValueError。跟上面
+                # 解析持股一樣，改用 markets_needed() 依策略實際所屬市場
+                # （strategy_uid 前綴）分派，需要幾個市場的公司名稱就查幾個。
+                _name_markets = markets_needed(_get_candidate_index(), holdings.members)
+                names_map = pd.concat([_get_company_names(m) for m in _name_markets])
+                names_map = names_map[~names_map.index.duplicated(keep="first")]
                 for label, syms in (("老面孔", _fc.old_faces), ("新面孔", _fc.new_faces),
                                     ("淡出", _fc.exited)):
                     with st.expander(f"{label}（{len(syms)} 檔）"):
@@ -1071,14 +1062,12 @@ with tab_ai:
         st.info("請先到「本期持倉」分頁按「解析持股」——AI 解讀需要股票層級"
                 "持股資料才能產生。")
     else:
-        dry_run = st.checkbox("dry-run（不花錢，不真的呼叫 LLM）", value=True,
-                              key="explain_dry_run")
+        # 🔴 2026-09-15 使用者要求拿掉 dry-run 選項——「產生解釋」一律真的
+        # 呼叫 LLM。model purpose 固定用 "app_memo"：這是驗證模式／正式模式
+        # 大量真呼叫（§10.10／§10.11／§9.8）全程實測過能用的設定，見同日
+        # 稍早修過的「尚未設定此功能專用模型」誤導警告 bug。
+        dry_run = False
         purpose = "app_memo"
-        if not dry_run:
-            st.warning("⚠️ 尚未設定此功能專用的 AI 模型，需要借用其他功能"
-                      "已設定的模型")
-            purpose = st.text_input("借用哪一組模型設定", value="cluster_story",
-                                    key="explain_purpose")
 
         if st.button("產生解釋"):
             try:

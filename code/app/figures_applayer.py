@@ -73,17 +73,22 @@ SUBTITLE = "資料來源：驗證模式實測（scheme E／window 4／hrp／lega
 
 def fig1_three_market_performance():
     fig, axes = plt.subplots(1, 3, figsize=(11, 3.6))
-    metrics = [("oos_cagr", "樣本外年化報酬 (OOS CAGR)", "{:.1%}"),
-              ("oos_mdd", "樣本外最大回撤 (OOS MDD)", "{:.1%}"),
-              ("oos_sharpe", "樣本外 Sharpe", "{:.2f}")]
-    for ax, (key, title, fmt) in zip(axes, metrics):
-        vals = [PERF[m][key] for m in MARKETS]
-        bars = ax.bar([LABEL[m] for m in MARKETS], vals, color=[COLOR[m] for m in MARKETS])
+    # MDD 一律畫成正值長條（往上延伸，跟另外兩張圖同方向），但標籤仍顯示
+    # 真實的負值百分比——只改長條的視覺方向，不竄改數字本身。
+    metrics = [("oos_cagr", "樣本外年化報酬 (OOS CAGR)", "{:.1%}", False),
+              ("oos_mdd", "樣本外最大回撤 (OOS MDD)", "{:.1%}", True),
+              ("oos_sharpe", "樣本外 Sharpe", "{:.2f}", False)]
+    for ax, (key, title, fmt, is_mdd) in zip(axes, metrics):
+        raw_vals = [PERF[m][key] for m in MARKETS]
+        plot_vals = [abs(v) for v in raw_vals] if is_mdd else raw_vals
+        bars = ax.bar([LABEL[m] for m in MARKETS], plot_vals, color=[COLOR[m] for m in MARKETS])
         ax.set_title(title, fontsize=10)
         ax.axhline(0, color="black", linewidth=0.6)
-        for b, v in zip(bars, vals):
-            ax.text(b.get_x() + b.get_width() / 2, v + (0.01 if v >= 0 else 0.006),
-                   fmt.format(v), ha="center", va="bottom", fontsize=9)
+        top = max(plot_vals)
+        ax.set_ylim(0 if is_mdd or min(raw_vals) >= 0 else min(raw_vals) * 1.25, top * 1.18)
+        for b, v, raw in zip(bars, plot_vals, raw_vals):
+            ax.text(b.get_x() + b.get_width() / 2, v + top * 0.03,
+                   fmt.format(raw), ha="center", va="bottom", fontsize=9)
     fig.suptitle("三市場樣本外績效對比（scheme E／window 4）", fontsize=12)
     fig.text(0.5, 0.01, SUBTITLE, ha="center", fontsize=7.5, color="#555")
     fig.tight_layout(rect=(0, 0.04, 1, 0.95))
