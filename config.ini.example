@@ -3,23 +3,32 @@
 ;   cp config.ini.example config.ini   （Windows: copy config.ini.example config.ini）
 ; 注意：config.ini 已列入 .gitignore，不會被 git 追蹤，請勿把真實帳密提交到版本庫。
 
-[default]
-
 [database]
 host = 127.0.0.1
 port = 3306
-db = lab
 user = root
 password =
-charset = utf8
+db = lab
+charset = utf8mb4
 
 [openai]
-; T10/cluster_story（LLM點③）用，去 https://platform.openai.com/api-keys 申請
+; 一般 project API key，https://platform.openai.com/api-keys 申請
 api_key =
 ; Admin API key（跟 api_key 不同種！要在 org 設定裡另外產生、給 api.usage.read
 ; 權限），供 utils/openai_quota.py 主動查當日花費用，見該模組 docstring
 admin_key =
 ; 每日免費額度上限（美金）。OpenAI 沒有API能查這個數字，只能自己填
 daily_quota_usd =
-; T10（return_story文字生成）要用的模型。不寫死預設值——模型名稱會過期
+
+; 以下每個 {purpose}_model 對應 code 裡各節點呼叫時要用的模型名稱，
+; 不給預設值是刻意的（模型名稱會過期），未填寫的節點呼叫時會直接報錯提醒
+; T10（return_story文字生成）用
 t10_model =
+; research/cluster_identity.py（群身份描述）用
+cluster_identity_model =
+; research/cluster_story.py（群故事敘述）用
+cluster_story_model =
+; research/decision_layer_arms.py 方案 B（LLM 決策層）用
+decision_layer_arm_b_model =
+; app/memo.py、app/explain.py（AI 解讀 agent）、app/stability.py 共用的預設 purpose
+app_memo_model =
