@@ -538,7 +538,7 @@ def assemble_facts(holdings: Holdings, risk: RiskReport, calib: CalibrationResul
         "window_info": holdings.window_info, "n_members": holdings.n_members,
         "validation": holdings.validation,
         "performance": _fmt_perf(holdings.performance, holdings.has_oos),
-        "reference_oos_distribution": _fmt_reference(holdings.reference_oos),
+        "reference_oos_distribution": _fmt_reference(holdings.reference_oos, market=cfg.market),
 
         "section1_strategy_footprint": {
             "tree_id": footprint.tree_id, "clusters": _cluster_facts(footprint),

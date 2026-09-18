@@ -172,8 +172,19 @@ def _fmt_perf(perf: dict, has_oos: bool) -> dict:
     return out
 
 
-def _fmt_reference(ref: dict | None) -> dict | None:
-    """R13 的主要績效參照＋R8② 的基準對照。"""
+def _fmt_reference(ref: dict | None, *, market: str | None = None) -> dict | None:
+    """R13 的主要績效參照＋R8② 的基準對照。
+
+    🔴 2026-09-16（實戰監控 A6，`實戰監控Agent系統_設計文件.md` §1.3）：
+    `_benchmark_note` 原本寫死 2025-12 當下量到的台股數字（19.55% vs 20.91%、
+    台積電佔指數 40.23%）——那些數字只是「2019-2025 這個固定期間」的實測結果
+    （M-17），不是任何時候都成立的事實。套用到別的 as_of（例如驗證模式回到
+    2024 年初，當時台積電實際只佔約 24.78%，見設計文件 §1.3）就是把還沒發生
+    的未來資訊當成已知條件餵給 LLM，是真實的前視風險，不只是措辭問題。
+    改成不寫死任何時間點的具體數字，只講結構性提醒；真正當期的數字要靠
+    本來就有 as_of 語意的欄位提供（三層監控指標、`alternative_context`），
+    不在這個共用的靜態說明裡硬塞一組凍結數字。
+    """
     if not ref:
         return None
     return {
@@ -184,12 +195,22 @@ def _fmt_reference(ref: dict | None) -> dict | None:
         "benchmark_cagr": _pct(ref["benchmark_cagr"]),   # R8②：自建宇宙基準
         "n_cells": ref["n_cells"],
         "caveat": ref["caveat"],
-        "_benchmark_note": (
-            "benchmark_cagr 是投資組合所在市場全部股票的長期平均報酬基準。"
-            "⚠️ 台股組合相對**市值加權**大盤是落後的（19.55% vs 20.91%），"
-            "贏的是**等權市場**（15.02%）——差異來自加權方式（台積電佔指數 40.23%），"
-            "不可寫成「贏大盤」。"),
+        "_benchmark_note": _benchmark_note_text(market),
     }
+
+
+def _benchmark_note_text(market: str | None) -> str:
+    """依市場給結構性提醒，不寫死任何特定時間點的百分比（理由見 `_fmt_reference`）。"""
+    base = "benchmark_cagr 是投資組合所在市場全部股票的長期平均報酬基準（自建宇宙）。"
+    if market == "TW":
+        return (base +
+               "⚠️ 台股市值加權大盤長期由少數超大型權值股主導，市值加權大盤與"
+               "等權大盤的走勢可能大幅分歧——本方法族相對這兩種基準的勝負"
+               "不一定一致。談「贏大盤」時務必指名是哪一種基準，不可省略，"
+               "也不可用某個特定歷史期間量到的差距去代表當前情況。")
+    return (base +
+           "⚠️ 市值加權大盤與等權大盤是兩種不同的比較基準，差異來自加權方式。"
+           "談「贏大盤」時務必指名是哪一種基準，不可省略。")
 
 
 def _fmt_alt(alt: dict) -> dict:
@@ -270,7 +291,8 @@ def build_prompt(holdings: Holdings, risk: RiskReport, calib: CalibrationResult)
         # 這裡把警告直接放進 facts，LLM 只能照抄，不會自己編一句樂觀的話。
         "performance": _fmt_perf(perf, holdings.has_oos),
         # R13 主要績效參照：凍結表同類設定的 OOS 分布（含 R8② 基準）
-        "reference_oos_distribution": _fmt_reference(holdings.reference_oos),
+        "reference_oos_distribution": _fmt_reference(holdings.reference_oos,
+                                                      market=holdings.config.market),
         "risk": {
             "max_single_weight": _pct(risk.max_single_weight),
             "single_stock_cap": _pct(holdings.config.single_stock_cap),
