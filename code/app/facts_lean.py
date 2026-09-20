@@ -159,7 +159,9 @@ def outcome_csv(outcome: dict) -> str:
 
 
 def diagnosis_csv(diagnosis: dict) -> str:
-    """`diagnose.run_diagnosis()` 的輸出攤平成一張表（M3/M4/M6/M0 的觸發狀態）。"""
+    """`diagnose.run_diagnosis()` 的輸出攤平成一張表（M3/M4/M6/M0/M8 的觸發狀態）。
+    🔴 M8（產業集中度，D56）選填——`region_b_state_warning` 裡沒有 M8 時
+    （呼叫端沒傳 weights 給 `run_diagnosis()`）就不輸出那一列，不假裝有資料。"""
     rows = []
     m4 = diagnosis["region_a_attributable"]["M4"]
     rows.append({"mechanism": "M4", "region": "A", "triggered": m4["triggered"],
@@ -167,6 +169,10 @@ def diagnosis_csv(diagnosis: dict) -> str:
     m3 = diagnosis["region_b_state_warning"]["M3"]
     rows.append({"mechanism": "M3", "region": "B", "triggered": m3["triggered"],
                  "action": m3.get("action")})
+    m8 = diagnosis["region_b_state_warning"].get("M8")
+    if m8 is not None:
+        rows.append({"mechanism": "M8", "region": "B", "triggered": m8["triggered"],
+                     "action": m8.get("action")})
     fb = diagnosis["fallback"]
     if fb.get("mechanism"):
         rows.append({"mechanism": fb["mechanism"], "region": "fallback",
@@ -177,6 +183,42 @@ def diagnosis_csv(diagnosis: dict) -> str:
 def memory_compact_json(memory: dict) -> str:
     """跨期記憶——巢狀結構，保留 JSON 但用 compact（§12.3②）。"""
     return _compact_json(memory)
+
+
+# ============================================================ 多時間尺度解釋（方案B：敘事層級彙整）
+#
+# 🔴🔴 老師 9-15「當月→當季→半年→一年」的解釋題（開發追蹤 D60）。方案B
+# 定案：底層量測/觸發邏輯維持季度不變（已驗證），這裡新增的是**敘事層級
+# 彙整**——不是新的觸發機制。全部屬於流量變數／回顧性質，跟 `outcome_csv`
+# 同一個限制（§9.0）：只能進回顧區，不可驅動任何動作。
+
+def monthly_breakdown_csv(monthly_rows: list[dict]) -> str:
+    """`monitor.monthly_breakdown()` 的輸出攤平成表——當月的解釋題用。"""
+    rows = [{
+        "month_start": r["month_start"], "month_end": r["month_end"],
+        "portfolio_realized_return": round(r["portfolio_realized_return"], 4),
+        "excess_vs_equal_weight": round(r["excess_vs_equal_weight"], 4)
+        if r.get("excess_vs_equal_weight") is not None else None,
+    } for r in monthly_rows]
+    return _to_csv(rows, columns=["month_start", "month_end",
+                                  "portfolio_realized_return", "excess_vs_equal_weight"])
+
+
+def multiscale_rollup_csv(quarter_summaries: list[dict]) -> str:
+    """半年／一年的解釋題用：把N個已完成季度的關鍵事實（季末、M1-D狀態、
+    決策、季報酬）攤成一張表，讓 agent 看得到整段期間的完整軌跡再彙整敘事。
+    `quarter_summaries` 每筆須含 quarter_end／m1d_state／decision／
+    portfolio_realized_return／excess_vs_equal_weight（呼叫端從真實
+    checkpoint 組出，不是這支函式自己去算）。"""
+    rows = [{
+        "quarter_end": q["quarter_end"], "m1d_state": q["m1d_state"],
+        "decision": q["decision"],
+        "portfolio_realized_return": round(q["portfolio_realized_return"], 4),
+        "excess_vs_equal_weight": round(q["excess_vs_equal_weight"], 4)
+        if q.get("excess_vs_equal_weight") is not None else None,
+    } for q in quarter_summaries]
+    return _to_csv(rows, columns=["quarter_end", "m1d_state", "decision",
+                                  "portfolio_realized_return", "excess_vs_equal_weight"])
 
 
 def m1d_baseline_action_csv(m1d: dict) -> str:
@@ -190,10 +232,12 @@ def m1d_baseline_action_csv(m1d: dict) -> str:
 
 # ============================================================ 階段 5：決策
 
-def build_decision_facts(m1d: dict, actions: list[dict], prospective_output: dict) -> dict:
+def build_decision_facts(m1d: dict, actions: list[dict], prospective_output: dict,
+                         w2c_reference: dict | None = None) -> dict:
     """階段 5 決策用的 facts：M1-D 基準動作 ＋ 可用動作的歷史條件分布
-    （§7.7 過濾過，看不到 window 4）＋ 3b 的完整輸出（決策理由只能引用 3b，
-    不可引用 3a——見設計文件 §10「理由必須明寫依據 3b 的哪幾項」）。
+    （§7.7 過濾過，看不到 window 4）＋ W2c 的一次性驗證結果（D50，選填，
+    給呼叫端傳 `actions.w2c_reference()`）＋ 3b 的完整輸出（決策理由只能
+    引用 3b，不可引用 3a——見設計文件 §10「理由必須明寫依據 3b 的哪幾項」）。
     🔴 刻意不放 3a／outcome／diagnosis：物理上讓決策 agent 看不到回顧區資料，
     不靠 prompt 文字約束（跟 §7.7 的一貫精神一致）。"""
     facts = {
@@ -201,6 +245,8 @@ def build_decision_facts(m1d: dict, actions: list[dict], prospective_output: dic
         "available_actions_csv": available_actions_csv(actions),
         "prospective_assessment": dict(prospective_output),
     }
+    if w2c_reference is not None:
+        facts["w2c_reference_json"] = _compact_json(w2c_reference)
     _assert_no_flow_leakage(facts, context="build_decision_facts")
     return facts
 

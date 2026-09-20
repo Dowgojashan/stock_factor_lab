@@ -21,7 +21,9 @@ Agent-B 命中率低，唯一抓到的問題也只是測試資料組錯，不是
     `get_historical_distribution`／`find_similar_quarters`／
     `get_action_reference`，agent 主動查詢）——目前是「單次把 facts 塞進
     prompt」的簡化版，不是 tool-calling
-  - L3（人機對話）介面——不在這個模組範圍內
+  - 🔴 2026-09-19：L3（人機對話）單輪呼叫已補上（`call_agent_a_dialogue_turn`，
+    §10 階段6），但迴圈控制（≤5 輪、落盤、session 管理）在 `app/l3_dialogue.py`，
+    UI 在 `app/ui.py` 新分頁——這支模組仍只管單次呼叫
 
 🔴 鐵則（§5.1，適用 L2／L3 兩種自主等級的**強制**版本，取交集最嚴格的，
 每個角色各自的 system prompt 都有具體化）：
@@ -86,7 +88,39 @@ _IDENTIFIER_WITH_DIGIT_RE = re.compile(r"\b[A-Za-z][A-Za-z_]*\d{1,2}(?!\d)[A-Za-
 # （例如 "0.008)" 這種算式結果，"8" 前面是數字/小數點，不會被誤判成清單
 # 編號「8)」而被剝掉）——已用真實案例「(0.012 - 0.008)」這種算式驗證過
 # 不會被誤傷，同時 "1)"／"(1)" 這類清單標記會被正確中性化。
-_LIST_MARKER_RE = re.compile(r"(?:(?<![\d.])\d{1,2}\)|\(\d{1,2}\))")
+#
+# 🔴🔴 2026-09-18（正式 8 季重跑撞到，同一類問題的第三個案例）：季度總結
+# 階段的 agent 用「1. ⋯2. ⋯3. ⋯」句點式清單編號（不是括號式），原本的規則
+# 管不到——用離線測試（不重打真實 API）直接證實「1. 」「3. 」這種句點編號
+# 完全沒被中性化。新增第三個分支 `(?<![\d.])\d{1,2}\.(?!\d)`：數字前面不能
+# 是數字/小數點（避免從長數字中間切出尾段）、後面接句點、句點後不能立刻
+# 接數字（避免誤傷真小數，例如 "0.012" 的 "0." 後面是 "012"，被這個負向
+# 前瞻擋下不會誤判成清單編號「0.」；"3.14" 同理不會被誤傷）。
+_LIST_MARKER_RE = re.compile(
+    r"(?:(?<![\d.])\d{1,2}\)|\(\d{1,2}\)|(?<![\d.])\d{1,2}\.(?!\d))")
+
+# 🔴🔴 2026-09-19（多時間尺度敘事真實呼叫撞到，同一類問題的第四個案例，
+# 這次是更危險的「漏網」方向，不是誤攔）：agent 把年份跟季度代號直接連寫
+# 成「2024Q3」「2024Q4」（中間沒分隔符）。`_IDENTIFIER_WITH_DIGIT_RE` 要求
+# `\b[A-Za-z]` 開頭——但「4Q」是數字接字母，兩者都是 \w，中間沒有單字邊界
+# `\b`，所以規則完全比對不到「Q3」「Q4」這段，年份後面貼著的識別碼數字
+# 沒被中性化。更嚴重的是：這次「2024Q4」的「4」被攔下了，但「2024Q3」的
+# 「3」**沒有被攔下**——因為 facts 別處剛好存在一個真正的數字「3」把它洗白
+# 了（跟 D33 講的「更危險的漏網方向」一模一樣，這裡是它的第四個真實案例）。
+# 修法：用 lookbehind 精確定位「緊接在 4 碼年份後面」的字母+1~2碼數字，
+# 不需要 `\b`（lookbehind 本身就是精確錨點），只清掉季度代號那段的數字，
+# 前面的年份完全不動。
+_YEAR_QUARTER_RE = re.compile(r"(?<=\d{4})[A-Za-z]\d{1,2}(?!\d)")
+
+# 🔴🔴 2026-09-19（同一次呼叫、修好上面那條後緊接著撞到的第五個案例，
+# 鏡像模式）：agent 這次把季度簡寫反過來寫成「1Q、2Q、3Q、4Q」（數字在前、
+# 字母在後），不是「Q1~Q4」。`_IDENTIFIER_WITH_DIGIT_RE` 要求字母開頭比對
+# 不到；`_YEAR_QUARTER_RE` 要求前面緊接4碼年份也比對不到（這裡是孤立的
+# "1Q"，前面沒有年份）。跟之前每一次一樣：這次「1」「2」「4」被攔下，但
+# 「3Q」的「3」又被別處真實數字洗白、沒被攔下——確認這一整類「類數字符號
+# 洗白」風險是系統性的，不是單一巧合。修法：獨立比對「1~2碼數字+單一字母」
+# 這個鏡像形狀，跟字母開頭的規則對稱。
+_DIGIT_QUARTER_RE = re.compile(r"\b\d{1,2}[A-Za-z](?![A-Za-z\d])\b")
 
 
 def _strip_identifier_digits(text: str) -> str:
@@ -97,6 +131,8 @@ def _strip_identifier_digits(text: str) -> str:
     算式裡的小數/長數字）不受影響。"""
     text = _IDENTIFIER_WITH_DIGIT_RE.sub(lambda m: re.sub(r"\d", "", m.group()), text)
     text = _LIST_MARKER_RE.sub(lambda m: re.sub(r"\d", "", m.group()), text)
+    text = _YEAR_QUARTER_RE.sub(lambda m: re.sub(r"\d", "", m.group()), text)
+    text = _DIGIT_QUARTER_RE.sub(lambda m: re.sub(r"\d", "", m.group()), text)
     return text
 
 
@@ -117,6 +153,27 @@ def _scan_for_leakage_mechanism_aware(explanation: dict, prompt: str) -> list[st
     clean_explanation = _walk(clean_explanation)
     clean_prompt = _strip_identifier_digits(prompt)
     return scan_for_leakage(clean_explanation, clean_prompt)
+
+
+def _check_leakage_or_raise(explanation: dict, prompt: str, *, stage_name: str) -> list[str]:
+    """4 個 `call_agent_a_*` 函式共用的 D2 檢查收尾。
+
+    🔴🔴 2026-09-18（正式 8 季重跑連續撞到兩次不同的誤判，第二次因為 LLM
+    非決定性重打同一段話沒能重現，只能作罷）：原本攔下後只把 `leakage`
+    摘要塞進例外訊息，**沒有印出完整原始文字**，導致每次要查真正的誤判
+    原因都得另外花一次真實 API 呼叫去重建情境、賭運氣重現。這裡把完整
+    `explanation` 一併印出來（stdout，背景執行的 log 會留存），之後任何
+    一種新的誤判類型，直接看這次撞到的當下留下的原始文字即可定位根因，
+    不必再賭一次 LLM 會不會巧合寫出同樣的東西。"""
+    leakage = _scan_for_leakage_mechanism_aware(explanation, prompt)
+    if leakage:
+        import json
+        print(f"\n🔴🔴 D2 洩漏掃描攔下「{stage_name}」，完整原始輸出如下（供事後查證，"
+             f"不用再另外花錢重跑診斷）：\n{json.dumps(explanation, ensure_ascii=False, indent=2)}\n")
+        raise RuntimeError(
+            f"D2 洩漏掃描攔下這份「{stage_name}」，發現無法對應到資料的數字：\n  "
+            + "\n  ".join(leakage))
+    return leakage
 
 # ============================================================ Agent-A · 3b 前瞻評估
 
@@ -203,11 +260,7 @@ def call_agent_a_3b(prospective_facts: dict, *, model: str, api_key: str,
         prompt, model, api_key, purpose=purpose, est_tokens=len(prompt) // 3,
         system_prompt=_AGENT_A_3B_SYSTEM_PROMPT, schema=_AGENT_A_3B_SCHEMA)
 
-    leakage = _scan_for_leakage_mechanism_aware(explanation, prompt)
-    if leakage:
-        raise RuntimeError(
-            "D2 洩漏掃描攔下這份 3b 前瞻評估，發現無法對應到資料的數字：\n  "
-            + "\n  ".join(leakage))
+    leakage = _check_leakage_or_raise(explanation, prompt, stage_name="3b 前瞻評估")
 
     return {"prompt": prompt, "explanation": explanation, "dry_run": False,
            "leakage_check": leakage, "usage": usage}
@@ -294,11 +347,7 @@ def call_agent_a_3a(retrospective_facts: dict, *, model: str, api_key: str,
         prompt, model, api_key, purpose=purpose, est_tokens=len(prompt) // 3,
         system_prompt=_AGENT_A_3A_SYSTEM_PROMPT, schema=_AGENT_A_3A_SCHEMA)
 
-    leakage = _scan_for_leakage_mechanism_aware(explanation, prompt)
-    if leakage:
-        raise RuntimeError(
-            "D2 洩漏掃描攔下這份 3a 回顧診斷，發現無法對應到資料的數字：\n  "
-            + "\n  ".join(leakage))
+    leakage = _check_leakage_or_raise(explanation, prompt, stage_name="3a 回顧診斷")
 
     return {"prompt": prompt, "explanation": explanation, "dry_run": False,
            "leakage_check": leakage, "usage": usage}
@@ -311,18 +360,27 @@ def call_agent_a_3a(retrospective_facts: dict, *, model: str, api_key: str,
 # 疊加 A2——不是照抄了事。理由必須明寫依據 3b 的哪幾項；引用 3a 回顧區當
 # 理由視為違規。這裡用 `facts_lean.build_decision_facts()` 物理排除 3a／
 # outcome／diagnosis，agent 根本看不到回顧區資料，不是只靠 prompt 約束。
-# 動作空間固定為 A0／A2／A4／A5（W1~W3 已於 A5 前置驗證失敗棄用，見 D29）。
+# 動作空間固定為 A0／A2／A4／A5／W2c（W1~W3 已於 A5 前置驗證失敗棄用，見
+# D29；W2c 於 D50 前置驗證通過、D51 接上執行層，選它現在真的會改變後續
+# 季度的持股計算，見 `simulate.ActiveConfig`）。
 
 _AGENT_A_DECISION_SYSTEM_PROMPT = (
     "你是投組監控系統的分析 agent（Agent-A），現在執行的是「決策」"
     "（設計文件 §10 階段 5）。你要從固定的動作空間裡選一個，並說明理由。\n\n"
-    "動作空間（只能選這四個之一）：\n"
+    "動作空間（只能選這五個之一）：\n"
     "- A0：維持現狀（不改變投組）\n"
     "- A2：切換 allocation（equal↔proportional），只影響持股在群間的配重，"
     "**不解決規模曝險問題**（這是已知限制，見 available_actions_csv 的歷史"
     "資料）\n"
     "- A4：進入觀察名單（不動持股，但列入後續追蹤）\n"
-    "- A5：升級人工覆核\n\n"
+    "- A5：升級人工覆核\n"
+    "- W2c：條件式市值傾斜（只在 M1-D 觸發時啟動），已前置驗證通過"
+    "（見 w2c_reference_json，開發追蹤 D50），是唯一直接對治規模曝險的"
+    "已驗證動作。選它**會真的改變下一季的投組建構**（開發追蹤 D51 已接上"
+    "執行層，不是純紀錄的文字）——所以跟其他動作一樣，必須認真評估、不可"
+    "隨便選，也不可因為它是新選項就迴避評估；w2c_reference_json 的"
+    "caveats 欄位須一併考慮，不可只看正面數字，但 caveats 不是「不要選它」"
+    "的理由，是「選的話要在理由裡承認這些限制」\n\n"
     "鐵則：\n"
     "1. 不可引用【客觀資料】以外的任何數字。\n"
     "2. **理由必須明寫依據前瞻評估（prospective_assessment）的哪幾項**——"
@@ -330,8 +388,8 @@ _AGENT_A_DECISION_SYSTEM_PROMPT = (
     "不要因為看不到就猜測或杜撰回顧區可能講了什麼。\n"
     "3. **選 A0 也必須寫理由**——『不動』是一個決定，不是預設值，要說明"
     "為什麼在目前狀態下不動是合理的。\n"
-    "4. 若考慮選 A2，只能引用 available_actions_csv 裡**已經算好**的歷史"
-    "條件分布數字（例如某個 ratio/allocation 組合過去幾窗的平均表現），"
+    "4. 若考慮選 A2 或 W2c，只能引用 available_actions_csv／"
+    "w2c_reference_json 裡**已經算好**的歷史條件分布或驗證結果，"
     "**不可以自己計算或推算『如果選這個，預期能改善多少』**——沒有這種"
     "授權，那是無根據的推算。\n"
     "5. m1d_baseline_action_csv 是程式依規則算出的基準動作，你可以說明"
@@ -343,13 +401,15 @@ _AGENT_A_DECISION_SCHEMA = {
     "schema": {
         "type": "object",
         "properties": {
-            "decision": {"type": "string", "enum": ["A0", "A2", "A4", "A5"],
+            "decision": {"type": "string", "enum": ["A0", "A2", "A4", "A5", "W2c"],
                         "description": "選定的動作。"},
             "decision_detail": {
                 "type": "string",
                 "description": "若選 A2，說明要切換到哪個 ratio/allocation "
                                "組合（須引用 available_actions_csv 裡實際"
-                               "存在的組合）；其他動作可留空字串或簡述。"},
+                               "存在的組合）；若選 W2c，須引用 "
+                               "w2c_reference_json 的驗證結果與 caveats；"
+                               "其他動作可留空字串或簡述。"},
             "reasoning": {
                 "type": "string",
                 "description": "決策理由，必須明寫依據 prospective_assessment "
@@ -389,11 +449,144 @@ def call_agent_a_decision(decision_facts: dict, *, model: str, api_key: str,
         prompt, model, api_key, purpose=purpose, est_tokens=len(prompt) // 3,
         system_prompt=_AGENT_A_DECISION_SYSTEM_PROMPT, schema=_AGENT_A_DECISION_SCHEMA)
 
-    leakage = _scan_for_leakage_mechanism_aware(explanation, prompt)
-    if leakage:
-        raise RuntimeError(
-            "D2 洩漏掃描攔下這份決策，發現無法對應到資料的數字：\n  "
-            + "\n  ".join(leakage))
+    leakage = _check_leakage_or_raise(explanation, prompt, stage_name="決策")
+
+    return {"prompt": prompt, "explanation": explanation, "dry_run": False,
+           "leakage_check": leakage, "usage": usage}
+
+
+# ============================================================ Agent-A · 6 人機對話（僅 L3）
+#
+# 🔴🔴 2026-09-19：這個模組原本在檔頭寫「L3（人機對話）介面——不在這個模組
+# 範圍內」，那是對的——當時只有 L2（無對話）自動跑完。使用者現在明確要求
+# 把 L3 接起來（扩建 `app/ui.py`），這裡只補「一輪對話怎麼呼叫 LLM」這個
+# 最小單元，迴圈控制（≤5 輪、落盤、session 管理）交給新的
+# `app/l3_dialogue.py`，跟 `call_agent_a_decision()` 只管單次呼叫、迴圈交給
+# `simulate.py` 是同一個分工原則。
+#
+# 設計依據（§6／§10 階段6）：
+#   - 決策權：跟 L2 一樣（從動作空間選一個），對話**不能片面推翻**已經做出
+#     的階段5決策——對話的作用是讓人向 agent 提問、agent 可以在對話中修正
+#     立場，但「最終決策改成什麼」仍是人核准的事，agent 只負責誠實表態
+#     「根據這輪對話，我還支不支持原本的草案」，不是自己片面改決策。
+#   - 清單外選項：對話中可共同提出，但**必須聲明尚未經程式回測驗證**
+#     （§6：「須經程式回測驗證」），不可暗示已驗證或可直接採用。
+#   - D2 照掃：`_check_leakage_or_raise` 沿用，不重寫——人類在對話中打的
+#     數字會進 prompt（§5.3 講的「對話側門」），D2 天然不會攔對這些數字的
+#     合法引用，這是設計預期行為，不是漏洞。
+
+_AGENT_A_DIALOGUE_SYSTEM_PROMPT = (
+    "你是投組監控系統的分析 agent（Agent-A），現在是「人機對話」"
+    "（設計文件 §10 階段 6，僅 L3 自主等級，最多 5 輪）。系統已經在"
+    "階段 5 做出一個決策草案，人類覆核者現在要跟你討論這個決策草案的內容。\n\n"
+    "鐵則（§5.1／§6 表格 L3 欄）：\n"
+    "1. 不可引用【客觀資料】【階段5決策草案】【對話紀錄】以外的任何數字——"
+    "人類在對話中提供的數字可以引用（已經在對話紀錄裡），但不可以自己"
+    "杜撰新數字，也不可以自行計算對話紀錄或客觀資料裡沒有的衍生數字。\n"
+    "2. 不可片面推翻程式的風控判決。\n"
+    "3. 不可片面生成清單外的新動作——若對話中你或人類認為需要清單外的"
+    "選項，必須把 proposes_out_of_list_option 設為 true 並在 "
+    "out_of_list_option_description 完整說明，且**必須明確聲明這個選項"
+    "尚未經程式回測驗證、本次對話不能確認是否可行**，不可暗示它已經驗證"
+    "過或可以直接採用。\n"
+    "4. 不可做沒有可驗證判準的價值判斷。\n"
+    "5. 對話不能片面推翻階段5的決策——你可以在 still_recommends_stage5_"
+    "decision 誠實表態這輪對話後你是否還支持原本的草案，並在 "
+    "revised_recommendation 說明你會改為建議什麼，但**最終要不要真的改變"
+    "決策，是人類覆核者核准的事，不是你自己片面決定**。\n"
+    "6. 回覆要聚焦在人類這一輪的問題或意見，不要逐輪重複前面已經講過的"
+    "全部內容。"
+)
+
+_AGENT_A_DIALOGUE_SCHEMA = {
+    "name": "agent_a_dialogue_turn",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "response": {"type": "string", "description": "給人類覆核者的回覆內容。"},
+            "still_recommends_stage5_decision": {
+                "type": "boolean",
+                "description": "根據目前為止的對話，是否仍然支持階段5的決策草案。"},
+            "revised_recommendation": {
+                "type": "string",
+                "description": "若 still_recommends_stage5_decision 為 false，"
+                               "說明改為建議什麼（須是動作空間內的選項，或"
+                               "明確標記為清單外選項）；若為 true，留空字串。"},
+            "proposes_out_of_list_option": {
+                "type": "boolean",
+                "description": "這一輪是否（不論你或人類）共同提出了清單外的"
+                               "新選項。"},
+            "out_of_list_option_description": {
+                "type": "string",
+                "description": "若 proposes_out_of_list_option 為 true，描述"
+                               "這個選項，且必須包含『尚未經程式回測驗證』的"
+                               "聲明；否則留空字串。"},
+        },
+        "required": ["response", "still_recommends_stage5_decision",
+                     "revised_recommendation", "proposes_out_of_list_option",
+                     "out_of_list_option_description"],
+        "additionalProperties": False,
+    },
+    "strict": True,
+}
+
+
+def build_dialogue_prompt(decision_facts: dict, draft_decision: dict,
+                          transcript: list[dict], human_message: str) -> str:
+    import json
+    lines = [
+        "【客觀資料 · 由程式算出，不可推翻，數字已格式化，請直接照抄】",
+        json.dumps(decision_facts, ensure_ascii=False, indent=2, default=str),
+        "",
+        "【階段5 決策草案 · 已經做出，對話目的是討論它，不是重新決策】",
+        json.dumps(draft_decision, ensure_ascii=False, indent=2, default=str),
+        "",
+        "【對話紀錄（依序，source=human_input 的內容是人類自己提供，"
+        "不是程式事實）】",
+    ]
+    if not transcript:
+        lines.append("（尚無對話紀錄，這是第一輪）")
+    for turn in transcript:
+        lines.append(f"人類（第{turn['round']}輪，source=human_input）："
+                     f"{turn['human_message']}")
+        lines.append(f"你（第{turn['round']}輪）：{turn['agent_response']['response']}")
+    lines += [
+        "",
+        f"【人類這一輪的訊息（source=human_input，第 {len(transcript) + 1} 輪）】",
+        human_message,
+        "",
+        "請依 schema 回覆。",
+    ]
+    return "\n".join(lines)
+
+
+def call_agent_a_dialogue_turn(decision_facts: dict, draft_decision: dict,
+                               transcript: list[dict], human_message: str, *,
+                               model: str, api_key: str,
+                               purpose: str = "monitor_dialogue",
+                               dry_run: bool = True) -> dict:
+    """§10 階段 6，單輪。迴圈（≤5 輪）與落盤由 `app/l3_dialogue.py` 負責，
+    這支函式只管一輪的 LLM 呼叫，跟 `call_agent_a_decision()` 只管單次決策
+    呼叫是同一個分工。"""
+    prompt = build_dialogue_prompt(decision_facts, draft_decision, transcript, human_message)
+    required = _AGENT_A_DIALOGUE_SCHEMA["schema"]["required"]
+
+    if dry_run:
+        explanation = {
+            "response": "(dry-run，未實際呼叫 LLM)",
+            "still_recommends_stage5_decision": True,
+            "revised_recommendation": "",
+            "proposes_out_of_list_option": False,
+            "out_of_list_option_description": "",
+        }
+        assert set(explanation) == set(required)
+        return {"prompt": prompt, "explanation": explanation, "dry_run": True, "leakage_check": []}
+
+    explanation, usage = _call_llm(
+        prompt, model, api_key, purpose=purpose, est_tokens=len(prompt) // 3,
+        system_prompt=_AGENT_A_DIALOGUE_SYSTEM_PROMPT, schema=_AGENT_A_DIALOGUE_SCHEMA)
+
+    leakage = _check_leakage_or_raise(explanation, prompt, stage_name="人機對話")
 
     return {"prompt": prompt, "explanation": explanation, "dry_run": False,
            "leakage_check": leakage, "usage": usage}
@@ -479,11 +672,112 @@ def call_agent_a_summary(retrospective_output: dict, prospective_output: dict,
         prompt, model, api_key, purpose=purpose, est_tokens=len(prompt) // 3,
         system_prompt=_AGENT_A_SUMMARY_SYSTEM_PROMPT, schema=_AGENT_A_SUMMARY_SCHEMA)
 
-    leakage = _scan_for_leakage_mechanism_aware(explanation, prompt)
-    if leakage:
-        raise RuntimeError(
-            "D2 洩漏掃描攔下這份季度總結，發現無法對應到資料的數字：\n  "
-            + "\n  ".join(leakage))
+    leakage = _check_leakage_or_raise(explanation, prompt, stage_name="季度總結")
+
+    return {"prompt": prompt, "explanation": explanation, "dry_run": False,
+           "leakage_check": leakage, "usage": usage}
+
+
+# ============================================================ Agent-A · 多時間尺度敘事（方案B）
+
+# 🔴🔴 老師9-15「當月→當季→半年→一年」的解釋題（開發追蹤D60）。方案B：
+# 底層量測/觸發維持季度不變（已驗證），這裡是**敘事層級彙整**——把已經
+# 算好的月頻/半年/年度真實資料整合成連貫敘事，並明確比較「不同尺度講的
+# 故事是否一致」（老師原話：「一邊觀察哪邊對、哪邊錯」）。跟階段7季度
+# 總結同一個限制：純回顧性質，不驅動任何動作，不可用來支持前瞻決策。
+
+_AGENT_A_MULTISCALE_SYSTEM_PROMPT = (
+    "你是投組監控系統的分析 agent（Agent-A），現在執行的是「多時間尺度"
+    "解釋」——老師要求的「當月的解釋題、當季的解釋題、半年的解釋題、"
+    "一年的解釋題」。這是**純回顧、事後解釋**，跟階段3a/階段7同一個限制："
+    "不建議任何動作、不能用來支持任何前瞻決策，只整合已經發生、已經算好"
+    "的真實資料成連貫敘事。\n\n"
+    "鐵則：\n"
+    "1. 不可引用【客觀資料】以外的任何數字。\n"
+    "2. **這是整合與潤飾，不是重新推論**——不可新增資料裡沒有的結論。\n"
+    "3. 若某個時間尺度沒有提供資料（例如這次還不到半年或一年的整理點），"
+    "在對應欄位裡明講「本次無此尺度的彙整資料」，不可編造。\n"
+    "4. **核心任務**：明確比較不同時間尺度講的故事是否一致——例如某個月"
+    "表現異常，是被季度平滑掉了，還是季度也確實反映了？半年/一年看整段"
+    "軌跡時，跟逐季分別看時的結論會不會不一樣？**只能引用資料裡已經存在"
+    "的數字做這個比較，不可自行推算新的統計量（例如自己算標準差、自己"
+    "算相關係數）**——若需要這類統計量但資料沒提供，只能說「無法判斷」。\n"
+    "5. 不可做價值判斷（哪個尺度「更重要」），只描述一致或不一致的事實。"
+)
+
+_AGENT_A_MULTISCALE_SCHEMA = {
+    "name": "agent_a_multiscale_narrative",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "monthly_section": {
+                "type": "string",
+                "description": "當月的解釋題：整合 monthly_breakdown_csv，逐月"
+                               "描述這一季內三個月各自的報酬與超額。若未提供"
+                               "月頻資料，寫「本次無月頻彙整資料」。"},
+            "semiannual_section": {
+                "type": "string",
+                "description": "半年的解釋題：整合 semiannual_rollup_csv（若"
+                               "提供），描述這半年整段軌跡的敘事。若未到半年"
+                               "整理點，寫「本次無半年彙整資料」。"},
+            "annual_section": {
+                "type": "string",
+                "description": "一年的解釋題：整合 annual_rollup_csv（若提供），"
+                               "描述這一年整段軌跡的敘事。若未到一年整理點，"
+                               "寫「本次無年度彙整資料」。"},
+            "cross_scale_consistency_note": {
+                "type": "string",
+                "description": "**核心欄位**：比較月/季/半年/年講的故事是否"
+                               "一致——只能引用已提供的數字做比較，不可自行"
+                               "計算新的統計量；哪個尺度看起來平滑掉了什麼、"
+                               "哪個尺度的結論跟另一個尺度不一樣，只能就資料"
+                               "裡已有的數字描述現象，不可下價值判斷。"},
+        },
+        "required": ["monthly_section", "semiannual_section", "annual_section",
+                    "cross_scale_consistency_note"],
+        "additionalProperties": False,
+    },
+    "strict": True,
+}
+
+
+def build_multiscale_prompt(monthly_csv: str | None, semiannual_csv: str | None,
+                            annual_csv: str | None, quarterly_context: dict) -> str:
+    import json
+    parts = [
+        "【本季（當季）已有的回顧診斷／決策，供對照，不可重新推論其結論】\n"
+        f"{json.dumps(quarterly_context, ensure_ascii=False, indent=2, default=str)}\n",
+        "【當月的解釋題 · monthly_breakdown_csv】\n"
+        f"{monthly_csv if monthly_csv else '（本次無月頻資料）'}\n",
+        "【半年的解釋題 · semiannual_rollup_csv】\n"
+        f"{semiannual_csv if semiannual_csv else '（本次無半年彙整資料）'}\n",
+        "【一年的解釋題 · annual_rollup_csv】\n"
+        f"{annual_csv if annual_csv else '（本次無年度彙整資料）'}\n",
+    ]
+    return "\n".join(parts) + (
+        "\n請依給定的 JSON schema 輸出多時間尺度敘事。記住：純回顧整合，"
+        "不建議動作，不引用資料外的數字，不自行計算新的統計量。")
+
+
+def call_agent_a_multiscale_narrative(monthly_csv: str | None, semiannual_csv: str | None,
+                                      annual_csv: str | None, quarterly_context: dict, *,
+                                      model: str, api_key: str,
+                                      purpose: str = "monitor_multiscale",
+                                      dry_run: bool = True) -> dict:
+    """多時間尺度解釋（方案B，開發追蹤D60）。至少要提供 monthly_csv（每季都
+    該有月頻資料）；semiannual_csv／annual_csv 依報告時點可為 None。"""
+    prompt = build_multiscale_prompt(monthly_csv, semiannual_csv, annual_csv, quarterly_context)
+    required = _AGENT_A_MULTISCALE_SCHEMA["schema"]["required"]
+
+    if dry_run:
+        explanation = {k: "(dry-run，未呼叫 LLM)" for k in required}
+        return {"prompt": prompt, "explanation": explanation, "dry_run": True, "leakage_check": []}
+
+    explanation, usage = _call_llm(
+        prompt, model, api_key, purpose=purpose, est_tokens=len(prompt) // 3,
+        system_prompt=_AGENT_A_MULTISCALE_SYSTEM_PROMPT, schema=_AGENT_A_MULTISCALE_SCHEMA)
+
+    leakage = _check_leakage_or_raise(explanation, prompt, stage_name="多時間尺度敘事")
 
     return {"prompt": prompt, "explanation": explanation, "dry_run": False,
            "leakage_check": leakage, "usage": usage}

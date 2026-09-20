@@ -153,6 +153,142 @@ def _resolve_stock_holdings(members: list[str], as_of: str) -> tuple[pd.DataFram
     dates_str = {m: d.date().isoformat() for m, d in market_dates.items()}
     return pd.DataFrame(rows), dates_str
 
+
+# ---------- 監控 Agent · 人機對話（L3，實戰監控Agent系統設計文件 §10 階段6） ----------
+# 🔴 2026-09-19：這是**另一個子系統**——跟上面「本期持倉/風險儀表板/AI解讀/
+# 歷史版本比較」四個分頁（應用層開發追蹤.md 的 RunConfig/engine/risk 主線）
+# 完全獨立，接的是 `app/simulate.py`／`app/agents.py`／`app/monitor.py` 那條
+# 線（實戰監控Agent系統設計文件），使用者選 3 個方案（CLI／擴建 Streamlit／
+# 這個對話框本身扮演介面）之後決定扩建這支既有 UI。不依賴左側側邊欄任何
+# 設定，也不會被 `holdings is None` 擋住——這裡對話的對象是**已經真實跑完**
+# 的 L2 臂決策草案（`_runs/simulate_{run_id}.jsonl`），不是這支 UI 上面選股
+# 引擎的結果。
+def _render_l3_tab() -> None:
+    from app import l3_dialogue
+
+    st.subheader("監控 Agent · 人機對話（L3）")
+    st.caption("實戰監控Agent系統設計文件 §10 階段 6：針對某一季**已經真實"
+              "跑完**的階段5決策草案，人類覆核者可以跟 Agent-A 進行最多 5 輪"
+              "對話（設計文件 §6）。清單外選項可在對話中共同提出，但須明確"
+              "聲明尚未經程式回測驗證，不能直接採用。")
+
+    run_ids = l3_dialogue.list_run_ids()
+    if not run_ids:
+        st.info("`code/app/_runs/` 底下還沒有任何 `simulate_*.jsonl`——"
+               "要先跑過 `app/simulate.py` 的 L2 臂（例如 `_run_formal_8q.py`）"
+               "才有真實決策草案可以對話。")
+        return
+
+    # 有多組真實實驗可選時，預設指向主線 8 季實驗（不是隨機挑到陰性/陽性
+    # 對照組那些輔助驗證用的跑法）——跟側邊欄「持股規模」預設選 legacy
+    # 是同一個 `_default_index` 慣例。
+    run_id = st.selectbox(
+        "實驗（run_id）", run_ids,
+        index=_default_index(run_ids, "formal_8q_control0_L2_execlayer_v2"),
+        key="l3_run_id_select")
+    candidates = l3_dialogue.list_dialogue_candidates(run_id)
+    if not candidates:
+        st.warning(f"`{run_id}` 沒有 L2 臂的 checkpoint"
+                  "（control0 臂定義上不經過 agent 決策，沒有草案可對話）。")
+        return
+
+    def _q_label(c: dict) -> str:
+        return (f"{c['quarter_end']}｜狀態={c['m1d']['state']}｜"
+               f"決策={c['decision']['decision']}")
+
+    checkpoint = st.selectbox("季度", candidates, format_func=_q_label,
+                              key="l3_quarter_select")
+    quarter_end = checkpoint["quarter_end"]
+
+    with st.expander("監控與診斷報告（screen 1，已由程式與 3a/3b 產生，"
+                     "對話討論的基礎資料）"):
+        st.markdown("**三層指標**")
+        st.json({"env": checkpoint["env"], "proc": checkpoint["proc"],
+                 "outcome": checkpoint["outcome"], "m1d": checkpoint["m1d"]})
+        st.markdown("**回顧診斷**（3a，僅供學習，§7.0 不得驅動動作）")
+        st.json(checkpoint["retrospective_output"])
+        st.markdown("**前瞻評估**（3b，唯一可驅動動作的區塊）")
+        st.json(checkpoint["prospective_output"])
+
+    st.markdown("**階段5 決策草案**（已經真實做出，對話目的是討論它、不是"
+               "重新決策——要不要真的改變決策，是人類覆核者核准的事）")
+    draft_decision = checkpoint["decision"]
+    st.info(f"**{draft_decision['decision']}**　{draft_decision['decision_detail']}")
+    st.caption(draft_decision["reasoning"])
+    if "summary" in checkpoint:
+        with st.expander("季度總結（screen 2，已由階段7產生）"):
+            st.json(checkpoint["summary"])
+
+    decision_facts = l3_dialogue.build_decision_facts_for_quarter(checkpoint)
+
+    # 換一組（run_id, 季度）視為開新的一段對話——延續上一組的 transcript
+    # 沒有意義（決策草案的客觀資料完全不同）。
+    _sel_key = (run_id, quarter_end)
+    if st.session_state.get("l3_sel_key") != _sel_key:
+        st.session_state["l3_sel_key"] = _sel_key
+        st.session_state["l3_transcript"] = []
+        st.session_state["l3_session_id"] = l3_dialogue.new_session_id(run_id, quarter_end)
+
+    transcript = st.session_state["l3_transcript"]
+
+    st.markdown("---")
+    st.markdown(f"**對話**（第 {len(transcript)}/{l3_dialogue.MAX_ROUNDS} 輪）")
+
+    for turn in transcript:
+        with st.chat_message("user"):
+            st.write(turn["human_message"])
+        with st.chat_message("assistant"):
+            resp = turn["agent_response"]
+            st.write(resp["response"])
+            if not resp["still_recommends_stage5_decision"]:
+                st.warning(f"⚠️ 這輪表態不再支持原決策草案，改為建議："
+                          f"{resp['revised_recommendation']}"
+                          f"（是否真的改變決策，仍須人類核准）")
+            if resp["proposes_out_of_list_option"]:
+                st.error(f"🔶 提出清單外選項（尚未經程式回測驗證，不能直接"
+                        f"採用）：{resp['out_of_list_option_description']}")
+            if turn["leakage_check"]:
+                st.caption(f"⚠️ D2 一致性檢查：{turn['leakage_check']}")
+            if turn.get("dry_run"):
+                st.caption("（此輪為 dry-run，未實際呼叫 LLM，未落盤稽核紀錄）")
+
+    if len(transcript) >= l3_dialogue.MAX_ROUNDS:
+        st.warning(f"已達到 {l3_dialogue.MAX_ROUNDS} 輪上限（設計文件 §6），"
+                  "這段對話結束。可在上面重選季度開新的一段對話。")
+    else:
+        dry_run = st.checkbox(
+            "dry-run（先用假回覆測試介面，不呼叫真實 LLM、不落盤稽核紀錄）",
+            value=True, key="l3_dry_run")
+        human_message = st.chat_input("針對這季的決策草案提問或提出意見…")
+        if human_message:
+            try:
+                with st.spinner("Agent-A 回覆中…"):
+                    result = l3_dialogue.run_dialogue_turn(
+                        decision_facts, draft_decision, transcript, human_message,
+                        dry_run=dry_run)
+            except RuntimeError as e:
+                st.error(f"🔴 {e}")
+            else:
+                round_no = len(transcript) + 1
+                if not dry_run:
+                    l3_dialogue.append_round(
+                        st.session_state["l3_session_id"], run_id=run_id,
+                        quarter_end=quarter_end, round_no=round_no,
+                        human_message=human_message, agent_result=result)
+                transcript.append({
+                    "round": round_no, "human_message": human_message,
+                    "agent_response": result["explanation"],
+                    "leakage_check": result["leakage_check"],
+                    "dry_run": result["dry_run"],
+                })
+                st.rerun()
+
+    if transcript and st.button("開始新的一段對話（清空目前 transcript）"):
+        st.session_state["l3_transcript"] = []
+        st.session_state["l3_session_id"] = l3_dialogue.new_session_id(run_id, quarter_end)
+        st.rerun()
+
+
 st.title("因子選股應用層")
 
 # ---------- 設定與執行（L0/L1） ----------
@@ -514,12 +650,18 @@ if len(_compare_configs) >= 2:
                 [{"股票代號": s, "混合後權重": f"{w:.3%}"} for s, w in _blend_top]),
                 width="stretch", hide_index=True)
 
-if holdings is None:
-    st.info("左側設定完成後按「執行」開始，或用「加入比較清單」同時比較多組設定。")
-    st.stop()
+tab_holdings, tab_risk, tab_ai, tab_history, tab_l3 = st.tabs(
+    ["本期持倉", "風險儀表板", "AI 解讀", "歷史版本比較", "監控 Agent · 人機對話（L3）"])
 
-tab_holdings, tab_risk, tab_ai, tab_history = st.tabs(
-    ["本期持倉", "風險儀表板", "AI 解讀", "歷史版本比較"])
+# L3 是獨立子系統（見上面 `_render_l3_tab` 註解），不依賴左側設定或
+# `holdings`，所以放在 `holdings is None` 的提早返回之前渲染。
+with tab_l3:
+    _render_l3_tab()
+
+if holdings is None:
+    with tab_holdings:
+        st.info("左側設定完成後按「執行」開始，或用「加入比較清單」同時比較多組設定。")
+    st.stop()
 
 # ---------- 本期持倉（L1） ----------
 with tab_holdings:

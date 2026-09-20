@@ -168,11 +168,43 @@ def l1_distance(dist_a: dict[str, float], dist_b: dict[str, float]) -> float:
 
 # ============================================================ 結果層（流量變數，僅回顧區可用）
 
+#: §8待辦item10（2026-09-22）：window4 用股票層方法重算的真實 B_all（全買
+#: 候選池，equal-weight-across-strategies，股票層 `performance.measure()`
+#: 量測，跟 A_hrp／等權/市值加權大盤同一套量測系統）。修正前 `excess_vs_ball`
+#: 直接借用 equal_weight_benchmark_return 當 B_all 的替身（A9決定，程式註解
+#: 明講「數字剛好一樣是巧合正確不是設計正確」）——實測兩者其實不同
+#: （B_all 8季累積 stock-level +8.24%／CAGR 4.04% vs 等權大盤替身 CAGR
+#: 5.10%），差距約1pp/yr，不算巨大但不是「剛好相等」。目前只精確重算了
+#: window4（TW/scheme E），其餘窗次/市場仍缺，`fetch_ball_returns()` 找不到
+#: 對應區間時回傳 None，呼叫端會自動退回舊的等權大盤替身（見下）——不是新
+#: bug，是誠實的資料涵蓋範圍限制。
+_BALL_RECOMPUTE_PATH = (Path(__file__).resolve().parent.parent.parent
+                        / "_analysis_outputs_applayer" / "ball_stock_level_recompute.csv")
+
+
+def fetch_ball_returns(path: Path = _BALL_RECOMPUTE_PATH) -> dict[tuple[str, str], float]:
+    """讀`_recompute_ball_stock_level.py`算好、凍結存檔的真實B_all逐季報酬，
+    key=(as_of, end) 字串二元組，找不到檔案就回傳空dict（呼叫端會自動退回
+    舊的等權大盤替身，不會崩潰）。"""
+    if not path.exists():
+        return {}
+    df = pd.read_csv(path)
+    return {(r.as_of, r.end): float(r.stock_level_return) for r in df.itertuples()}
+
+
 def outcome_layer(md_map: dict, weights: dict[str, float], as_of: str, end: str,
-                  cap_weight_series: pd.Series | None = None) -> dict:
+                  cap_weight_series: pd.Series | None = None,
+                  ball_returns: dict[tuple[str, str], float] | None = None) -> dict:
     """已實現報酬、對等權大盤超額、對市值加權大盤超額（若提供 cap_weight_series，
-    通常是 taiex_tr）、對 B_all 超額（B_all＝ equal_weight_benchmark_return，
-    `walkforward_matrix.py:62` 已定義 B_all＝全宇宙等權，跟這裡同一件事，見 A9）。
+    通常是 taiex_tr）、對 B_all 超額。
+
+    🔴 2026-09-22（§8待辦item10）：`ball_returns` 若提供且該 (as_of,end) 有
+    對應的真實股票層 B_all（見 `fetch_ball_returns()`），`excess_vs_ball` 用
+    真實 B_all 算；**否則退回舊行為**（借用 equal_weight_benchmark_return 當
+    替身，A9 決定，`walkforward_matrix.py` 定義的 B_all＝全宇宙等權跟這裡
+    概念相同，只是舊版沒有真的用股票層方法重算過）——退回行為只是誠實的
+    資料涵蓋範圍限制，不是靜默錯誤（`ball_return_is_real` 欄位標記用的是
+    哪一種，供事後稽核）。
     🔴 流量變數，不可用來驅動前瞻動作（§9.0／§7.0）。
     """
     res = measure(md_map, weights, as_of, end)
@@ -180,12 +212,17 @@ def outcome_layer(md_map: dict, weights: dict[str, float], as_of: str, end: str,
     port_ret = res["portfolio_realized_return"]
     ew_bench = res["by_market_benchmark"][market]["equal_weight_benchmark_return"]
 
+    real_ball = (ball_returns or {}).get((as_of, end))
+    ball_ret = real_ball if real_ball is not None else ew_bench
+
     out = {
         "as_of": as_of, "end": end,
         "portfolio_realized_return": port_ret,
         "equal_weight_benchmark_return": ew_bench,
         "excess_vs_equal_weight": (port_ret - ew_bench) if ew_bench is not None else None,
-        "excess_vs_ball": (port_ret - ew_bench) if ew_bench is not None else None,  # B_all＝等權大盤（A9）
+        "ball_benchmark_return": ball_ret,
+        "ball_return_is_real": real_ball is not None,
+        "excess_vs_ball": (port_ret - ball_ret) if ball_ret is not None else None,
     }
     if cap_weight_series is not None:
         ts = cap_weight_series.index
@@ -195,6 +232,28 @@ def outcome_layer(md_map: dict, weights: dict[str, float], as_of: str, end: str,
         out["cap_weight_benchmark_return"] = cw_ret
         out["excess_vs_cap_weight"] = port_ret - cw_ret
     return out
+
+
+def monthly_breakdown(md_map: dict, weights: dict[str, float], as_of: str, end: str,
+                      cap_weight_series: pd.Series | None = None) -> list[dict]:
+    """把一季 [as_of, end] 拆成月頻子區間，各自呼叫 `outcome_layer()`——沿用
+    既有已驗證機制，不是新的量測邏輯，只是切得更細（設計文件 §8 多時間尺度
+    解釋「當月的解釋題」，方案B：敘事層級彙整，見開發追蹤）。🔴 流量變數，
+    只能進回顧區，跟 `outcome_layer()` 同一個限制（§9.0）。持股在整季內
+    視為不變（跟本系統既有的「checkpoint間靜態持有」假設一致，見D25）。
+    """
+    boundaries = [pd.Timestamp(as_of)] + list(
+        pd.date_range(as_of, end, freq="M")) + [pd.Timestamp(end)]
+    # 去重、排序（as_of/end 可能剛好落在月底，freq="ME"會重複產生同一天）
+    boundaries = sorted(set(boundaries))
+    rows = []
+    for i in range(len(boundaries) - 1):
+        m_start, m_end = boundaries[i].strftime("%Y-%m-%d"), boundaries[i + 1].strftime("%Y-%m-%d")
+        if m_start == m_end:
+            continue
+        outcome = outcome_layer(md_map, weights, m_start, m_end, cap_weight_series)
+        rows.append({"month_start": m_start, "month_end": m_end, **outcome})
+    return rows
 
 
 # ============================================================ expanding window 分位數

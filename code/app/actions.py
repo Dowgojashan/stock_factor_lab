@@ -8,8 +8,11 @@
 這個一般化的時序過濾規則，window 4 自然、永遠被排除，不需要另外寫「排除
 window 4」的特判——這樣同一套邏輯往後也適用於任何新窗次，不必每次改規則。
 
-W1~W4（市值傾斜等新維度）尚未補進矩陣（§7.6，須先在 window 1-3 前置驗證），
-本檔目前只涵蓋矩陣既有的 `ratio`／`allocation` 維度。
+W1／W3（市值傾斜等其餘維度）驗證失敗未啟用（見 D29）；**W2c（條件式市值
+傾斜）已於 2026-09-18 前置驗證通過**（開發追蹤 D50），`w2c_reference()`
+提供這個動作**唯一的一次性驗證結果**（不是像 `get_action_reference()` 那樣
+隨 `as_of` 變化的即時查詢——W2c 的驗證是固定的歷史校準/前瞻結果，見
+D50），供決策 agent 引用時遵守 §7.6「不得自行計算預期效果」的規則。
 """
 from __future__ import annotations
 
@@ -92,3 +95,34 @@ def list_available_actions(
             "mean_oos_cagr": float(gg["oos_cagr"].mean()) if len(gg) else None,
         })
     return out
+
+
+def w2c_reference() -> dict:
+    """W2c（條件式市值傾斜）的驗證結果（開發追蹤 D50，2026-09-18 凍結）。
+    跟 `get_action_reference()`／`list_available_actions()` 不同：這不是隨
+    `as_of` 變化的即時窗次查詢，是**一次性**的校準＋前瞻驗證結果，決策
+    agent 引用時只能照抄這個 dict 的數字，不可自行外推到未驗證過的情境
+    （§7.6）。`caveats` 欄位須完整帶給 agent，不可只挑正面數字。
+
+    🔴🔴 2026-09-18（D52 抓到）：`caveats` 原本有一條「目前只到決策記錄
+    層級，選這個動作不會真的改變後續季度的持股計算」——這是 D50 當時（執行
+    層還沒做）的真實狀況，但 D51 做完執行層後這句話已經**過期且錯誤**，
+    忘記回頭修正。正式重跑時 agent 在連續 5 個觸發季度全部選了保守的 A5、
+    一次都沒選 W2c——很可能就是因為看到這句話，以為選 W2c 等於沒選。已拿掉
+    這條過期 caveat，不是為了引導 agent 選 W2c，是修正一個真的過期的事實
+    描述（選 W2c 現在真的會透過 `simulate.ActiveConfig` 改變下一季的持股）。"""
+    return {
+        "mechanism": "W2c：M1-D 觸發時啟動市值傾斜（α=0）＋ 7% 目標上限、"
+                     "超過部分按比例重分配（cap-and-redistribute）",
+        "calibration_period": "2024-Q1~2025-Q4（8季，用於校準傾斜強度與上限）",
+        "calibration_net_improvement_pp": 23.48,
+        "forward_validation_period": "2026-Q1~2026-Q2（真前瞻，未參與任何校準）",
+        "forward_net_improvement_pp": 21.98,
+        "net_of_real_transaction_cost": True,
+        "caveats": [
+            "校準期與前瞻期本質上是同一個規模集中事件的不同階段，不是兩個獨立事件樣本",
+            "前瞻驗證只有 2 季，統計證據仍薄弱",
+            "季度制重新平衡無法 100% 保證任何時刻都不超過 8% 硬上限——"
+            "7% 目標上限下仍有 1/6 觸發季度季底微幅超過（8.68%）",
+        ],
+    }
