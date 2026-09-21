@@ -5,12 +5,18 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import fcv_core  # noqa: E402
+
+from app import diagnose  # noqa: E402
 
 matplotlib.rcParams["font.sans-serif"] = ["Microsoft JhengHei"]
 matplotlib.rcParams["axes.unicode_minus"] = False
@@ -71,13 +77,13 @@ def chart_2():
     active_w2c = [(1 + w) / (1 + m) - 1 for w, m in zip(W2C, MARKET)]
     x = np.arange(len(QUARTERS))
     width = 0.35
-    ax.bar(x - width / 2, [a * 100 for a in active_baseline], width, label="不調整 − 大盤")
-    ax.bar(x + width / 2, [a * 100 for a in active_w2c], width, label="W2c情境 − 大盤")
+    ax.bar(x - width / 2, [a * 100 for a in active_baseline], width, label="不調整 - 大盤")
+    ax.bar(x + width / 2, [a * 100 for a in active_w2c], width, label="W2c情境 - 大盤")
     ax.axhline(0, color="black", linewidth=1)
     ax.set_xticks(x)
     ax.set_xticklabels(QUARTERS)
     ax.set_ylabel("主動報酬 (%)")
-    ax.set_title("圖2｜逐季主動報酬（投組 − 大盤）")
+    ax.set_title("圖2｜逐季主動報酬（投組 - 大盤）")
     ax.legend()
     ax.grid(alpha=0.3, axis="y")
     savefig(fig, "02_active_return")
@@ -251,7 +257,7 @@ def chart_10():
     colors = ["#55A868" if d >= 0 else "#C44E52" for d in diff]
     ax.bar(QUARTERS, diff, color=colors)
     ax.axhline(0, color="black", linewidth=1)
-    ax.set_ylabel("W2c情境 − 不調整 (百分點)")
+    ax.set_ylabel("W2c情境 - 不調整 (百分點)")
     ax.set_title("圖10｜逐季反事實改善幅度（正=調整有幫助，負=調整反而更差）")
     ax.grid(alpha=0.3, axis="y")
     savefig(fig, "10_counterfactual_improvement")
@@ -341,7 +347,7 @@ def chart_15():
     colors = ["#C44E52" if v < 0 else "#55A868" for v in top["active_weight"]]
     ax.barh(top["industry"], top["active_weight"] * 100, color=colors)
     ax.axvline(0, color="black", linewidth=1)
-    ax.set_xlabel("主動權重 = 投組權重 − 大盤權重 (百分點)")
+    ax.set_xlabel("主動權重 = 投組權重 - 大盤權重 (百分點)")
     ax.set_title("圖15｜產業主動權重（2025Q4，紅=低配，綠=超配）")
     ax.grid(alpha=0.3, axis="x")
     savefig(fig, "15_industry_active_weight")
@@ -349,19 +355,33 @@ def chart_15():
 
 # ============================================================ 16. 診斷機制觸發總覽熱力圖
 def chart_16():
+    # 🔴 2026-09-23（code review 抓到）：checkpoint 裡存的 `diagnosis` 是 M7/M8
+    # 接線「前」當時算出來的，M7 恆記錄在 `not_available`、M8 恆不在
+    # `region_b_state_warning`——不是真的沒資料，是那次跑的時候還沒接。
+    # M3/M4/M6/M0 是決策當時的真實記錄，不動；M7/M8 現在用已重算的真實
+    # B_all（`ball_stock_level_recompute.csv`）＋`weights_end`回顧性補算
+    # （純算術、不燒LLM，且M7/M8本來就是回顧層、不驅動動作，補算不影響
+    # 任何已經做出的決策——§7.0）。
     with open("app/_runs/simulate_formal_8q_control0_L2_execlayer_v2.jsonl", encoding="utf-8") as f:
         rows = [json.loads(line) for line in f]
     c0 = sorted([r for r in rows if r["arm"] == "control0"], key=lambda r: r["quarter_end"])
+
+    ball_df = pd.read_csv(CHART_DIR.parent / "ball_stock_level_recompute.csv")
+    ball_map = dict(zip(ball_df["as_of"], ball_df["stock_level_return"]))
 
     mechanisms = ["M3", "M4", "M6/M0", "M7", "M8"]
     grid = np.zeros((len(mechanisms), len(c0)))
     for j, c in enumerate(c0):
         d = c["diagnosis"]
+        o = c["outcome"]
         grid[0, j] = 1 if d["region_b_state_warning"]["M3"]["triggered"] else 0
         grid[1, j] = 1 if d["region_a_attributable"]["M4"]["triggered"] else 0
         grid[2, j] = 1 if d["fallback"].get("mechanism") == "M0" else 0.5 if d["fallback"].get("mechanism") == "M6" else 0
-        grid[3, j] = np.nan if "M7" in d["not_available"] else (1 if d["region_a_attributable"].get("M7", {}).get("triggered") else 0)
-        grid[4, j] = np.nan if "M8" not in d["region_b_state_warning"] else (1 if d["region_b_state_warning"]["M8"]["triggered"] else 0)
+
+        m7 = diagnose.diagnose_m7(ball_map.get(o["as_of"]), o.get("equal_weight_benchmark_return"))
+        grid[3, j] = np.nan if not m7.get("available") else (1 if m7["triggered"] else 0)
+        m8 = diagnose.diagnose_m8(c["weights_end"])
+        grid[4, j] = 1 if m8["triggered"] else 0
 
     fig, ax = plt.subplots(figsize=(9, 4.5))
     masked = np.ma.masked_invalid(grid)
@@ -372,7 +392,9 @@ def chart_16():
     ax.set_xticklabels(QUARTERS)
     ax.set_yticks(range(len(mechanisms)))
     ax.set_yticklabels(mechanisms)
-    ax.set_title("圖16｜診斷機制觸發總覽（灰=本次歷史資料不可用，M6/M0：0=正常 0.5=M6 1=M0）")
+    ax.set_title("圖16｜診斷機制觸發總覽（M3/M4/M6/M0=決策當時原始記錄；"
+                 "M7/M8=以重算後真實B_all回顧性補算，不影響原決策；灰=無法判定；"
+                 "M6/M0：0=正常 0.5=M6 1=M0）", fontsize=10)
     for i in range(len(mechanisms)):
         for j in range(len(c0)):
             if not np.isnan(grid[i, j]):
