@@ -355,13 +355,23 @@ def chart_15():
 
 # ============================================================ 16. 診斷機制觸發總覽熱力圖
 def chart_16():
-    # 🔴 2026-09-23（code review 抓到）：checkpoint 裡存的 `diagnosis` 是 M7/M8
-    # 接線「前」當時算出來的，M7 恆記錄在 `not_available`、M8 恆不在
+    # 🔴 2026-09-21（使用者code review二輪抓到）：checkpoint 裡存的 `diagnosis`
+    # 是 M7/M8 接線「前」當時算出來的，M7 恆記錄在 `not_available`、M8 恆不在
     # `region_b_state_warning`——不是真的沒資料，是那次跑的時候還沒接。
-    # M3/M4/M6/M0 是決策當時的真實記錄，不動；M7/M8 現在用已重算的真實
-    # B_all（`ball_stock_level_recompute.csv`）＋`weights_end`回顧性補算
-    # （純算術、不燒LLM，且M7/M8本來就是回顧層、不驅動動作，補算不影響
-    # 任何已經做出的決策——§7.0）。
+    # M3/M4 是決策當時的真實記錄，不動；M7/M8 現在用已重算的真實 B_all
+    # （`ball_stock_level_recompute.csv`）＋`weights_end`回顧性補算（純算術、
+    # 不燒LLM，且M7/M8本來就是回顧層、不驅動動作，補算不影響任何已經做出的
+    # 決策——§7.0）。
+    #
+    # 🔴🔴 第一輪修正遺漏的問題：`diagnose_m6_m0()` 定義上跟任何機制觸發互斥
+    # （見 diagnose.py），但原本這裡的 M6/M0 是直接沿用 checkpoint 裡「只看
+    # M3/M4」算出來的舊結果，沒有把新補算的 M7/M8 併進「是否已有機制觸發」
+    # 這個判斷——導致 2024Q1（M7觸發）同時顯示 M0、2025Q2（M7觸發）同時顯示
+    # M6，自相矛盾。修正：M6/M0 這裡用 M3/M4（原始記錄）∪ M7/M8（新補算）
+    # 一起重新判斷「是否已有機制觸發」；`performance_below_p10` 沿用
+    # checkpoint 原始記錄的值，不動（那是另一個獨立的、這次沒有要求查核的
+    # 問題，見 `is_performance_below_p10()`）。只要任一機制觸發，M6/M0 就
+    # 標記「不適用」（灰色），不再借用 0（跟真正的 M6 混在一起分不清）。
     with open("app/_runs/simulate_formal_8q_control0_L2_execlayer_v2.jsonl", encoding="utf-8") as f:
         rows = [json.loads(line) for line in f]
     c0 = sorted([r for r in rows if r["arm"] == "control0"], key=lambda r: r["quarter_end"])
@@ -374,16 +384,27 @@ def chart_16():
     for j, c in enumerate(c0):
         d = c["diagnosis"]
         o = c["outcome"]
-        grid[0, j] = 1 if d["region_b_state_warning"]["M3"]["triggered"] else 0
-        grid[1, j] = 1 if d["region_a_attributable"]["M4"]["triggered"] else 0
-        grid[2, j] = 1 if d["fallback"].get("mechanism") == "M0" else 0.5 if d["fallback"].get("mechanism") == "M6" else 0
+        m3_triggered = d["region_b_state_warning"]["M3"]["triggered"]
+        m4_triggered = d["region_a_attributable"]["M4"]["triggered"]
+        grid[0, j] = 1 if m3_triggered else 0
+        grid[1, j] = 1 if m4_triggered else 0
 
         m7 = diagnose.diagnose_m7(ball_map.get(o["as_of"]), o.get("equal_weight_benchmark_return"))
-        grid[3, j] = np.nan if not m7.get("available") else (1 if m7["triggered"] else 0)
+        m7_triggered = bool(m7.get("available") and m7["triggered"])
+        grid[3, j] = np.nan if not m7.get("available") else (1 if m7_triggered else 0)
         m8 = diagnose.diagnose_m8(c["weights_end"])
         grid[4, j] = 1 if m8["triggered"] else 0
 
-    fig, ax = plt.subplots(figsize=(9, 4.5))
+        any_triggered = m3_triggered or m4_triggered or m7_triggered or m8["triggered"]
+        perf = d["fallback"].get("performance_check")
+        if any_triggered:
+            grid[2, j] = np.nan  # 已有其他機制觸發，M6/M0 定義上不適用
+        elif perf is None:
+            grid[2, j] = np.nan  # 沒有 performance_check 可用，誠實留灰
+        else:
+            grid[2, j] = 1 if perf["below_p10"] else 0  # 1=M0（異常但無法歸因）0=M6（正常）
+
+    fig, ax = plt.subplots(figsize=(9, 4.8))
     masked = np.ma.masked_invalid(grid)
     cmap = plt.cm.RdYlGn_r
     cmap.set_bad(color="lightgray")
@@ -392,9 +413,11 @@ def chart_16():
     ax.set_xticklabels(QUARTERS)
     ax.set_yticks(range(len(mechanisms)))
     ax.set_yticklabels(mechanisms)
-    ax.set_title("圖16｜診斷機制觸發總覽（M3/M4/M6/M0=決策當時原始記錄；"
-                 "M7/M8=以重算後真實B_all回顧性補算，不影響原決策；灰=無法判定；"
-                 "M6/M0：0=正常 0.5=M6 1=M0）", fontsize=10)
+    ax.set_title("圖16｜診斷機制觸發總覽", fontsize=15)
+    ax.text(0.5, -0.16,
+           "M3/M4=決策當時原始記錄｜M7/M8=以重算後真實B_all回顧性補算（不影響原決策）\n"
+           "M6/M0：0=M6正常 1=M0無法歸因｜灰=另有機制觸發時M6/M0不適用，或M7本次無法判定",
+           transform=ax.transAxes, ha="center", va="top", fontsize=9)
     for i in range(len(mechanisms)):
         for j in range(len(c0)):
             if not np.isnan(grid[i, j]):
