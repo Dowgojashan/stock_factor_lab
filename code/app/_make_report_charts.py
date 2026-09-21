@@ -126,9 +126,19 @@ def chart_3():
               min(cw + m1r_gap + m7_gap, a_hrp) * 100, 0]
     heights = [cw * 100, abs(m1r_gap) * 100, abs(m7_gap) * 100, abs(m4_gap) * 100, a_hrp * 100]
     ax.bar(labels, heights, bottom=bottoms, color=colors)
+    # 🔴 2026-09-21（使用者抓到）：M7/M4這兩段落差很小，柱子本身太薄，白字置中
+    # 會跟柱子邊界重疊、看不清楚——柱子矮於一定高度時，改把文字放到柱子正上方
+    # （黑字），不要硬塞在裡面。
+    y_range = max(cw, a_hrp) * 100
+    label_min_height = y_range * 0.06
     for i, (lab, h, b) in enumerate(zip(labels, heights, bottoms)):
-        ax.text(i, b + h / 2, f"{[cw,m1r_gap,m7_gap,m4_gap,a_hrp][i]*100:+.1f}%", ha="center", va="center",
-               fontsize=9, color="white", fontweight="bold")
+        val = [cw, m1r_gap, m7_gap, m4_gap, a_hrp][i]
+        if h < label_min_height:
+            ax.text(i, b + h + y_range * 0.015, f"{val*100:+.1f}%", ha="center", va="bottom",
+                   fontsize=9, color="black", fontweight="bold")
+        else:
+            ax.text(i, b + h / 2, f"{val*100:+.1f}%", ha="center", va="center",
+                   fontsize=9, color="white", fontweight="bold")
     ax.set_ylabel("累積報酬 (%)")
     ax.set_title(f"圖3｜歸因瀑布圖：8季累積落差拆解（總落差 {total*100:+.1f}pp）")
     ax.grid(alpha=0.3, axis="y")
