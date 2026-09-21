@@ -19,7 +19,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import fcv_core  # noqa: E402
 import pandas as pd  # noqa: E402
 from fcv_core import MarketData  # noqa: E402
-from resolve_strategy_holdings import CANDIDATE_INDEX_PATH, resolve_holdings  # noqa: E402
+from resolve_strategy_holdings import (CANDIDATE_INDEX_PATH, _c_condition,  # noqa: E402
+                                       _q_band_condition)
 
 from app.performance import measure  # noqa: E402
 
@@ -37,16 +38,62 @@ WINDOW_QUARTERS = {
 }
 
 
-def resolve_w0(md: MarketData, idx: pd.DataFrame, uids: list[str], as_of: str) -> tuple[dict[str, float], int]:
+#: 🔴🔴 2026-09-22 效能查證：`resolve_strategy_holdings.resolve_holdings()`
+#: 對每個策略都是先把「整條時間序列」（~6561個交易日）的遮罩做 AND，才切一天
+#: 出來——但這裡只需要單一 as_of 那一天。原始寫法對6,679檔策略跑一季量測
+#: 要 11+ 分鐘（先切「那一天」的那一列再AND，只要47.8秒，快14倍）。
+#: 這裡用「先切列、再對列做AND」的等價但快得多的寫法，只在這支批次腳本內
+#: 用，不動`resolve_strategy_holdings.py`共用模組本身（很多其他地方在用，
+#: 不在沒有明確授權下改動已驗證的共用程式）。回傳結果跟原始`resolve_holdings`
+#: 語意完全相同（同一組布林遮罩、同一個日期，只是計算順序不同）。
+def _fast_resolve_w0(md: MarketData, idx: pd.DataFrame, uids: list[str], as_of: str,
+                     row_cache: dict) -> tuple[dict[str, float], int]:
+    ts = pd.Timestamp(as_of)
+
+    def mask_row(cond):
+        key = (cond["field"], cond["name"])
+        if key in row_cache:
+            return row_cache[key]
+        m = md.get_mask(cond)
+        if m is None:
+            row_cache[key] = None
+            return None
+        valid = m.index[m.index <= ts]
+        row = m.loc[valid.max()] if len(valid) else None
+        row_cache[key] = row
+        return row
+
     n_strat = len(uids)
     weights: dict[str, float] = {}
     n_empty = 0
     for uid in uids:
         row = idx.loc[uid]
-        try:
-            syms, _ = resolve_holdings(md, row, as_of)
-        except RuntimeError:
+        r1 = mask_row(_q_band_condition(row.F1_factor, row.F1_band, row.F1_nbands))
+        if r1 is None:
+            n_empty += 1
             continue
+        combined = r1
+        if not row.F2_empty:
+            r2 = mask_row(_q_band_condition(row.F2_factor, row.F2_band, row.F2_nbands))
+            if r2 is None:
+                n_empty += 1
+                continue
+            combined = combined & r2
+        if pd.notna(row.C_rule):
+            r3 = mask_row(_c_condition(row.C_source, row.C_rule))
+            if r3 is None:
+                n_empty += 1
+                continue
+            combined = combined & r3
+        if row.V == "v1":
+            vm = md.get_v_mask()
+            vvalid = vm.index[vm.index <= ts]
+            vrow = vm.loc[vvalid.max()] if len(vvalid) else None
+            if vrow is None:
+                n_empty += 1
+                continue
+            combined = combined & vrow
+        syms = combined[combined].index.tolist()
         if not syms:
             n_empty += 1
             continue
@@ -72,7 +119,10 @@ def main():
         print(f"\n=== window{window_no}（OOS {quarters[1]}~{quarters[-1]}）===")
         for i in range(len(quarters) - 1):
             as_of, end = quarters[i], quarters[i + 1]
-            weights, n_empty = resolve_w0(md, idx, tree_uids, as_of)
+            # row_cache 每季重開一個新的——它快取的是「某條件在某天的那一列」，
+            # 換一天就失效；底層真正貴的部分（md.get_mask() 的完整時間序列遮罩）
+            # 存在 md._mask_cache，那個才是跨季持續有效、真正省時間的快取。
+            weights, n_empty = _fast_resolve_w0(md, idx, tree_uids, as_of, row_cache={})
             n_unique = len(weights)
             res = measure(md_map, weights, as_of, end)
             ret = res["portfolio_realized_return"]

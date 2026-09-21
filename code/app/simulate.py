@@ -184,13 +184,23 @@ def run_quarter(inputs: QuarterInputs, *, arm: str, as_of: str, end: str,
     m1d = triggers.evaluate_quarter(inputs.m1d_cond, inputs.mcap_wide, end, prev_state)
 
     # code review 抓到：這裡要用 excess_vs_ball（M4 定義「相對 B_all 超額」的
-    # 正確語意），不是 excess_vs_equal_weight——兩者現在數字剛好一樣（A9：
-    # B_all＝等權大盤），但引用錯欄位是巧合正確不是設計正確，若未來
-    # excess_vs_ball 的算法改用真實 B_all 序列，這裡不改會悄悄讀到錯數字。
+    # 正確語意），不是 excess_vs_equal_weight。🔴 2026-09-22（§8待辦item10）：
+    # 原本兩者數字剛好一樣是巧合正確不是設計正確（A9：B_all 只是等權大盤的
+    # 替身）——現在 `outcome_layer()` 若能查到真實 B_all（`inputs.ball_returns`）
+    # 就已經用真的算，這裡引用 `outcome["excess_vs_ball"]` 不用再改。
     new_excess_history = excess_history + [outcome["excess_vs_ball"]]
+    # 🔴🔴 code review 抓到的真bug（2026-09-22）：`outcome["ball_benchmark_return"]`
+    # 在退回等權大盤替身時，數值會跟 equal_weight_benchmark_return **完全相等**
+    # （不是 None），若原樣傳給 M7，會讓 `ball_excess_vs_equal_weight` 恆為0，
+    # 而歷史p10（+0.03%）剛好是正數，導致 M7 在「根本沒有真實B_all」的季度
+    # 誤判為觸發（假訊號）——只有 `ball_return_is_real=True` 時才能傳真值，
+    # 否則要傳 None，讓 M7 誠實回報「本次無法判定」而不是算出一個假數字。
+    _real_ball = outcome.get("ball_benchmark_return") if outcome.get("ball_return_is_real") else None
     diag = diagnose.run_diagnosis(n_unique_stocks=proc["n_unique_stocks"],
                                   excess_vs_ball_history=new_excess_history,
-                                  weights=weights_end)
+                                  weights=weights_end,
+                                  ball_benchmark_return=_real_ball,
+                                  equal_weight_benchmark_return=outcome.get("equal_weight_benchmark_return"))
 
     quarter_result = {
         "arm": arm, "quarter_end": end, "as_of": as_of,

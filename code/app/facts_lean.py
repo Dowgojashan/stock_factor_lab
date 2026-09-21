@@ -158,6 +158,34 @@ def outcome_csv(outcome: dict) -> str:
                                   "excess_vs_equal_weight", "excess_vs_cap_weight"])
 
 
+def baseline_chain_csv(decomposition: dict | None) -> str:
+    """§8待辦item9：`diagnose.baseline_chain_decomposition()` 的輸出攤平成表
+    （M4/M7/M1-R 三段可歸因貢獻＋各自佔總落差的百分比）。本期缺真實B_all等
+    資料時 `decomposition` 會是 None，輸出誠實標記「本期無法拆解」的單列，
+    不假裝有資料、也不省略這個欄位讓 agent 誤以為沒發生過這件事。
+
+    🔴 欄位精簡到 8 欄以內（§12.3 `_to_csv` 的防線）——拿掉四個原始報酬欄位
+    （a_hrp/ball/equal_weight/cap_weight_return），只留分解本身需要的
+    gap／pct_of_total，這四個原始值本來就能從 total_gap 與三段 gap 加總
+    反推，不是遺漏。"""
+    if decomposition is None:
+        return _to_csv([{"available": False, "reason": "本期缺真實B_all或其他基準報酬，無法拆解"}],
+                       columns=["available", "reason"])
+    d = decomposition
+    rows = [{
+        "available": True,
+        "total_gap": round(d["total_gap"], 4),
+        "m4_gap": round(d["m4_gap"], 4),
+        "m4_pct_of_total": round(d["m4_pct_of_total"], 1) if d["m4_pct_of_total"] is not None else None,
+        "m7_gap": round(d["m7_gap"], 4),
+        "m7_pct_of_total": round(d["m7_pct_of_total"], 1) if d["m7_pct_of_total"] is not None else None,
+        "m1r_gap": round(d["m1r_gap"], 4),
+        "m1r_pct_of_total": round(d["m1r_pct_of_total"], 1) if d["m1r_pct_of_total"] is not None else None,
+    }]
+    return _to_csv(rows, columns=["available", "total_gap", "m4_gap", "m4_pct_of_total",
+                                  "m7_gap", "m7_pct_of_total", "m1r_gap", "m1r_pct_of_total"])
+
+
 def diagnosis_csv(diagnosis: dict) -> str:
     """`diagnose.run_diagnosis()` 的輸出攤平成一張表（M3/M4/M6/M0/M8 的觸發狀態）。
     🔴 M8（產業集中度，D56）選填——`region_b_state_warning` 裡沒有 M8 時
@@ -255,9 +283,29 @@ def build_retrospective_facts(outcome: dict, diagnosis: dict, memory: dict) -> d
     """3a：回顧區 facts。可以含流量變數，但**這區的輸出不得作為動作依據**——
     那是 agent prompt 層與流程設計的約束（§7.0），這個函式只負責組資料，
     不做「防止拿去驅動動作」的執行期檢查（那件事發生在 §10 的流程分岔，
-    不是 facts 組裝階段）。"""
+    不是 facts 組裝階段）。
+
+    🔴 2026-09-22（§8待辦item9）：新增 `baseline_chain_csv`——M1-R基準鏈拆解
+    正式化，從 `outcome` 已有的四個報酬欄位（portfolio_realized_return／
+    ball_benchmark_return／equal_weight_benchmark_return／
+    cap_weight_benchmark_return）直接算，不需要呼叫端額外傳參數。
+
+    🔴🔴 code review 抓到的真bug（2026-09-22，跟 `simulate.py` 那處同一個
+    根因）：`outcome["ball_benchmark_return"]` 退回等權大盤替身時數值會跟
+    `equal_weight_benchmark_return` **完全相等**（不是None），若原樣傳入，
+    `m7_gap` 會恆為0、`m4_gap` 會悄悄把「應該歸屬M7的不確定性」吃進去，
+    兩段拆解都會是誤導性的假數字而非誠實的「無法拆解」。只有
+    `ball_return_is_real=True` 才能傳真值。"""
+    from app import diagnose
+    _real_ball = outcome.get("ball_benchmark_return") if outcome.get("ball_return_is_real") else None
+    decomposition = diagnose.baseline_chain_decomposition(
+        a_hrp_return=outcome["portfolio_realized_return"],
+        ball_return=_real_ball,
+        equal_weight_return=outcome.get("equal_weight_benchmark_return"),
+        cap_weight_return=outcome.get("cap_weight_benchmark_return"))
     return {
         "outcome_csv": outcome_csv(outcome),
         "diagnosis_csv": diagnosis_csv(diagnosis),
+        "baseline_chain_csv": baseline_chain_csv(decomposition),
         "memory_compact": memory_compact_json(memory),
     }

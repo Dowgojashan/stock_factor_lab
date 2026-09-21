@@ -276,14 +276,16 @@ _AGENT_A_3A_SYSTEM_PROMPT = (
     "鐵則（違反任何一條，這份輸出會被系統攔下）：\n"
     "1. 不可引用【客觀資料】以外的任何數字——系統會逐字比對，對不上就攔下。\n"
     "2. 不可推翻或質疑資料裡 diagnosis_csv 已經判定好的機制觸發狀態（M3／M4／"
-    "M6／M0）——那是程式依照已凍結的門檻算出來的，你的角色是**解讀為什麼**，"
+    "M6／M7／M0）——那是程式依照已凍結的門檻算出來的，你的角色是**解讀為什麼**，"
     "不是重新判定觸不觸發。\n"
     "3. 不可建議或暗示任何具體動作——即使你覺得某個結果很糟，回顧區的結論"
     "**依規定不能拿去驅動任何投組調整**，你只需要客觀解釋已經發生的事。\n"
-    "4. 不可自行計算任何未提供的比例或貢獻度——例如「這個機制佔了大約六成」"
-    "這種話，除非資料裡明確給了這個數字。\n"
+    "4. 不可自行計算任何未提供的比例或貢獻度——baseline_chain_csv 裡的"
+    "pct_of_total 欄位已經算好，可以直接照抄引用，但不可以自己另外推算"
+    "資料裡沒有的百分比或倍數關係。\n"
     "5. 若某個機制的判準資料本次沒有提供，明講「本次無法評估」，不要用其他"
-    "機制的證據去湊。"
+    "機制的證據去湊。baseline_chain_csv 的 available 欄位若為 false，"
+    "代表這期無法拆解基準鏈，直接明講，不要勉強解讀。"
 )
 
 _AGENT_A_3A_SCHEMA = {
@@ -297,9 +299,19 @@ _AGENT_A_3A_SCHEMA = {
                                "outcome_csv 裡的數字。"},
             "diagnosis_interpretation": {
                 "type": "string",
-                "description": "解讀 diagnosis_csv 裡各機制（M3／M4／M6／M0）"
+                "description": "解讀 diagnosis_csv 裡各機制（M3／M4／M6／M7／M0）"
                                "的觸發狀態代表什麼意思，只能引用資料裡已經"
                                "判定好的結果，不可重新判定。"},
+            "baseline_chain_interpretation": {
+                "type": "string",
+                "description": "解讀 baseline_chain_csv 的基準鏈拆解（設計文件"
+                               "§7.4：A_hrp→B_all→等權大盤→市值加權大盤，"
+                               "對應M4/M7/M1-R三段貢獻）——只能照抄裡面已經"
+                               "算好的 gap／pct_of_total 數字，不可自行推算。"
+                               "若 available 為 false，明講本期無法拆解，"
+                               "不要勉強解讀。這段解釋**不代表任何投組調整"
+                               "建議**，M1-R是否要調整屬於期初政策（§3.4），"
+                               "不是這裡能決定的事。"},
             "memory_consistency_note": {
                 "type": "string",
                 "description": "跟 memory 裡上一期的判定相比，這一期是維持"
@@ -313,7 +325,7 @@ _AGENT_A_3A_SCHEMA = {
                                "資料可評估、樣本不足之處。"},
         },
         "required": ["outcome_narrative", "diagnosis_interpretation",
-                    "memory_consistency_note", "caveat"],
+                    "baseline_chain_interpretation", "memory_consistency_note", "caveat"],
         "additionalProperties": False,
     },
     "strict": True,

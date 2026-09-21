@@ -178,18 +178,23 @@ def l1_distance(dist_a: dict[str, float], dist_b: dict[str, float]) -> float:
 #: window4（TW/scheme E），其餘窗次/市場仍缺，`fetch_ball_returns()` 找不到
 #: 對應區間時回傳 None，呼叫端會自動退回舊的等權大盤替身（見下）——不是新
 #: bug，是誠實的資料涵蓋範圍限制。
-_BALL_RECOMPUTE_PATH = (Path(__file__).resolve().parent.parent.parent
-                        / "_analysis_outputs_applayer" / "ball_stock_level_recompute.csv")
+_BALL_RECOMPUTE_PATHS = (
+    Path(__file__).resolve().parent.parent.parent / "_analysis_outputs_applayer" / "ball_stock_level_recompute.csv",  # window4
+    Path(__file__).resolve().parent.parent.parent / "_analysis_outputs_applayer" / "ball_stock_level_windows123.csv",  # windows1-3
+)
 
 
-def fetch_ball_returns(path: Path = _BALL_RECOMPUTE_PATH) -> dict[tuple[str, str], float]:
-    """讀`_recompute_ball_stock_level.py`算好、凍結存檔的真實B_all逐季報酬，
-    key=(as_of, end) 字串二元組，找不到檔案就回傳空dict（呼叫端會自動退回
-    舊的等權大盤替身，不會崩潰）。"""
-    if not path.exists():
-        return {}
-    df = pd.read_csv(path)
-    return {(r.as_of, r.end): float(r.stock_level_return) for r in df.itertuples()}
+def fetch_ball_returns(paths=_BALL_RECOMPUTE_PATHS) -> dict[tuple[str, str], float]:
+    """讀`_recompute_ball_stock_level.py`／`_recompute_ball_windows123.py`算好、
+    凍結存檔的真實B_all逐季報酬（window1~4全部涵蓋），key=(as_of, end) 字串
+    二元組，找不到檔案就跳過（呼叫端會自動退回舊的等權大盤替身，不會崩潰）。"""
+    out: dict[tuple[str, str], float] = {}
+    for path in paths:
+        if not path.exists():
+            continue
+        df = pd.read_csv(path)
+        out.update({(r.as_of, r.end): float(r.stock_level_return) for r in df.itertuples()})
+    return out
 
 
 def outcome_layer(md_map: dict, weights: dict[str, float], as_of: str, end: str,
