@@ -11,6 +11,10 @@
   6. 年份+季度代號連寫「2024Q3」「2024Q4」不可被誤攔，年份本身仍要能
      正確比對到資料（2026-09-19 多時間尺度敘事撞到，且發現更危險的漏網
      方向，見開發追蹤D61）
+  8. 識別碼緊貼中文字（如「A4皆不對」，中間沒有空格）不可被誤攔——根因是
+     Python的`\\b`對中文字元也算`\\w`，緊貼中文時判斷不出單字邊界
+     （2026-09-22 正式8季重跑撞到，是同一類問題的第6次變形，這次直接把
+     regex從`\\b`改成ASCII專屬環顧，修根因不再補特例）
 """
 from __future__ import annotations
 
@@ -136,6 +140,32 @@ def test_3_real_dates_not_corrupted():
     print("情境3 通過：日期等多位數真實數值沒有被誤判成識別碼")
 
 
+def test_8_identifier_adjacent_to_cjk_not_falsely_flagged():
+    """回歸測試：識別碼緊貼中文字、中間沒有空格（中文書寫的正常樣子）不可
+    被誤攔——正式8季重跑真實撞到的案例，reasoning 裡寫「A0 與 A4皆不對
+    當前已觸發的集中風險採取直接緩解」，"A4"後面直接接中文字「皆」，
+    Python的`\\b`在這裡判斷不出單字邊界（中文字元也算`\\w`），導致"A4"
+    沒被辨識成識別碼、"4"被當成獨立資料數字送去比對，對不上就誤攔
+    （2026-09-22）。同時驗證「3Q季」這種數字在前的鏡像形式一樣不會被誤攔。"""
+    explanation = {
+        "reasoning": "基於動作屬性：A2 僅在群間配重切換，明示不解決規模曝險"
+                    "問題；A0 與 A4皆不對當前已觸發的集中風險採取直接緩解。",
+    }
+    prompt = agents.build_decision_prompt({
+        "m1d_baseline_action_csv": "state,baseline_action\nTRIGGERED,A5\n",
+        "available_actions_csv": "ratio,allocation\nlegacy,equal\n",
+        "prospective_assessment": {"m1d_interpretation": "累計偏離 0.0434。"},
+    })
+    leak = agents._scan_for_leakage_mechanism_aware(explanation, prompt)
+    assert leak == [], f"情境8失敗（緊貼中文字的識別碼 A4 不該被誤攔）：{leak}"
+
+    explanation2 = {"note": "指標走勢在3Q季出現轉折，4Q季回穩。"}
+    prompt2 = "metric,value\nexcess,0.5\n"
+    leak2 = agents._scan_for_leakage_mechanism_aware(explanation2, prompt2)
+    assert leak2 == [], f"情境8失敗（數字在前、緊貼中文字的3Q/4Q不該被誤攔）：{leak2}"
+    print("情境8 通過：識別碼緊貼中文字（無空格）沒有被誤攔")
+
+
 if __name__ == "__main__":
     test_1_mechanism_code_not_false_flagged()
     test_2_fabricated_digit_still_caught()
@@ -144,4 +174,5 @@ if __name__ == "__main__":
     test_5_period_style_list_markers_not_falsely_flagged()
     test_6_year_quarter_concat_not_falsely_flagged()
     test_7_digit_first_quarter_not_falsely_flagged()
-    print("\n全部七個情境都通過。")
+    test_8_identifier_adjacent_to_cjk_not_falsely_flagged()
+    print("\n全部八個情境都通過。")

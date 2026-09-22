@@ -187,13 +187,25 @@ def baseline_chain_csv(decomposition: dict | None) -> str:
 
 
 def diagnosis_csv(diagnosis: dict) -> str:
-    """`diagnose.run_diagnosis()` 的輸出攤平成一張表（M3/M4/M6/M0/M8 的觸發狀態）。
-    🔴 M8（產業集中度，D56）選填——`region_b_state_warning` 裡沒有 M8 時
-    （呼叫端沒傳 weights 給 `run_diagnosis()`）就不輸出那一列，不假裝有資料。"""
+    """`diagnose.run_diagnosis()` 的輸出攤平成一張表（M3/M4/M6/M0/M7/M8 的觸發狀態）。
+    🔴 M7／M8 選填——`region_a_attributable`／`region_b_state_warning` 裡沒有
+    對應機制時（呼叫端沒傳 ball_benchmark_return／weights 給 `run_diagnosis()`）
+    就不輸出那一列，不假裝有資料。
+
+    🔴🔴 2026-09-22（使用者重跑3a真實範例時，靠3a自己誠實回報「M7本次無法
+    評估」才順帶抓到的真bug）：M7 於 §8待辦item10 解鎖、正式併入
+    `region_a_attributable` 後，這支函式從沒同步更新過，一路只手動列
+    M4/M3/M8/fallback 四列——**M7 從解鎖那天起就沒有出現在餵給3a的表格裡**，
+    3a因此每次都誠實回報「M7本次無法評估」，不是AI編的，是資料真的沒給。
+    這裡補上M7（跟M8同一種「選填、有才列」寫法）。"""
     rows = []
     m4 = diagnosis["region_a_attributable"]["M4"]
     rows.append({"mechanism": "M4", "region": "A", "triggered": m4["triggered"],
                  "action": m4.get("action")})
+    m7 = diagnosis["region_a_attributable"].get("M7")
+    if m7 is not None:
+        rows.append({"mechanism": "M7", "region": "A", "triggered": m7["triggered"],
+                     "action": m7.get("action")})
     m3 = diagnosis["region_b_state_warning"]["M3"]
     rows.append({"mechanism": "M3", "region": "B", "triggered": m3["triggered"],
                  "action": m3.get("action")})

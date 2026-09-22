@@ -26,7 +26,13 @@ CHART_DIR.mkdir(parents=True, exist_ok=True)
 
 QUARTERS = ["2024Q1", "2024Q2", "2024Q3", "2024Q4", "2025Q1", "2025Q2", "2025Q3", "2025Q4"]
 
-# ---- 已查證過的逐季報酬（見開發追蹤 D54/D67/研究進度報告） ----
+# ---- 已查證過的逐季報酬（見開發追蹤 D54/D67/D80/研究進度報告） ----
+# 🔴🔴 2026-09-22（D80）：W2C 這組數字原本是 D54 用 `_l2_human_approved_w2c.py`
+# 算出的「假設人核准」情境；正式8季重跑修完prompt bug後，L2臂5個觸發季
+# 真的全部選了W2c，真實checkpoint（`formal_8q_control0_L2_execlayer_v3`）
+# 算出來的數字跟這裡分毫不差——已交叉驗證過，不是巧合（機制本身是決定性
+# 的）。這裡先不改成動態讀取v3 checkpoint（數字本來就對得上，重寫的效益
+# 不高），但語意上這組數字現在代表「L2真實決策結果」，不是假設情境。
 BASELINE = [-0.0034, 0.1164, 0.0063, -0.0484, -0.0244, -0.0200, 0.0540, -0.0013]
 W2C = [-0.0034, 0.1164, 0.0063, -0.0484, -0.0768, 0.0503, 0.1144, 0.0830]
 MARKET = [0.1350, 0.1411, -0.0203, 0.0381, -0.0989, 0.0856, 0.1782, 0.1234]
@@ -56,7 +62,7 @@ def chart_1():
     fig, ax = plt.subplots(figsize=(9, 5.5))
     x = range(9)
     labels = ["登記"] + QUARTERS
-    for series, name, style in [(BASELINE, "不調整（現況）", "o-"), (W2C, "W2c情境（反事實）", "s-"),
+    for series, name, style in [(BASELINE, "不調整（現況）", "o-"), (W2C, "W2c情境（L2實際決策）", "s-"),
                                 (MARKET, "大盤（市值加權）", "^-")]:
         path = cum_path(series)
         ax.plot(x, [(p - 1) * 100 for p in path], style, label=name, linewidth=2)
@@ -187,7 +193,7 @@ def chart_5():
 # ============================================================ 6. 水下回撤圖
 def chart_6():
     fig, ax = plt.subplots(figsize=(9, 5.5))
-    for series, name in [(BASELINE, "不調整（現況）"), (W2C, "W2c情境（反事實）"), (MARKET, "大盤（市值加權）")]:
+    for series, name in [(BASELINE, "不調整（現況）"), (W2C, "W2c情境（L2實際決策）"), (MARKET, "大盤（市值加權）")]:
         path = np.array(cum_path(series))
         running_max = np.maximum.accumulate(path)
         dd = (path - running_max) / running_max
@@ -260,7 +266,7 @@ def chart_9():
     savefig(fig, "09_turnover")
 
 
-# ============================================================ 10. 逐季反事實改善幅度
+# ============================================================ 10. 逐季改善幅度（L2實際決策 vs 不調整）
 def chart_10():
     diff = [(w - b) * 100 for w, b in zip(W2C, BASELINE)]
     fig, ax = plt.subplots(figsize=(9, 5))
@@ -268,7 +274,7 @@ def chart_10():
     ax.bar(QUARTERS, diff, color=colors)
     ax.axhline(0, color="black", linewidth=1)
     ax.set_ylabel("W2c情境 - 不調整 (百分點)")
-    ax.set_title("圖10｜逐季反事實改善幅度（正=調整有幫助，負=調整反而更差）")
+    ax.set_title("圖10｜逐季改善幅度（L2實際決策 vs 不調整）（正=調整有幫助，負=調整反而更差）")
     ax.grid(alpha=0.3, axis="y")
     savefig(fig, "10_counterfactual_improvement")
 

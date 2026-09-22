@@ -75,7 +75,23 @@ from .memo import _call_llm, scan_for_leakage
 #: `\d{1,2}(?!\d)` 限制digit run長度、且不可接著更多數字，真正的資料數值
 #: （日期、金額這類 3 碼以上的連續數字）就不會被誤吃——用重建過的真實案例
 #: 逐一驗證過三種情境才定案，見 `_test_agents_leakage_fix.py`。
-_IDENTIFIER_WITH_DIGIT_RE = re.compile(r"\b[A-Za-z][A-Za-z_]*\d{1,2}(?!\d)[A-Za-z_]*\b")
+#:
+#: 🔴🔴🔴 2026-09-22（第6次踩到同一個根因，這次直接修根因，不再補特例）：
+#: 正式8季重跑撞到「A4皆不對當前已觸發的集中風險採取直接緩解」這句話——
+#: "A4"緊貼在中文字「皆」前面（中文書寫本來就不加空格），原本用`\b`當
+#: 首尾邊界，但Python的`\b`是Unicode-aware的：中文字元在`\w`的定義裡，
+#: 跟英數字一樣算「單字字元」，所以"4"跟"皆"之間**沒有**單字邊界，
+#: `\b`在那個位置比對失敗，導致整個"A4"沒被辨識成識別碼、沒被剝掉數字，
+#: "4"被當成獨立資料數字送去比對，對不上就誤攔。下面`_DIGIT_QUARTER_RE`
+#: 也有同一個根因。`_YEAR_QUARTER_RE`(D33)只用lookbehind錨定，不依賴`\b`，
+#: 不受影響。這是同一個根因的第6次變形（前5次：純數字識別碼、括號清單、
+#: 句點清單、年份接季度、數字接字母鏡像——每次都補一條新規則，但都沒
+#: 處理「`\b`在中文語境下不可靠」這個真正的根因）。**這次改用ASCII專屬
+#: 的環顧`(?<![A-Za-z0-9_])`／`(?![A-Za-z0-9_])`取代`\b`**——中文字元不在
+#: `[A-Za-z0-9_]`這個字元類別裡，所以緊貼中文字時環顧會正確判定「這裡
+#: 就是識別碼的邊界」，不像`\b`會被中文字元誤判成「同一個單字裡面」。
+_IDENTIFIER_WITH_DIGIT_RE = re.compile(
+    r"(?<![A-Za-z0-9_])[A-Za-z][A-Za-z_]*\d{1,2}(?!\d)[A-Za-z_]*(?![A-Za-z0-9_])")
 
 # 🔴🔴 2026-09-18（真實跑 simulate.py 第一季就抓到，同一類根因的新案例）：
 # 決策 agent 的 reasoning 用「1) ⋯；2) ⋯；3) ⋯」列點說明理由，這些「1」
@@ -120,7 +136,10 @@ _YEAR_QUARTER_RE = re.compile(r"(?<=\d{4})[A-Za-z]\d{1,2}(?!\d)")
 # 「3Q」的「3」又被別處真實數字洗白、沒被攔下——確認這一整類「類數字符號
 # 洗白」風險是系統性的，不是單一巧合。修法：獨立比對「1~2碼數字+單一字母」
 # 這個鏡像形狀，跟字母開頭的規則對稱。
-_DIGIT_QUARTER_RE = re.compile(r"\b\d{1,2}[A-Za-z](?![A-Za-z\d])\b")
+# 🔴🔴🔴 2026-09-22：同一個 \b／CJK 根因（見上方 `_IDENTIFIER_WITH_DIGIT_RE`
+# 的說明）——這裡的結尾 `(?![A-Za-z\d])\b` 也會在數字字母組合緊貼中文字時
+# 判斷失敗（例如「3Q季」），改用純 ASCII 環顧，不再依賴 `\b`。
+_DIGIT_QUARTER_RE = re.compile(r"(?<![A-Za-z0-9_])\d{1,2}[A-Za-z](?![A-Za-z0-9_])")
 
 
 def _strip_identifier_digits(text: str) -> str:
@@ -440,7 +459,7 @@ def build_decision_prompt(decision_facts: dict) -> str:
     return (
         "【客觀資料 · 由程式算出，不可推翻，數字已格式化，請直接照抄】\n"
         f"{json.dumps(decision_facts, ensure_ascii=False, indent=2, default=str)}\n\n"
-        "請從動作空間（A0／A2／A4／A5）選一個，依給定的 JSON schema 輸出"
+        "請從動作空間（A0／A2／A4／A5／W2c）選一個，依給定的 JSON schema 輸出"
         "決策與理由。記住：理由只能引用 prospective_assessment 裡的內容，"
         "不可自行計算任何動作的預期效果。"
     )
