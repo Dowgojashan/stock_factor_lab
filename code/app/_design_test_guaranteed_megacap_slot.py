@@ -5,8 +5,15 @@
 有這種候選人的話，沒有就不硬湊）。
 
 設計原則（避免變成「為了塞台積電硬調」）：
-  - 業界有正當先例：不少量化/指數增強策略會對「指數前N大成分股」設保底覆蓋率
-    下限，屬於標準的追蹤誤差控制手法，不是本專案發明的取巧規則。
+  - 🔴 2026-09-22查證：業界有正當先例——CFA Level III課綱裡「passive
+    portfolio construction」的標準方法之一是stratified sampling（分層
+    抽樣），原文「for the largest-cap portion of an indexed portfolio,
+    full replication is a sensible and desirable approach...stratified
+    sampling typically ensures that the largest constituents are fully
+    held」——分層抽樣對「指數前N大成分股」設保底覆蓋率下限，是業界／
+    考試課綱認可的標準追蹤誤差控制手法，不是本專案發明的取巧規則（完整
+    查證過程見`文件/實戰開發追蹤_v2.md`§2.7；先前這句話沒附來源，屬於
+    未查證的斷言，這次補上）。
   - 目標是「前十大權值股整體覆蓋率」，不是專門為台積電量身訂做。
   - 不取代現有5個依Calmar品質排序＋多樣性篩選的名額，是額外加1個保底名額——
     現有機制的行為完全不變，只是多了一道覆蓋率保險。
