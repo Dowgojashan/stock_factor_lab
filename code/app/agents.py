@@ -2,7 +2,7 @@
 """Agent-A（設計文件 §8）。複用 `memo._call_llm`／`memo.scan_for_leakage`
 ——網路/錯誤處理/額度記帳/D2 掃描不重寫一份（跟 `explain.py` 同一個決定）。
 
-✅ 現況（2026-09-18）：**單一 Agent-A 架構**（3a 回顧診斷、3b 前瞻評估、
+✅ 現況（2026-09-18）：**單一 Agent-A 架構**（3a 回顧診斷、3b 預測評估、
 5 決策、7 總結，共 4 個角色）皆已實作並用真實 LLM 呼叫驗證成功。
 
 🔴🔴 2026-09-18：**Agent-B（質疑者）與 4.5（修訂）已正式移除**（設計文件
@@ -194,10 +194,10 @@ def _check_leakage_or_raise(explanation: dict, prompt: str, *, stage_name: str) 
             + "\n  ".join(leakage))
     return leakage
 
-# ============================================================ Agent-A · 3b 前瞻評估
+# ============================================================ Agent-A · 3b 預測評估
 
 _AGENT_A_3B_SYSTEM_PROMPT = (
-    "你是一個投組監控系統的分析 agent（Agent-A），現在執行的是「前瞻評估」"
+    "你是一個投組監控系統的分析 agent（Agent-A），現在執行的是「預測評估」"
     "（設計文件 §10 階段 3b）。這是整個監控迴圈裡**唯一會驅動實際動作**的"
     "步驟，你的輸出必須完全站得住腳。\n\n"
     "鐵則（違反任何一條，這份輸出會被系統攔下）：\n"
@@ -212,7 +212,7 @@ _AGENT_A_3B_SYSTEM_PROMPT = (
     "4. 不可自行計算任何「如果這樣則預期那樣」的效果——你沒有被授權做這種"
     "推算，樣本不足或沒有提供時只能寫「資料未提供，無法判斷」，不可外推。\n"
     "5. 若你認為某個指標的資料不足以下判斷，明講「資料不足」，不要硬掰。\n"
-    "6. 這是前瞻評估，你此刻不知道這一期之後會發生什麼——不可用任何事後"
+    "6. 這是預測評估，你此刻不知道這一期之後會發生什麼——不可用任何事後"
     "諸葛的語氣（例如暗示自己已經知道結果）。"
 )
 
@@ -259,14 +259,14 @@ def build_3b_prompt(prospective_facts: dict) -> str:
     return (
         "【客觀資料 · 由程式算出，不可推翻，數字已格式化，請直接照抄】\n"
         f"{json.dumps(prospective_facts, ensure_ascii=False, indent=2, default=str)}\n\n"
-        "請依給定的 JSON schema 輸出前瞻評估。記住：這裡不選動作、不做預測、"
+        "請依給定的 JSON schema 輸出預測評估。記住：這裡不選動作、不做預測、"
         "不引用資料外的數字，只客觀描述現況與距門檻多遠。"
     )
 
 
 def call_agent_a_3b(prospective_facts: dict, *, model: str, api_key: str,
                     purpose: str = "monitor_3b", dry_run: bool = True) -> dict:
-    """Agent-A 階段 3b（前瞻評估）。`dry_run=True`（預設）不呼叫 LLM，只回傳
+    """Agent-A 階段 3b（預測評估）。`dry_run=True`（預設）不呼叫 LLM，只回傳
     佔位輸出方便測試管線組裝是否正確；`dry_run=False` 才會真的燒 token。"""
     prompt = build_3b_prompt(prospective_facts)
     required = _AGENT_A_3B_SCHEMA["schema"]["required"]
@@ -279,7 +279,7 @@ def call_agent_a_3b(prospective_facts: dict, *, model: str, api_key: str,
         prompt, model, api_key, purpose=purpose, est_tokens=len(prompt) // 3,
         system_prompt=_AGENT_A_3B_SYSTEM_PROMPT, schema=_AGENT_A_3B_SCHEMA)
 
-    leakage = _check_leakage_or_raise(explanation, prompt, stage_name="3b 前瞻評估")
+    leakage = _check_leakage_or_raise(explanation, prompt, stage_name="3b 預測評估")
 
     return {"prompt": prompt, "explanation": explanation, "dry_run": False,
            "leakage_check": leakage, "usage": usage}
@@ -414,7 +414,7 @@ _AGENT_A_DECISION_SYSTEM_PROMPT = (
     "的理由，是「選的話要在理由裡承認這些限制」\n\n"
     "鐵則：\n"
     "1. 不可引用【客觀資料】以外的任何數字。\n"
-    "2. **理由必須明寫依據前瞻評估（prospective_assessment）的哪幾項**——"
+    "2. **理由必須明寫依據預測評估（prospective_assessment）的哪幾項**——"
     "你完全看不到回顧區（3a）的內容，這是刻意的物理隔離，不是資料遺漏，"
     "不要因為看不到就猜測或杜撰回顧區可能講了什麼。\n"
     "3. **選 A0 也必須寫理由**——『不動』是一個決定，不是預設值，要說明"
@@ -626,7 +626,7 @@ def call_agent_a_dialogue_turn(decision_facts: dict, draft_decision: dict,
 # ============================================================ Agent-A · 7 季度總結
 
 # 🔴 §10 階段 7（2026-09-18 更新）：Agent-B 移除後，四段式結構變成
-# ①程式事實②回顧③前瞻④人的裁決與理由——原本標題寫「五段式」（含④B的
+# ①程式事實②回顧③預測④人的裁決與理由——原本標題寫「五段式」（含④B的
 # 異議原文），現在跟本來就寫「四段式」的另外兩處（§10「每季都要有解釋」
 # 表、§12.3①）一致了，之前那個五段/四段不一致的小瑕疵因此自然解決。
 #
@@ -637,7 +637,7 @@ def call_agent_a_dialogue_turn(decision_facts: dict, draft_decision: dict,
 
 _AGENT_A_SUMMARY_SYSTEM_PROMPT = (
     "你是投組監控系統的分析 agent（Agent-A），現在執行的是「季度總結」"
-    "（設計文件 §10 階段 7）。你要把這一季已經產生的回顧診斷、前瞻評估、"
+    "（設計文件 §10 階段 7）。你要把這一季已經產生的回顧診斷、預測評估、"
     "決策整合成兩段連貫的敘事，給人看的報告——**不是重新分析，是把已經"
     "確定的內容寫成讀得順的段落**。\n\n"
     "鐵則：\n"
@@ -645,7 +645,7 @@ _AGENT_A_SUMMARY_SYSTEM_PROMPT = (
     "2. 不可以在整合的過程中**新增**任何這一季稍早的分析裡沒有的結論、"
     "數字或判斷——你的任務是整合與潤飾，不是重新推論。\n"
     "3. retrospective_section 只能取材自回顧診斷的內容，prospective_section "
-    "只能取材自前瞻評估與決策的內容——不要把兩者的內容混在一起講。\n"
+    "只能取材自預測評估與決策的內容——不要把兩者的內容混在一起講。\n"
     "4. prospective_section 必須清楚交代這一季做了什麼決策、理由是什麼——"
     "這是給人看的報告，讀者要能一眼看懂『這一季判斷了什麼、決定怎麼做』。"
 )
@@ -661,7 +661,7 @@ _AGENT_A_SUMMARY_SCHEMA = {
                                "是這個結果。只能取材自回顧診斷，不驅動動作。"},
             "prospective_section": {
                 "type": "string",
-                "description": "③【前瞻】整合自前瞻評估與決策的內容——當下"
+                "description": "③【預測】整合自預測評估與決策的內容——當下"
                                "曝險與容忍度的距離，以及這一季做了什麼決策、"
                                "為什麼。"},
         },
@@ -678,11 +678,11 @@ def build_summary_prompt(retrospective_output: dict, prospective_output: dict,
     return (
         "【這一季的回顧診斷（②的取材來源）】\n"
         f"{json.dumps(retrospective_output, ensure_ascii=False, indent=2, default=str)}\n\n"
-        "【這一季的前瞻評估（③取材來源之一）】\n"
+        "【這一季的預測評估（③取材來源之一）】\n"
         f"{json.dumps(prospective_output, ensure_ascii=False, indent=2, default=str)}\n\n"
         "【這一季的決策（③取材來源之一）】\n"
         f"{json.dumps(decision_output, ensure_ascii=False, indent=2, default=str)}\n\n"
-        "請把以上內容整合成兩段連貫的敘事（回顧／前瞻），依給定的 JSON schema"
+        "請把以上內容整合成兩段連貫的敘事（回顧／預測），依給定的 JSON schema"
         "輸出。不要新增任何以上內容沒有的結論或數字。"
     )
 
@@ -715,13 +715,13 @@ def call_agent_a_summary(retrospective_output: dict, prospective_output: dict,
 # 底層量測/觸發維持季度不變（已驗證），這裡是**敘事層級彙整**——把已經
 # 算好的月頻/半年/年度真實資料整合成連貫敘事，並明確比較「不同尺度講的
 # 故事是否一致」（老師原話：「一邊觀察哪邊對、哪邊錯」）。跟階段7季度
-# 總結同一個限制：純回顧性質，不驅動任何動作，不可用來支持前瞻決策。
+# 總結同一個限制：純回顧性質，不驅動任何動作，不可用來支持預測決策。
 
 _AGENT_A_MULTISCALE_SYSTEM_PROMPT = (
     "你是投組監控系統的分析 agent（Agent-A），現在執行的是「多時間尺度"
     "解釋」——老師要求的「當月的解釋題、當季的解釋題、半年的解釋題、"
     "一年的解釋題」。這是**純回顧、事後解釋**，跟階段3a/階段7同一個限制："
-    "不建議任何動作、不能用來支持任何前瞻決策，只整合已經發生、已經算好"
+    "不建議任何動作、不能用來支持任何預測決策，只整合已經發生、已經算好"
     "的真實資料成連貫敘事。\n\n"
     "鐵則：\n"
     "1. 不可引用【客觀資料】以外的任何數字。\n"

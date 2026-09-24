@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """facts_lean.py 驗證：組真實資料、確認 CSV 格式正確，並且**故意**觸發一次
-物理防線（塞一個流量變數進前瞻 facts），確認防線真的會擋下來，不是裝飾用的。
+物理防線（塞一個流量變數進預測 facts），確認防線真的會擋下來，不是裝飾用的。
 """
 from __future__ import annotations
 
@@ -66,7 +66,7 @@ def main():
     # （q1_weight 兩邊數字不一致，B 抓到）。正確做法：
     #   - outcome（回顧，測「as_of→end 這段期間，季初那筆持股表現如何」）
     #     ⇒ 用 **as_of** 解的持股
-    #   - env／proc／m1d（前瞻，測「現在——也就是這一季结束、快時鐘重解後——
+    #   - env／proc／m1d（預測，測「現在——也就是這一季结束、快時鐘重解後——
     #     長什麼樣」）⇒ 用 **end** 解的持股／市場資料，跟 as_of 那筆脫鉤
     weights_as_of = resolve_weights(md, idx, uids, as_of)
     weights_end = resolve_weights(md, idx, uids, end)
@@ -87,7 +87,7 @@ def main():
     diag = diagnose.run_diagnosis(n_unique_stocks=proc["n_unique_stocks"],
                                   excess_vs_ball_history=excess_hist)
 
-    print("\n=== 3b 前瞻區 facts（應該成功，不觸發防線）===")
+    print("\n=== 3b 預測區 facts（應該成功，不觸發防線）===")
     prospective = facts_lean.build_prospective_facts(env, proc, m1d)
     for k, v in prospective.items():
         print(f"--- {k} ---")
@@ -100,7 +100,7 @@ def main():
         print(f"--- {k} ---")
         print(v)
 
-    print("\n=== 故意觸發物理防線：把流量變數塞進前瞻 facts ===")
+    print("\n=== 故意觸發物理防線：把流量變數塞進預測 facts ===")
     try:
         bad_actions = list(acts) + [{"ratio": "legacy", "allocation": "equal",
                                      "n_windows_visible": 1,

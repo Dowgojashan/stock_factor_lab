@@ -207,7 +207,7 @@ def _render_l3_tab() -> None:
                  "outcome": checkpoint["outcome"], "m1d": checkpoint["m1d"]})
         st.markdown("**回顧診斷**（3a，僅供學習，§7.0 不得驅動動作）")
         st.json(checkpoint["retrospective_output"])
-        st.markdown("**前瞻評估**（3b，唯一可驅動動作的區塊）")
+        st.markdown("**預測評估**（3b，唯一可驅動動作的區塊）")
         st.json(checkpoint["prospective_output"])
 
     st.markdown("**階段5 決策草案**（已經真實做出，對話目的是討論它、不是"

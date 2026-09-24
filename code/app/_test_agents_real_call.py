@@ -73,7 +73,7 @@ def main():
     m1d = triggers.evaluate_quarter(cond, mcap_wide, end, prev_state="NONE")
 
     prospective_facts = facts_lean.build_prospective_facts(env, proc, m1d)
-    print("\n=== 前瞻 facts（即將送進 LLM）===")
+    print("\n=== 預測 facts（即將送進 LLM）===")
     for k, v in prospective_facts.items():
         print(f"--- {k} ---\n{v}")
 

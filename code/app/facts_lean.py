@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """監控專用精簡 facts 組裝（設計文件 §12.3）：表格用 CSV、巢狀用 compact JSON。
 
-🔴🔴 最重要的規則（§7.7、§10 階段 3a/3b）：**3b（前瞻）呼叫物理上不得包含任何
+🔴🔴 最重要的規則（§7.7、§10 階段 3a/3b）：**3b（預測）呼叫物理上不得包含任何
 流量變數／回顧資料**，不能只靠 prompt 文字告訴 agent「不要用這個」——看得到
 就可能被用到。`build_prospective_facts()` 因此有一道**程式層的物理防線**：
 組出 dict 之後，逐一檢查 key 名稱有沒有踩到已知的流量變數清單
@@ -20,7 +20,7 @@ import csv
 import io
 import json
 
-# 流量變數關鍵字——3b 前瞻 facts 絕對不能出現這些（§9.0／§7.0）
+# 流量變數關鍵字——3b 預測 facts 絕對不能出現這些（§9.0／§7.0）
 _FLOW_VARIABLE_KEYWORDS = (
     "realized_return", "excess_vs", "portfolio_return", "cap_weight_benchmark_return",
     "equal_weight_benchmark_return", "attribution", "basis_chain", "m1_r", "m1-r",
@@ -58,7 +58,7 @@ def _assert_no_flow_leakage(d: dict, context: str) -> None:
                 if any(kw in kl for kw in _FLOW_VARIABLE_KEYWORDS):
                     raise RuntimeError(
                         f"🔴 物理防線觸發（{context}）：key「{path}.{k}」疑似流量變數，"
-                        f"不得出現在前瞻區 facts 裡（§7.7）。若這是誤判，請檢查關鍵字表。")
+                        f"不得出現在預測區 facts 裡（§7.7）。若這是誤判，請檢查關鍵字表。")
                 _walk(v, f"{path}.{k}")
         elif isinstance(node, str):
             low = node.lower()
@@ -66,11 +66,11 @@ def _assert_no_flow_leakage(d: dict, context: str) -> None:
                 if kw in low:
                     raise RuntimeError(
                         f"🔴 物理防線觸發（{context}）：字串內容裡出現流量變數關鍵字"
-                        f"「{kw}」，疑似 CSV 欄位名洩漏了流量資料，不得出現在前瞻區。")
+                        f"「{kw}」，疑似 CSV 欄位名洩漏了流量資料，不得出現在預測區。")
     _walk(d)
 
 
-# ============================================================ 3b：前瞻區（狀態變數，可驅動動作）
+# ============================================================ 3b：預測區（狀態變數，可驅動動作）
 
 def three_tier_state_csv(env: dict, proc: dict) -> str:
     """環境層＋過程層的狀態變數，攤成一張窄表（§9 三層指標裡的狀態變數子集）。"""
@@ -86,7 +86,7 @@ def three_tier_state_csv(env: dict, proc: dict) -> str:
 
 
 def m1d_state_csv(m1d: dict) -> str:
-    """M1-D（triggers.py 的 evaluate_quarter 輸出）——這是前瞻區**唯一**可以
+    """M1-D（triggers.py 的 evaluate_quarter 輸出）——這是預測區**唯一**可以
     驅動動作的判準（§7.4「M1 的三個角色」）。"""
     rows = [{
         "metric": "q1_weight", "value": round(m1d["q1_weight"], 4),
@@ -112,13 +112,13 @@ def available_actions_csv(actions: list[dict]) -> str:
 
 
 def build_prospective_facts(env: dict, proc: dict, m1d: dict) -> dict:
-    """3b：前瞻區 facts。🔴 物理上不含任何流量變數——組完後立刻跑防洩題檢查，
+    """3b：預測區 facts。🔴 物理上不含任何流量變數——組完後立刻跑防洩題檢查，
     不是事後補救，是這個函式的必經路徑（呼叫端無法繞過）。
 
     🔴 2026-09-17（Agent-B 第一次真實質疑就抓到）：原本這裡也塞了
     `available_actions_csv`，但 3b 的角色定義是「只描述現況，不選動作」
     （選動作是階段 5 的事，見設計文件 §10），給了 3b 用不到的資料只會造成
-    混淆（B 質疑「3b 完全沒引用這份資料，跟前瞻評估脫節」，抓得對）——已
+    混淆（B 質疑「3b 完全沒引用這份資料，跟預測評估脫節」，抓得對）——已
     移除，`available_actions_csv` 留給階段 5 決策時的 facts 建構式用（尚未
     實作）。
     """
@@ -131,7 +131,7 @@ def build_prospective_facts(env: dict, proc: dict, m1d: dict) -> dict:
     if env.get("as_of") != m1d.get("as_of"):
         raise ValueError(
             f"env 跟 m1d 的 as_of 不一致（env={env.get('as_of')!r}，"
-            f"m1d={m1d.get('as_of')!r}）——同一份前瞻 facts 裡的狀態變數必須是"
+            f"m1d={m1d.get('as_of')!r}）——同一份預測 facts 裡的狀態變數必須是"
             f"同一個時間點的快照，呼叫端請統一用同一個 as_of 算 env／proc／m1d。")
 
     facts = {
