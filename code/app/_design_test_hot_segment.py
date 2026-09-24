@@ -13,8 +13,10 @@ test_guaranteed_megacap_slot.py`同一批 window4 的 30 個代表策略），�
 ——用意是先看 N/X 的選擇對 coverage 有沒有鑑別力，不是這次就要凍結最終門檻數字
 （凍結門檻需要更長歷史，比照 M1-D 用 2007-2023，那是下一步）。
 
-用法（cwd 必須是 code/）：
-    python -m app._design_test_hot_segment [--market TW|US] [--full-grid]
+用法（cwd 必須是 code/；⚠️ Windows 預設主控台是 cp950，本檔輸出含中文與🔴🔶符號，
+一律加 PYTHONIOENCODING=utf-8，否則印到反查驗證段落會 UnicodeEncodeError 中斷，
+CLAUDE.md 已對整個研究部腳本記過這條規則，這裡同樣適用）：
+    PYTHONIOENCODING=utf-8 python -m app._design_test_hot_segment [--market TW|US] [--full-grid]
 
     預設只測 TW、N∈{1,3,6}×X∈{10%,20%} 全組合（第一輪已跑過，見開發追蹤§1.1）。
     --market US：US 市場穩健性檢查，預設只測 N∈{3,6}×X∈{10%}（TW 已確認 N=1 是雜訊、

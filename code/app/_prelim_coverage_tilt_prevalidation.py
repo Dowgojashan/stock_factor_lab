@@ -32,7 +32,6 @@ from resolve_strategy_holdings import CANDIDATE_INDEX_PATH, resolve_holdings  # 
 from app.performance import measure  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _design_test_guaranteed_megacap_slot import selects_symbol  # noqa: E402
 from _design_test_hot_segment import _quarterly_returns, hot_segment, monthly_close  # noqa: E402
 
 MEMBERS_PATH = Path(__file__).resolve().parent.parent.parent / "_analysis_outputs_robustness" / "walkforward_members.parquet"
@@ -53,8 +52,10 @@ def quarter_ends(start: str, end: str) -> list[str]:
     return [d.strftime("%Y-%m-%d") for d in pd.date_range(start, end, freq="Q")]
 
 
-def get_members(window_no: int) -> list[str]:
-    m = pd.read_parquet(MEMBERS_PATH)
+def get_members(m: pd.DataFrame, window_no: int) -> list[str]:
+    """`m`由呼叫端傳入（`main()`只讀一次walkforward_members.parquet），不在這裡
+    每個window各自重讀一次同一個檔案（2026-09-23 code review抓到，跟rolling系列
+    腳本已經修過的「MarketData/candidate_index該共用卻沒共用」同一類問題）。"""
     key = dict(tree_key="TW", scheme="E", window_no=window_no, k_mode="silhouette_is",
               ratio="legacy", allocation="equal", group="A_hrp")
     sub = m.copy()
@@ -64,26 +65,41 @@ def get_members(window_no: int) -> list[str]:
     return list(sub.iloc[0]["members"])
 
 
-def resolve_tilted_weights(md: MarketData, idx: pd.DataFrame, uids: list[str],
-                           as_of: str, hot_set: set[str], beta: float) -> tuple[dict[str, float], int]:
-    """β=0 時還原純等權（跟resolve_w0()完全一樣的結果），β>0 時對「覆蓋Hot Segment
-    的代表策略」整體加重，同一策略內部仍是等權持股（不動選股邏輯本身，只調策略間的
-    相對權重——符合書上「只做符合原本設計的調整」的紀律，見領域筆記§6）。"""
+def resolve_holdings_and_coverage(md: MarketData, idx: pd.DataFrame, uids: list[str],
+                                  as_of: str, hot_set: set[str]) -> tuple[dict, dict, float]:
+    """解析每個策略在`as_of`的持股＋算covers（連續版coverage_frac）。
+
+    🔴 抽成獨立函式、每個checkpoint只呼叫一次——持股跟覆蓋比例只跟(as_of, hot_set)
+    有關，跟β無關，原本`resolve_tilted_weights()`把這段包在裡面、每個β值(5個)各
+    重解一次持股，等於白白多做4倍的`resolve_holdings()`（2026-09-23 code review
+    抓到，`_design_test_hot_segment_xm.py`已經修過同一類「該共用卻沒共用」的問題）。
+    """
     covers = {}
     holdings = {}
     for uid in uids:
         row = idx.loc[uid]
         try:
             syms, _ = resolve_holdings(md, row, as_of)
-        except RuntimeError:
+        except (RuntimeError, KeyError, ValueError):
+            # 🔴 跟本次session其餘3支新腳本統一用同一組except——resolve_holdings()
+            # 也會拋ValueError（as_of早於該策略/市場全部交易日資料），原本這裡只接
+            # RuntimeError，同一個異常在別的檔案早就修過，這裡漏了（2026-09-23
+            # code review抓到，屬於跨檔案不一致，不是這輪才新出現的問題）
             syms = []
         holdings[uid] = syms
         n_hot_in = len(set(syms) & hot_set) if syms else 0
         covers[uid] = (n_hot_in / len(hot_set)) if hot_set else 0.0   # 🔴 連續版：覆蓋比例，不是二元
         # （2026-09-22改版原因：二元「選到≥1檔就算covers」對legacy寬持股策略(~500檔)
         #  幾乎恆真——93~96%策略covers_hot=True，β完全沒有鑑別力，見開發追蹤§1.5）
-
     avg_frac = sum(covers.values()) / len(covers) if covers else 0.0
+    return holdings, covers, avg_frac
+
+
+def tilt_weights(holdings: dict, covers: dict, uids: list[str], beta: float) -> dict[str, float]:
+    """β=0 時還原純等權（跟resolve_w0()完全一樣的結果），β>0 時對「覆蓋Hot Segment
+    的代表策略」整體加重，同一策略內部仍是等權持股（不動選股邏輯本身，只調策略間的
+    相對權重——符合書上「只做符合原本設計的調整」的紀律，見領域筆記§6）。純算術，
+    不重解持股，可以每個β值輕量呼叫一次。"""
     raw_w = {uid: (1.0 + beta * covers[uid]) for uid in uids if holdings[uid]}
     total = sum(raw_w.values())
     strategy_w = {uid: v / total for uid, v in raw_w.items()} if total else {}
@@ -94,7 +110,7 @@ def resolve_tilted_weights(md: MarketData, idx: pd.DataFrame, uids: list[str],
         w = sw / len(syms)
         for s in syms:
             weights[s] = weights.get(s, 0.0) + w
-    return weights, avg_frac
+    return weights
 
 
 def main():
@@ -102,12 +118,13 @@ def main():
     print("載入 TW MarketData…")
     md = MarketData("TW")
     md_map = {"TW": md}
+    members_df = pd.read_parquet(MEMBERS_PATH)
 
     ret_df = _quarterly_returns(monthly_close(md), N_MOMENTUM)
 
     rows = []
     for wno, meta in WINDOWS.items():
-        uids = get_members(wno)
+        uids = get_members(members_df, wno)
         checkpoints = [meta["is_end"]] + quarter_ends(meta["oos_start"], meta["oos_end"])
 
         per_beta_rets: dict[float, list[float]] = {b: [] for b in BETAS}
@@ -120,13 +137,23 @@ def main():
                 print(f"  window {wno} {as_of}：動能資料不足，跳過")
                 continue
             hot = set(hot_segment(ret_df.loc[q_idx.max()], X_HOT))
+            holdings, covers, avg_frac = resolve_holdings_and_coverage(md, idx, uids, as_of, hot)
 
             for b in BETAS:
-                wt, avg_frac = resolve_tilted_weights(md, idx, uids, as_of, hot, b)
+                wt = tilt_weights(holdings, covers, uids, b)
                 res = measure(md_map, wt, as_of, end)
                 per_beta_rets[b].append(res["portfolio_realized_return"])
                 if b == BETAS[0]:
-                    ew_rets.append(res["by_market_benchmark"]["TW"]["equal_weight_benchmark_return"])
+                    ew = res["by_market_benchmark"]["TW"]["equal_weight_benchmark_return"]
+                    if ew is None:
+                        # 🔴 measure()的None代表「這段期間TW完全沒有算得出報酬的股票」——
+                        # 真的沒資料，不是可以忽略的邊界情況，讓它悄悄混進ew_rets會在
+                        # 下面的加總算式炸出難懂的TypeError，不如在源頭講清楚
+                        # （2026-09-23 code review 抓到，window 1-3不該發生，發生了要查）
+                        raise ValueError(
+                            f"window {wno} {as_of}~{end}：TW equal_weight_benchmark_return"
+                            f"是None（完全沒有可用報酬的股票），不是正常的資料缺口")
+                    ew_rets.append(ew)
                     avg_frac_log.append(avg_frac)
 
         if not ew_rets:
