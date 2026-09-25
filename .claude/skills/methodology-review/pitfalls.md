@@ -39,9 +39,20 @@
 
 ## 五、IS/OOS 分離是否乾淨
 
-- **anchored vs rolling**：H-26 實測 **rolling 是 13 個方案裡最差的**
+- **anchored vs rolling**：H-26 實測（8:3比例）**rolling 是 13 個方案裡最差的**
   （OOS CAGR 20.95% vs anchored 22.44%）。曾有外部審查建議改成「往前抓 72 個月」，
-  那就是 rolling，已明確排除。🔴 **不要再提案改 rolling。**
+  那就是 rolling，當時已明確排除。
+  🔴🔴 **2026-09-24 這條規則已過時，不要照抄**：老師 9/22 當面明確要求重新測
+  rolling（懷疑候選池偏小型股是anchor造成的）。用IS6/OOS2（比H-26當初的8:3更
+  貼近業界walk-forward慣例）重測後，結論不是簡單的「rolling比較差」——候選池
+  組成一開始看起來rolling較差，但查出真正機制是Calmar品質排序×V1估值濾網的
+  交互作用，排除V1後控制掉這個混淆因素，rolling其實不輸anchored、甚至
+  composition/CAGR都略優，且在真實production管線下rolling+排除V1的累積報酬
+  還超過anchored+保留V1。完整過程見`實戰開發追蹤_v2.md`§3.1-3.15。
+  **這條舊坑本身沒有錯（H-26的8:3測試數字沒問題），但「不要提案改rolling」這個
+  行動指示已經被老師的明確要求推翻，不要用這條舊筆記去拒絕新的rolling相關要求
+  ——每次遇到anchor/rolling相關提案，先確認是否有更新的教師指示或後續驗證結果，
+  不要只看這條孤立的歷史記錄。**
 - **相鄰窗次的 IS 高度重疊**（anchored 第 2 窗的 IS = 第 1 窗的 IS+OOS），
   所以「各窗獨立」的假設要小心——H-26c 專門檢驗這件事。
 - OOS 資料完整性：`walkforward_matrix.py` 有硬檢查，OOS 有缺值就 raise，
