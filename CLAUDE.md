@@ -60,9 +60,11 @@
    （讀出舊檔案裡其他市場的列、算出這個市場的新結果、merge、再寫回），
    不能直接呼叫 `run(trees=["TW"])`。
 
-0. **🔴🔴 `文件/現況銜接.md` —— 最先讀這份。** 它用三分鐘講完「現在做到哪、下一步是什麼、
-   哪些事已經決定不做（不要重新提案）、這次踩過哪些坑」。本 CLAUDE.md 講的是**專案怎麼運作**
-   （長期不太變的事），`現況銜接.md` 講的是**現在的狀態**（會一直變）。兩者衝突時以日期新的為準。
+0. 🔴🔴 **2026-10-05 查證：`文件/現況銜接.md` 已不存在**（git history 顯示在某次「123」
+   commit裡被刪，不是這次對話刪的，刪除原因未知）。**目前實際扮演「現況快照」角色的是
+   `文件/實戰開發追蹤_v2.md` §0**（現況快照＋狀態表＋已決定不做的事），**改讀那份**，
+   不要再找 `現況銜接.md`。本 CLAUDE.md 講的是**專案怎麼運作**（長期不太變的事），
+   `實戰開發追蹤_v2.md` §0 講的是**現在的狀態**（會一直變）。兩者衝突時以日期新的為準。
 1. **🔴 `文件/研究框架總覽_v10.md` —— 現行唯一的完整框架文件，接手後第一件事就讀它。**
    裡面有完整的實驗框架、故事線、五章骨架、每階段的實際結果數字、已知限制、尚未完成的項目。
    本 CLAUDE.md 只講「跟你協作有關的注意事項」，研究內容一律以 v10 為準。
@@ -165,12 +167,28 @@ H-21 維度已改成「walk-forward窗次×精選比例」並隨 H-26/H-27 完�
 ③M 系列推翻原故事線需要當面報告。細節見 v10 §10。
 
 ### ⚠️ 幾個容易記錯的數字（已重新查證，舊版 CLAUDE.md 寫錯過）
-- **候選策略池 15,810 個**（TW 7,128 + US 8,682），採用 openSec 變體。
+
+🔴🔴 **2026-10-05 更新：TW 候選池已換成 openSec_boost 變體，下面「15,810個」「TW 7,128」
+「TW k=7」這幾個數字對 TW 已經過期（US/XM 本輪未動，仍是舊值）**——
+Phase2 強制納入 ROE/EPS/ROIC/REV_G/MOM_3M 五個 regime-dependent 因子當 primary
+（見 `code/phase2_analyze.py` 的 `FORCE_PRIMARY_OVERRIDE`、`code/phase_variants.py` 的
+`openSec_boost` 變體），TW 候選池從 15,009 擴增到 **29,255**，HRP 群數從寫死 k=7
+改成用 `cluster_count_selection.py` 重算出的 **k=6**（`stage3_hrp.L1_TARGET["TW"]=6`）。
+全部研究部主鏈（stage0~4、`k_stability`、`walkforward_matrix`）已針對 TW 完整重跑過。
+這次連帶做的實戰層發現（排除V1、W2c上限放寬、強制提早啟動W2c可讓8季累積報酬贏過TAIEX
++70.56%）記錄在 memory `project_openSec_boost_w2c_early_activation_2026-10.md`，
+細節不在這裡重複。US（7,128→不動）/XM 本輪完全沒變，下面數字對 US/XM 仍然有效。
+
+- **候選策略池 15,810 個**（TW~~7,128~~ **→29,255（openSec_boost，僅TW）** + US 8,682），
+  原採用 openSec 變體，TW 已升級成 openSec_boost。
   ~~舊寫法「台股 7,162、美股 6,916」是錯的~~，正確數字來自 `_frozen/stage0/candidate_index.parquet`
   與 `_analysis_outputs_phase4/{TW,US}_L4_openSec_final_candidates.csv`
 - 自建宇宙基準 CAGR：台股 **8.4256%**、美股 **11.0556%**（`contracts.BENCHMARK_CAGR`；
   舊數字 8.67%/12.35% 是 2026-08-22 價格修復前的）
-- HRP L1 群數：TW **6**、US **7**、XM **3**（H-03 用輪廓係數決定，不是寫死的 8；L2 已移除）
+- HRP L1 群數：TW ~~7~~ **→6**（2026-10-05 換成 openSec_boost 候選池後用
+  `cluster_count_selection.py` 重算出來的，不是沿用舊值；上一版 TW=7 是更早一輪
+  加成長因子後算出的中繼值，見本節最上方🔴🔴區塊）、US **7**、XM **3**
+  （H-03 用輪廓係數決定，不是寫死的 8；L2 已移除）
 - 總經 clock_cell **已改用 5 年滾動窗**（H-18②），`stage4` 讀的是
   `_frozen/stage2/macro_rolling/`，不是 `_frozen/stage2/macro/`
 - 🔴 **HRP 只用來分群，沒有用來配權重**（2026-09-10 查證）——所有組合績效都是
