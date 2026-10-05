@@ -1,7 +1,7 @@
 {
   "stage": "cluster_macro_interface",
-  "produced_at": "2026-08-31T11:22:26",
-  "git_sha": "be3282f",
+  "produced_at": "2026-10-05T21:34:36",
+  "git_sha": "65c436f",
   "params": {
     "excluded_quant_columns": [
       "window_start_year",
@@ -21,22 +21,22 @@
   "inputs": [
     {
       "path": "_frozen\\stage3\\cluster_identity.parquet",
-      "sha256": "119b9f93b9c86b7f9b1b25a5103e7a78c92d96aea6e4a864ad9d3fd634eeed02",
-      "bytes": 16258,
+      "sha256": "2c67803dab3069a82121a252f086b0d7279aca5563151e600cc71e364838993d",
+      "bytes": 17869,
       "rows": 16
     },
     {
       "path": "_frozen\\stage3\\cluster_profile_quant.parquet",
-      "sha256": "75ce86d45b2158363cb8f0ea99599404074fb6e143e878c0e7f595ae3cbdc266",
-      "bytes": 22962,
-      "rows": 16
+      "sha256": "e1b7cb6b053b4534457b7f25ccf3fd663715c3786fb6449b1a11de7acd600829",
+      "bytes": 23092,
+      "rows": 19
     }
   ],
   "outputs": [
     {
       "path": "_frozen\\stage3\\cluster_macro_interface.parquet",
-      "sha256": "687656f70cc1e840b5ab14ce8768481ad29147985d18f94b0142205bb6e3bf62",
-      "bytes": 21329,
+      "sha256": "424eeea8dec2017588bbd128e43ae007206c68a3d319734259f9331689abe5fe",
+      "bytes": 21237,
       "rows": 16
     }
   ],

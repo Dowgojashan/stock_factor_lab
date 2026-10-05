@@ -1,10 +1,12 @@
 {
   "stage": "cluster_temporal_profile",
-  "produced_at": "2026-10-04T21:23:44",
-  "git_sha": "eb31267",
+  "produced_at": "2026-10-05T21:33:11",
+  "git_sha": "65c436f",
   "params": {
     "trees": [
-      "TW_normal"
+      "TW_normal",
+      "US_normal",
+      "XM_normal"
     ],
     "level": "L1"
   },
@@ -37,21 +39,21 @@
   "outputs": [
     {
       "path": "_frozen\\stage3\\cluster_annual_returns.parquet",
-      "sha256": "3d3c47ddae0bf2e4dbc2a64d9490ae4d6dbb5d44a3260e7c7c279a97d243d947",
-      "bytes": 5882,
-      "rows": 114
+      "sha256": "500eb780168745b98dbfc4ea2d9d067b7b1820c53a086265299c3effa0a7565e",
+      "bytes": 8036,
+      "rows": 396
     },
     {
       "path": "_frozen\\stage3\\cluster_quarterly_returns.parquet",
-      "sha256": "10e3b0c7408ff834e02a008d6763f2764c71cebe4b5650cdfef545546fd17deb",
-      "bytes": 9576,
-      "rows": 456
+      "sha256": "d6c6d43bcda3c3f8e044113547214964af94302e040a4e185793cbc0ca64e799",
+      "bytes": 17863,
+      "rows": 1584
     },
     {
       "path": "_frozen\\stage3\\cluster_profile_quant.parquet",
-      "sha256": "7b6011c7d8fe06335b83181bfd5cf0f9d82ab58e40358aedb6f7c8f0bd7895b8",
-      "bytes": 21732,
-      "rows": 6
+      "sha256": "e1b7cb6b053b4534457b7f25ccf3fd663715c3786fb6449b1a11de7acd600829",
+      "bytes": 23092,
+      "rows": 19
     }
   ],
   "notes": "H-06：群的定量特徵表，純程式算無LLM。群代表序列=成員報酬簡單平均（同stage3_hrp._cluster_meta_and_corr口徑）。crisis樹不做（樣本不足2年）。"

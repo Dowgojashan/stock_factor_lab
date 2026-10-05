@@ -187,7 +187,13 @@ Phase2 強制納入 ROE/EPS/ROIC/REV_G/MOM_3M 五個 regime-dependent 因子當 
   舊數字 8.67%/12.35% 是 2026-08-22 價格修復前的）
 - HRP L1 群數：TW ~~7~~ **→6**（2026-10-05 換成 openSec_boost 候選池後用
   `cluster_count_selection.py` 重算出來的，不是沿用舊值；上一版 TW=7 是更早一輪
-  加成長因子後算出的中繼值，見本節最上方🔴🔴區塊）、US **7**、XM **3**
+  加成長因子後算出的中繼值，見本節最上方🔴🔴區塊）、US **7**、XM ~~3~~
+  **→6**（🔴 2026-10-06訂正：這裡原寫「3」已經過期超過一週——`stage3_hrp.py`
+  自己的change log記載，XM早在2026-09-30加成長因子那一輪就已經用
+  `cluster_count_selection.py`重算成6了，原因是舊的k=3解在新池組成下退化成
+  單一群佔比62.8%，換k=6才是非退化最佳點；這不是這次openSec_boost動的，是
+  更早一輪就該同步更新、但沒人回頭改這裡才一直傳成舊數字，見`code/research/
+  stage3_hrp.py`的`L1_TARGET`常數註解）
   （H-03 用輪廓係數決定，不是寫死的 8；L2 已移除）
 - 總經 clock_cell **已改用 5 年滾動窗**（H-18②），`stage4` 讀的是
   `_frozen/stage2/macro_rolling/`，不是 `_frozen/stage2/macro/`

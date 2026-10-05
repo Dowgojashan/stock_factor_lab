@@ -1,11 +1,13 @@
 {
-  "produced_at": "2026-10-05T21:23:26",
+  "produced_at": "2026-08-30T19:25:42",
   "model": "gpt-5",
   "n_clusters": 16,
-  "n_new_this_run": 6,
+  "n_new_this_run": 13,
   "resumed": true,
   "trees": [
-    "TW_normal"
+    "TW_normal",
+    "US_normal",
+    "XM_normal"
   ],
   "level": "L1",
   "complete": true,
