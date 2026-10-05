@@ -1,0 +1,53 @@
+{
+  "stage": "walkforward_matrix",
+  "produced_at": "2026-10-01T17:18:02",
+  "git_sha": "eb31267",
+  "params": {
+    "rebuild_mode": "hybrid_tw_fresh_us_xm_preserved"
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage0\\candidate_index.parquet",
+      "sha256": "6cc5ef0c895042f41253c62e9c8bd428612843873c1282b94d3a2eeb07e0964b",
+      "bytes": 2182538,
+      "rows": 23691
+    },
+    {
+      "path": "_frozen\\stage1\\returns_monthly.parquet",
+      "sha256": "39efabe9c08a8983b24f964b5101e98591747aaccbf22a0c7b2f359eee873e1a",
+      "bytes": 52203966,
+      "rows": 6670871
+    },
+    {
+      "path": "_frozen\\stage1\\returns_meta.parquet",
+      "sha256": "a9807d72aba13be7fb667957724522f0e4d11df4b0b43c5286b72ca4ee30dcb2",
+      "bytes": 265745,
+      "rows": 23691
+    },
+    {
+      "path": "_frozen\\stage1\\strategy_marks.parquet",
+      "sha256": "0e1b4d0e0edddc8284446cbc705a62354b8b2d69893cacec569fc0ccf7d0c349",
+      "bytes": 855744,
+      "rows": 23691
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_analysis_outputs_robustness\\walkforward_matrix_detail.csv",
+      "sha256": "0c7d23816416ba587646f39764faed245d1574e686bc716ad557fe6131313987",
+      "bytes": 2191306
+    },
+    {
+      "path": "_analysis_outputs_robustness\\walkforward_matrix_summary.csv",
+      "sha256": "6e592f934a339966585b02156445a4706fd7f10290e80540663b8eae52f6ee36",
+      "bytes": 8573
+    },
+    {
+      "path": "_analysis_outputs_robustness\\walkforward_members.parquet",
+      "sha256": "58e2236cd54490aa572523c249517e64f995b1ce9f5cf435593c8393d971a39e",
+      "bytes": 5610517,
+      "rows": 8100
+    }
+  ],
+  "notes": "2026-10-01 混合重建：k_stability.csv 修正後（之前silhouette_is誤用舊池的k），TW 用正確的新 k_stability 重跑 walkforward_matrix；US／XM 沿用加成長因子前的舊值（未重新驗證、未改動）——使用者明確指示「我們主要只是要看TW有沒有改善」，US/XM 這次不在範圍內。舊版完整備份於 _analysis_outputs_robustness/_舊版備份_20260930_加成長因子前/。"
+}

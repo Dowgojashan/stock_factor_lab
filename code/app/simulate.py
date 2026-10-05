@@ -119,6 +119,10 @@ class QuarterInputs:
                                # （`monitor.fetch_ball_returns()`），給
                                # outcome_layer 算 excess_vs_ball 用真的
                                # B_all，不是借用等權大盤當替身
+    hot_segment_cond: object = None  # triggers.HotSegmentCondition，2026-09-29
+                                     # 新增，選填保持向後相容——未提供時 Hot
+                                     # Segment／Coverage Tilt 整段跳過，行為
+                                     # 跟接線前完全一樣
 
 
 @dataclasses.dataclass
@@ -136,15 +140,42 @@ class ActiveConfig:
     NONE，傾斜自動關閉，不需要 agent 額外選一個動作去「關掉」它。"""
     allocation: str = "equal"       # 只有 A2 會改變，其餘動作維持不動
     last_decision_was_w2c: bool = False  # 供下一季判斷是否套用 W2c
+    last_decision_was_coverage_tilt: bool = False  # 供下一季判斷是否套用 Coverage
+                                                    # Tilt，跟 W2c 同一套「每季重新
+                                                    # 評估、不持續」邏輯（2026-09-29）
 
 
 def resolve_portfolio_weights(inputs: QuarterInputs, config: ActiveConfig,
-                              as_of: str, *, apply_w2c: bool) -> dict[str, float]:
+                              as_of: str, *, apply_w2c: bool,
+                              apply_coverage_tilt: bool = False) -> dict[str, float]:
     """依目前的 `ActiveConfig` 解出這個時點的投組權重：先用當前 allocation
-    對應的策略名單算出 w0（等權彙總），若 `apply_w2c` 為真再疊加 W2c 傾斜
-    （§7.5，D50/D51）。"""
+    對應的策略名單算 w0——若 `apply_coverage_tilt` 為真，w0 改用 Coverage Tilt
+    的策略層級傾斜（§7.4b④，2026-09-29）取代純等權（Hot Segment清單用`as_of`
+    自己當下重算，不沿用季末算好的清單——跟`resolve_weights()`本身「持股隨
+    as_of/end各自變動」是同一個時序精神）；再若 `apply_w2c` 為真，在這個 w0
+    之上疊加 W2c 的股票層級市值傾斜（§7.5，D50/D51）。兩者可以同時觸發
+    （各自獨立判定，見 triggers.py），套用順序是先策略層再股票層，因為
+    Coverage Tilt 調的是「策略間比重」、W2c 調的是「股票間比重」，疊加時
+    後者在前者算出的基礎上再傾斜是合理的組合方式，不是任意順序。
+
+    🔴 2026-09-30 code review修正：市場一律從`inputs.hot_segment_cond.market`
+    取得，不接受呼叫端另外傳入——原本這裡是獨立的`market`參數、預設值"TW"，
+    但`run_quarter()`從未實際傳過這個參數，等於永遠悄悄套用TW的N值（3個月），
+    如果哪天`hot_segment_cond`真的換成US（US的N=6個月），權重端會用錯N、
+    但`hot_segment_layer()`那邊（觸發判定）又是正確從cond取market，兩處會
+    對不上、而且不會報錯——這是只會靜默算錯、不會顯式失敗的那種bug，
+    這裡改成從唯一權威來源（cond本身）取，不會再有兩份market各說各話的風險。"""
     uids = inputs.uids_by_allocation[config.allocation]
-    w0 = resolve_weights(inputs.md, inputs.idx, uids, as_of)
+    if apply_coverage_tilt:
+        if inputs.hot_segment_cond is None:
+            raise ValueError("apply_coverage_tilt=True 但 inputs.hot_segment_cond 是 None")
+        market = inputs.hot_segment_cond.market
+        monthly = monitor.monthly_close(inputs.md)
+        mom = monitor.momentum_asof(monthly, as_of, monitor.HOT_SEGMENT_N[market])
+        hot = monitor.hot_segment(mom, monitor.HOT_SEGMENT_X)
+        w0 = weights_mod.apply_coverage_tilt(inputs.md, inputs.idx, uids, as_of, hot)
+    else:
+        w0 = resolve_weights(inputs.md, inputs.idx, uids, as_of)
     if not apply_w2c:
         return w0
     mcap_row = monitor.asof_row(inputs.mcap_wide, as_of)
@@ -154,24 +185,30 @@ def resolve_portfolio_weights(inputs: QuarterInputs, config: ActiveConfig,
 def run_quarter(inputs: QuarterInputs, *, arm: str, as_of: str, end: str,
                 prev_state: str, prev_weights: dict[str, float] | None,
                 config: ActiveConfig, memory: dict, excess_history: list[float],
-                dry_run: bool = True) -> dict:
+                dry_run: bool = True, prev_hot_state: str = "NONE") -> dict:
     """跑完一季的完整流程（§10 階段 2~7，不含階段 6 人機對話——那是 L3 專屬，
     另外設計）。回傳這一季的完整結果，供落盤 checkpoint 與下一季串接用。
 
-    🔴 時間點規則（見 facts_lean.py／D34）：狀態層（env／proc／m1d）用 `end`
-    （季末，最新可得資料）；結果層（outcome）用 `as_of`（季初，測這筆持股
-    這段期間表現如何）。呼叫端不可混用。
+    🔴 時間點規則（見 facts_lean.py／D34）：狀態層（env／proc／m1d／hot_segment）
+    用 `end`（季末，最新可得資料）；結果層（outcome）用 `as_of`（季初，測這筆
+    持股這段期間表現如何）。呼叫端不可混用。
 
     🔴 D51（動作執行層）：`config` 是**上一季決策結束後**的 `ActiveConfig`
     （由呼叫端 `run_simulation()` 依上一季的 `decision` 算出），代表「這一季
     的投組要用什麼設定建構」——本函式不自己決定要不要傾斜/換 allocation，
     只負責照著傳進來的 config 建構並回報這一季的結果，決策邏輯留在
     `run_simulation()`（跟 `prev_state`／`prev_weights` 一樣，都是呼叫端算好
-    才傳進來的既有慣例）。
+    才傳進來的既有慣例）。`prev_hot_state` 是 Hot Segment 的上一季狀態，跟
+    `prev_state`（M1-D）平行、各自獨立（2026-09-29新增，預設"NONE"保持向後相容）。
     """
     apply_w2c = config.last_decision_was_w2c and prev_state == "TRIGGERED"
-    weights_as_of = resolve_portfolio_weights(inputs, config, as_of, apply_w2c=apply_w2c)
-    weights_end = resolve_portfolio_weights(inputs, config, end, apply_w2c=apply_w2c)
+    apply_coverage_tilt = (inputs.hot_segment_cond is not None
+                           and config.last_decision_was_coverage_tilt
+                           and prev_hot_state == "TRIGGERED")
+    weights_as_of = resolve_portfolio_weights(inputs, config, as_of, apply_w2c=apply_w2c,
+                                              apply_coverage_tilt=apply_coverage_tilt)
+    weights_end = resolve_portfolio_weights(inputs, config, end, apply_w2c=apply_w2c,
+                                            apply_coverage_tilt=apply_coverage_tilt)
     mcap_row_end = monitor.asof_row(inputs.mcap_wide, end)
     member_uids = inputs.uids_by_allocation[config.allocation]
 
@@ -182,6 +219,17 @@ def run_quarter(inputs: QuarterInputs, *, arm: str, as_of: str, end: str,
                                     cap_weight_series=inputs.cap_weight_series,
                                     ball_returns=inputs.ball_returns)
     m1d = triggers.evaluate_quarter(inputs.m1d_cond, inputs.mcap_wide, end, prev_state)
+
+    # Hot Segment：跟 M1-D 平行、獨立判定（2026-09-29接線，§7.4b）。
+    # `inputs.hot_segment_cond` 為 None 時整段跳過，回傳值也是 None——呼叫端
+    # （facts_lean／checkpoint）都已經做成選填，保持向後相容。
+    hot_seg = None
+    if inputs.hot_segment_cond is not None:
+        hs_layer = monitor.hot_segment_layer(inputs.md, inputs.idx, member_uids,
+                                             mcap_row_end, end, market=inputs.hot_segment_cond.market)
+        hot_seg = triggers.evaluate_hot_segment_quarter(
+            inputs.hot_segment_cond, hs_layer["coverage_count"], prev_hot_state)
+        hot_seg["hot_segment_list"] = hs_layer["hot_segment"]  # 供 checkpoint 留痕/除錯，不進facts
 
     # code review 抓到：這裡要用 excess_vs_ball（M4 定義「相對 B_all 超額」的
     # 正確語意），不是 excess_vs_equal_weight。🔴 2026-09-22（§8待辦item10）：
@@ -205,8 +253,10 @@ def run_quarter(inputs: QuarterInputs, *, arm: str, as_of: str, end: str,
     quarter_result = {
         "arm": arm, "quarter_end": end, "as_of": as_of,
         "env": env, "proc": proc, "outcome": outcome, "m1d": m1d, "diagnosis": diag,
+        "hot_segment": hot_seg,
         "weights_end": weights_end,
-        "config_used": {"allocation": config.allocation, "w2c_applied": apply_w2c},
+        "config_used": {"allocation": config.allocation, "w2c_applied": apply_w2c,
+                        "coverage_tilt_applied": apply_coverage_tilt},
     }
 
     # control0 臂：完全不調整，不呼叫任何 agent（§11.1「對照0：完全不調整
@@ -226,7 +276,7 @@ def run_quarter(inputs: QuarterInputs, *, arm: str, as_of: str, end: str,
     # 🔴 2026-09-18：Agent-B（質疑）／4.5（修訂）已正式移除（設計文件
     # v18→v19，開發追蹤 D44），3a／3b 的草稿直接進入決策階段，不再有
     # 「修訂版」這個中間產物。
-    prospective_facts = facts_lean.build_prospective_facts(env, proc, m1d)
+    prospective_facts = facts_lean.build_prospective_facts(env, proc, m1d, hot_segment=hot_seg)
     retrospective_facts = facts_lean.build_retrospective_facts(outcome, diag, memory)
 
     from app import agents
@@ -240,7 +290,9 @@ def run_quarter(inputs: QuarterInputs, *, arm: str, as_of: str, end: str,
 
     decision_facts = facts_lean.build_decision_facts(
         m1d, actions.list_available_actions(end), result_3b["explanation"],
-        w2c_reference=actions.w2c_reference())
+        w2c_reference=actions.w2c_reference(),
+        hot_segment=hot_seg,
+        coverage_tilt_reference=actions.coverage_tilt_reference() if hot_seg is not None else None)
     result_decision = agents.call_agent_a_decision(
         decision_facts, model=inputs.model, api_key=inputs.api_key, dry_run=dry_run)
 
@@ -249,14 +301,16 @@ def run_quarter(inputs: QuarterInputs, *, arm: str, as_of: str, end: str,
         model=inputs.model, api_key=inputs.api_key, dry_run=dry_run)
 
     # 🔴 D51：這一季的決策決定「下一季」要用什麼 config 建構投組（§7.5
-    # 持續性規則——A2 換了 allocation 就一直維持到再被明確換回去；W2c
-    # 不持續，見 ActiveConfig 的 docstring）。A0／A4／A5 都不改變 config。
+    # 持續性規則——A2 換了 allocation 就一直維持到再被明確換回去；W2c／
+    # Coverage Tilt 都不持續，見 ActiveConfig 的 docstring）。A0／A4／A5
+    # 都不改變 config。"CoverageTilt" 是 2026-09-29 新增的第六個動作代碼。
     decision_code = result_decision["explanation"]["decision"]
     next_allocation = config.allocation
     if decision_code == "A2":
         next_allocation = "proportional" if config.allocation == "equal" else "equal"
     config_after = ActiveConfig(allocation=next_allocation,
-                                last_decision_was_w2c=(decision_code == "W2c"))
+                                last_decision_was_w2c=(decision_code == "W2c"),
+                                last_decision_was_coverage_tilt=(decision_code == "CoverageTilt"))
 
     quarter_result["config_after"] = dataclasses.asdict(config_after)
     quarter_result.update({
@@ -321,11 +375,13 @@ def run_simulation(run_id: str, *, model: str, api_key: str, dry_run: bool = Tru
         uids_by_allocation[alloc] = list(sub.iloc[0]["members"])
 
     cond = triggers.register_m1d(mcap_wide, REGISTRATION_DATE)
+    hot_segment_cond = triggers.register_hot_segment("TW")
     inputs = QuarterInputs(md=md, md_map=md_map, idx=idx, mcap_wide=mcap_wide,
                            uids_by_allocation=uids_by_allocation, m1d_cond=cond,
                            model=model, api_key=api_key,
                            cap_weight_series=cap_weight_series,
-                           ball_returns=ball_returns)
+                           ball_returns=ball_returns,
+                           hot_segment_cond=hot_segment_cond)
 
     quarters = QUARTER_ENDS[:max_quarters] if max_quarters else QUARTER_ENDS
 
@@ -333,6 +389,7 @@ def run_simulation(run_id: str, *, model: str, api_key: str, dry_run: bool = Tru
 
     for arm in ARMS:
         state = "NONE"
+        hot_state = "NONE"  # Hot Segment 平行狀態，2026-09-29新增
         prev_weights = None
         config = ActiveConfig()  # D51：每個臂從基準設定重新開始（equal、無傾斜）
         # §8 記憶結構：單一 Agent-A 架構（Agent-B 移除後，見開發追蹤 D44），
@@ -345,6 +402,8 @@ def run_simulation(run_id: str, *, model: str, api_key: str, dry_run: bool = Tru
             last = max(checkpoints, key=lambda c: quarters.index(c["quarter_end"])
                        if c["quarter_end"] in quarters else -1)
             state = last["m1d"]["state"]
+            if last.get("hot_segment"):  # 舊checkpoint（接線前跑的）沒有這欄，退回"NONE"
+                hot_state = last["hot_segment"]["state"]
             agent_a_memory = last.get("agent_a_memory_after", agent_a_memory)
             excess_history = last.get("excess_history_after", [])
             if "config_after" in last:  # D51：舊 checkpoint（D51 之前跑的）沒有這欄，退回基準設定
@@ -362,8 +421,10 @@ def run_simulation(run_id: str, *, model: str, api_key: str, dry_run: bool = Tru
             result = run_quarter(inputs, arm=arm, as_of=as_of, end=end,
                                  prev_state=state, prev_weights=prev_weights,
                                  config=config, memory=agent_a_memory,
-                                 excess_history=excess_history, dry_run=dry_run)
+                                 excess_history=excess_history, dry_run=dry_run,
+                                 prev_hot_state=hot_state)
             state = result["m1d"]["state"]
+            hot_state = result["hot_segment"]["state"] if result["hot_segment"] else "NONE"
             prev_weights = result["weights_end"]
             config = ActiveConfig(**result["config_after"])
             excess_history = excess_history + [result["outcome"]["excess_vs_ball"]]

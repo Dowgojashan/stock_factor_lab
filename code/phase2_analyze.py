@@ -51,6 +51,23 @@ MIN_HOLDINGS = 10        # 老師：選出的股票不能太少 → 平均每月
 COMBO_DEGRADE_TOL = 0.005  # 配對後相對 primary 單獨最多退步 0.5 個百分點
 # PRIMARY_MARGIN / SECONDARY_TOL 改由 phase_variants 提供（各變體可不同）
 
+# 🆕 2026-10-02 使用者定案（僅適用 openSec_boost 變體）：ROIC/REV_G 雖然被使用者
+#   要求強制納入 primary 資格池，但 Phase2 的「primary 單獨夠強」門檻是另一道獨立
+#   的全樣本(2000-2025)3桶檢定（PRIMARY_MARGIN=2%），跟 Phase1 的9桶單調性檢定
+#   不是同一關——兩個因子各自的最佳桶(k=1)都卡在這道全樣本門檻前：
+#     ROIC_qb1  CAGR=10.41%  贏大盤+1.98%（只差0.02pp，雜訊等級的擦邊球）
+#     REV_G_qb1 CAGR=9.86%   贏大盤+1.43%（差0.57pp，跟它Phase1全樣本淘汰ρ=0.233
+#               是同一個根因——它的真實優勢集中在2024-2025，被20多年全樣本平均稀釋掉）
+#   使用者明確要求「盡量讓它們入選」，且這跟 REV_G 已經被使用者兩度接受的
+#   「regime-dependent因子，全樣本過不了但近期有效，知情後仍要採用」是同一個邏輯
+#   （C因子代表選擇、openSec_boost的primary資格本身都是同一個先例）。故在此對這
+#   兩個因子的最佳桶做明確註記的人工覆寫，不是調整PRIMARY_MARGIN這個全域門檻
+#   （調全域會默默影響其他因子的判定、說不清楚是為了誰調的）。只在 openSec_boost
+#   這個變體生效，不影響 strict/relaxed/all/openSec 既有判定。
+FORCE_PRIMARY_OVERRIDE = {
+    "openSec_boost": {("ROIC", 1), ("REV_G", 1)},
+}
+
 OI = ["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9", "#F0E442", "#000000"]
 plt.rcParams.update({
     "figure.dpi": 120, "savefig.dpi": 150, "font.size": 10,
@@ -180,6 +197,16 @@ def main():
         lambda f: "primary" if f in PRIMARY else ("secondary" if f in SECONDARY else "?"))
     solo_tbl["贏大盤"] = solo_tbl["CAGR"] - bench
     solo_tbl["可當primary"] = (solo_tbl["F1"].isin(PRIMARY)) & (solo_tbl["贏大盤"] >= PRIMARY_MARGIN)
+    # 人工例外（見上方 FORCE_PRIMARY_OVERRIDE 說明）：只在指定變體生效，且只覆寫
+    # 指定的 (因子,桶)，不影響同因子的其他桶、也不影響其他變體。
+    _force = FORCE_PRIMARY_OVERRIDE.get(args.variant, set())
+    if _force:
+        _mask = list(zip(solo_tbl["F1"], solo_tbl["k1"]))
+        _override = [t in _force for t in _mask]
+        n_forced = sum(_override)
+        solo_tbl.loc[_override, "可當primary"] = True
+        log(f"\n⚠️ 人工例外生效（{args.variant}）：強制列為可當primary的(因子,桶) "
+            f"{sorted(_force)}，實際命中 {n_forced} 列")
     solo_tbl["可當secondary"] = solo_tbl["贏大盤"] >= -SECONDARY_TOL
     solo_tbl = solo_tbl.sort_values("CAGR", ascending=False)
     solo_tbl.to_csv(OUT / f"{mkt}_L2{sfx}_solo_buckets.csv", index=False, encoding="utf-8-sig")

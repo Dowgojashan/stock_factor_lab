@@ -1,351 +1,86 @@
 {
   "stage": "stage3_hrp",
-  "produced_at": "2026-08-28T11:44:41",
-  "git_sha": "94d7021",
+  "produced_at": "2026-10-04T12:36:09",
+  "git_sha": "eb31267",
   "params": {
     "trees_built": [
       "TW_normal",
-      "US_normal",
-      "XM_normal",
-      "TW_crisis",
-      "US_crisis",
-      "XM_crisis"
+      "TW_crisis"
     ],
     "L1_target": {
       "TW": 6,
       "US": 7,
-      "XM": 3
+      "XM": 6
     },
-    "L3_target": {
-      "TW": 218,
-      "US": 235,
-      "XM": 453
-    },
-    "L1_target_method": "silhouette（H-03，見cluster_count_selection.py）",
-    "linkage_method_chosen": {
-      "TW_normal": "ward",
-      "US_normal": "ward",
-      "XM_normal": "ward",
-      "TW_crisis": "ward",
-      "US_crisis": "ward",
-      "XM_crisis": "ward"
-    },
-    "linkage_selection_criterion": "L3切割時最大群佔比最低者勝出，非cophenetic（見程式註解：single linkage 實測出現鏈狀效應)",
-    "method_comparison": {
-      "TW_normal": {
-        "single": {
-          "cophenetic": 0.7579208050855173,
-          "max_share": 0.95493337325947,
-          "n_singleton": 165
-        },
-        "ward": {
-          "cophenetic": 0.4584802985969468,
-          "max_share": 0.028297649348704896,
-          "n_singleton": 0
-        }
-      },
-      "US_normal": {
-        "single": {
-          "cophenetic": 0.7242037236595497,
-          "max_share": 0.9572966507177033,
-          "n_singleton": 177
-        },
-        "ward": {
-          "cophenetic": 0.29913085247945237,
-          "max_share": 0.03409090909090909,
-          "n_singleton": 0
-        }
-      },
-      "XM_normal": {
-        "single": {
-          "cophenetic": 0.8146518767779948,
-          "max_share": 0.9565824468085107,
-          "n_singleton": 339
-        },
-        "ward": {
-          "cophenetic": 0.8946613816258101,
-          "max_share": 0.013297872340425532,
-          "n_singleton": 0
-        }
-      },
-      "TW_crisis": {
-        "single": {
-          "cophenetic": 0.7329914589858824,
-          "max_share": 0.9588261715825722,
-          "n_singleton": 188
-        },
-        "ward": {
-          "cophenetic": 0.5136409126678824,
-          "max_share": 0.025003743075310676,
-          "n_singleton": 0
-        }
-      },
-      "US_crisis": {
-        "single": {
-          "cophenetic": 0.7580846642055004,
-          "max_share": 0.9629186602870813,
-          "n_singleton": 195
-        },
-        "ward": {
-          "cophenetic": 0.37721695720416354,
-          "max_share": 0.02368421052631579,
-          "n_singleton": 0
-        }
-      },
-      "XM_crisis": {
-        "single": {
-          "cophenetic": 0.9315482306810844,
-          "max_share": 0.5294547872340426,
-          "n_singleton": 359
-        },
-        "ward": {
-          "cophenetic": 0.9030055696628985,
-          "max_share": 0.017220744680851063,
-          "n_singleton": 0
-        }
-      }
-    },
-    "level_diag": {
-      "TW_normal": {
-        "L1": {
-          "n_clusters": 6,
-          "max_share": 0.37939811349004343,
-          "n_singleton": 0
-        },
-        "L3": {
-          "n_clusters": 218,
-          "max_share": 0.028297649348704896,
-          "n_singleton": 0
-        }
-      },
-      "US_normal": {
-        "L1": {
-          "n_clusters": 7,
-          "max_share": 0.35382775119617227,
-          "n_singleton": 0
-        },
-        "L3": {
-          "n_clusters": 235,
-          "max_share": 0.03409090909090909,
-          "n_singleton": 0
-        }
-      },
-      "XM_normal": {
-        "L1": {
-          "n_clusters": 3,
-          "max_share": 0.4440824468085106,
-          "n_singleton": 0
-        },
-        "L3": {
-          "n_clusters": 453,
-          "max_share": 0.013297872340425532,
-          "n_singleton": 0
-        }
-      },
-      "TW_crisis": {
-        "L1": {
-          "n_clusters": 6,
-          "max_share": 0.35439437041473276,
-          "n_singleton": 0
-        },
-        "L3": {
-          "n_clusters": 218,
-          "max_share": 0.025003743075310676,
-          "n_singleton": 0
-        }
-      },
-      "US_crisis": {
-        "L1": {
-          "n_clusters": 7,
-          "max_share": 0.255622009569378,
-          "n_singleton": 0
-        },
-        "L3": {
-          "n_clusters": 235,
-          "max_share": 0.02368421052631579,
-          "n_singleton": 0
-        }
-      },
-      "XM_crisis": {
-        "L1": {
-          "n_clusters": 3,
-          "max_share": 0.4440159574468085,
-          "n_singleton": 0
-        },
-        "L3": {
-          "n_clusters": 453,
-          "max_share": 0.017220744680851063,
-          "n_singleton": 0
-        }
-      }
-    },
-    "cophenetic": {
-      "TW_normal": 0.4584802985969468,
-      "US_normal": 0.29913085247945237,
-      "XM_normal": 0.8946613816258101,
-      "TW_crisis": 0.5136409126678824,
-      "US_crisis": 0.37721695720416354,
-      "XM_crisis": 0.9030055696628985
-    },
-    "ari_l3_vs_fcombo": {
-      "TW_normal": 0.1999349007688118,
-      "US_normal": 0.23000623032798168,
-      "XM_normal": 0.21958398294254716,
-      "TW_crisis": 0.07718991462548792,
-      "US_crisis": 0.1539916131492742,
-      "XM_crisis": 0.15578318417529394
-    },
-    "n_dropped_zero_var": {
-      "TW_normal": 0,
-      "US_normal": 0,
-      "XM_normal": 0,
-      "TW_crisis": 0,
-      "US_crisis": 0,
-      "XM_crisis": 0
-    },
-    "windows": {
-      "TW": [
-        "2007-01",
-        "2025-12"
-      ],
-      "US": [
-        "2002-01",
-        "2025-12"
-      ],
-      "XM": [
-        "2007-01",
-        "2025-12"
-      ]
-    },
-    "crisis_months_n": {
-      "TW": 17,
-      "US": 22,
-      "XM": 26
-    }
+    "rebuild_mode": "hybrid_tw_k6_us_xm_preserved"
   },
   "inputs": [
     {
       "path": "_frozen\\stage1\\returns_monthly.parquet",
-      "sha256": "c449417668b6ff2ad58ecd475141e6a1f8dafb79b9600412056bd06bd7394cb3",
-      "bytes": 35729254,
-      "rows": 4547404
+      "sha256": "1bb0e0b13c0132511dcdc984834b1ada548ed38f1922330df7d77f1c772daf69",
+      "bytes": 80851974,
+      "rows": 10351353
     },
     {
       "path": "_frozen\\stage1\\returns_meta.parquet",
-      "sha256": "4a7dd7dc4e9cabd38e4bd04dfec742e1df99b7bc3a0f62216ad08deacf4e0010",
-      "bytes": 181944,
-      "rows": 15810
+      "sha256": "f63da9130dd549491b3408558b2cd8d40c40ef2550da84b9b39e5f559c783c80",
+      "bytes": 411907,
+      "rows": 37937
     },
     {
       "path": "_frozen\\stage1\\strategy_marks.parquet",
-      "sha256": "4b81d7fb55665f465dbfc394c027b764c0805c373d32a719b4b2b6c3c59e4b03",
-      "bytes": 544970,
-      "rows": 15810
+      "sha256": "cd0195d405fd08f9c1ed742d993fdacee7057fff62cb5c65dcf67f9e38cee96e",
+      "bytes": 1336445,
+      "rows": 37937
     },
     {
       "path": "_frozen\\stage0\\candidate_index.parquet",
-      "sha256": "b308a282f48511117739a3d3215dd00601a03c8247a9693edaad1644de57a8e2",
-      "bytes": 1453737,
-      "rows": 15810
-    },
-    {
-      "path": "_frozen\\stage2\\regime\\regime_table_TW.parquet",
-      "sha256": "c8b736811ad8b6cbcf70ea1b3df9b44a2fb188e7267507fbf1b7f511e2e7cd7c",
-      "bytes": 8773,
-      "rows": 43
-    },
-    {
-      "path": "_frozen\\stage2\\regime\\regime_table_US.parquet",
-      "sha256": "f592786973d2274a04d84959f89765d2f73d2bf3d342b0537d9533756b6d6e35",
-      "bytes": 7982,
-      "rows": 29
+      "sha256": "54e369877a436963aad4d3f244cf274156d81dee62996146e09ae83171a584e2",
+      "bytes": 3543431,
+      "rows": 37937
     }
   ],
   "outputs": [
     {
       "path": "_frozen\\stage3\\cluster_assign.parquet",
-      "sha256": "ca3c56a47b8b3da494155d62e6c58acfb4428714fa04fea82cf41689b49a3ae5",
-      "bytes": 295416,
-      "rows": 60158
+      "sha256": "ece184921a38903a4d27dde81e300b7e9ba396e94f645f863b851eadce94fbe0",
+      "bytes": 1473204,
+      "rows": 139138
     },
     {
       "path": "_frozen\\stage3\\cluster_meta.parquet",
-      "sha256": "12765270e4803c4287aa3220dbc3a8ce8e0e2eb2f6ec5c3c2816f201f51fb706",
-      "bytes": 38970,
-      "rows": 1844
+      "sha256": "b591c834146956bcd2de201094cef9930042bff1f3b3433c00897c5696440d5d",
+      "bytes": 55095,
+      "rows": 2862
+    },
+    {
+      "path": "_frozen\\stage3\\co_fail_regimes.parquet",
+      "sha256": "200de903770d7b6feb129046257e5b79ad87a6627780b57e9efd7e3e6ec8622f",
+      "bytes": 6696,
+      "rows": 19
     },
     {
       "path": "_frozen\\stage3\\cluster_corr_matrix_TW_normal.parquet",
-      "sha256": "858b98bfa807ccece580d715615a5d1421d675fb5903548c46e64ce80c8b0fc4",
+      "sha256": "0636aba13b23821ef99301288a0a4a69999b7d191ccc7b6c907593a6fa391ace",
       "bytes": 5518,
       "rows": 6
     },
     {
       "path": "_frozen\\stage3\\linkage_TW_normal.npy",
-      "sha256": "fbdb228dd0d61ad98033892e46004e1ed3f0dd998150a08cf63dbca51d827315",
-      "bytes": 213824
-    },
-    {
-      "path": "_frozen\\stage3\\cluster_corr_matrix_US_normal.parquet",
-      "sha256": "61a4a6ed77d18a4999b5b8cf4656a12ec06f829bf8882d03e95e0be718ea0cc5",
-      "bytes": 6235,
-      "rows": 7
-    },
-    {
-      "path": "_frozen\\stage3\\linkage_US_normal.npy",
-      "sha256": "17e22868d31e0999d1d1e569c59cb1fbfec4b1971bf723ca074622ab97399115",
-      "bytes": 267616
-    },
-    {
-      "path": "_frozen\\stage3\\cluster_corr_matrix_XM_normal.parquet",
-      "sha256": "aacd4812e84ecb9d03cb8ec93c8ddd3e104f11939f70334fe9203859d03f6bd1",
-      "bytes": 3491,
-      "rows": 3
-    },
-    {
-      "path": "_frozen\\stage3\\linkage_XM_normal.npy",
-      "sha256": "19892c069e0f41a995e05f951d58911b6532d7e6651482bff68968fb2601e6c9",
-      "bytes": 481376
+      "sha256": "930b36de27cdf05f1d8987d7ffd0b2df786bbfae9e2a645c9b552c9ca55a81d4",
+      "bytes": 845664
     },
     {
       "path": "_frozen\\stage3\\cluster_corr_matrix_TW_crisis.parquet",
-      "sha256": "10a070e46bc15d232c1c708cc9248ac1901443d55ef5b8c6f4892880569a3413",
+      "sha256": "84b76c00d45ebfe8b9df9137556af4431393093682487281b286fff916df8bc3",
       "bytes": 5518,
       "rows": 6
     },
     {
       "path": "_frozen\\stage3\\linkage_TW_crisis.npy",
-      "sha256": "a2c43f6bd39a169edd241bd60b909ca0a79d7dd87672af450c011f3029cabee8",
-      "bytes": 213824
-    },
-    {
-      "path": "_frozen\\stage3\\cluster_corr_matrix_US_crisis.parquet",
-      "sha256": "24996d76e1cab196da0d3b7a5264c27137a0c01a8721bb833bd6b3642519c232",
-      "bytes": 6235,
-      "rows": 7
-    },
-    {
-      "path": "_frozen\\stage3\\linkage_US_crisis.npy",
-      "sha256": "28a25ae05cb954943b5ddf0ae3109ca85d7270e267d47072467cb38109688d22",
-      "bytes": 267616
-    },
-    {
-      "path": "_frozen\\stage3\\cluster_corr_matrix_XM_crisis.parquet",
-      "sha256": "9b274b62046844788e17c447af8d6a6541ecdc5931a7357b28194bd441696c15",
-      "bytes": 3491,
-      "rows": 3
-    },
-    {
-      "path": "_frozen\\stage3\\linkage_XM_crisis.npy",
-      "sha256": "d068a882d6516ab1b3e836d3926f9299803664c415845cc28e9558e9e2220e85",
-      "bytes": 481376
-    },
-    {
-      "path": "_frozen\\stage3\\co_fail_regimes.parquet",
-      "sha256": "f6748e3c0f9c4719b2aeb08593fb9fd38080a8ff9113bc2bf0f93ebd360e03a3",
-      "bytes": 6603,
-      "rows": 16
+      "sha256": "b1a95c5647cb96ffc43047325e31e4e005e588dc0827c402b214039589fa16ff",
+      "bytes": 845664
     }
   ],
-  "notes": "normal+crisis 六棵樹"
+  "notes": "2026-10-04 混合重建：台股改用新選出的 k=6（cluster_count_selection.py 對openSec_boost新池重掃輪廓係數的建議值，取代舊的寫死k=7）重建TW_normal/TW_crisis；美股/XM完全沿用今晚稍早用k=7建好的凍結資料，未重新計算（使用者明確指示這次只處理台股，US/XM先不管）。"
 }

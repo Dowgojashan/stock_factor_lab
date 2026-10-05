@@ -1,0 +1,60 @@
+{
+  "stage": "cluster_temporal_profile",
+  "produced_at": "2026-08-28T12:00:07",
+  "git_sha": "94d7021",
+  "params": {
+    "trees": [
+      "TW_normal",
+      "US_normal",
+      "XM_normal"
+    ],
+    "level": "L1"
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage1\\returns_monthly.parquet",
+      "sha256": "c449417668b6ff2ad58ecd475141e6a1f8dafb79b9600412056bd06bd7394cb3",
+      "bytes": 35729254,
+      "rows": 4547404
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_assign.parquet",
+      "sha256": "ca3c56a47b8b3da494155d62e6c58acfb4428714fa04fea82cf41689b49a3ae5",
+      "bytes": 295416,
+      "rows": 60158
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_meta.parquet",
+      "sha256": "12765270e4803c4287aa3220dbc3a8ce8e0e2eb2f6ec5c3c2816f201f51fb706",
+      "bytes": 38970,
+      "rows": 1844
+    },
+    {
+      "path": "_frozen\\stage4\\strategy_map.parquet",
+      "sha256": "cd5d07710575eb249eec73a60ef44f3dc347c50d014bd6bd18b945ea517da66b",
+      "bytes": 3985944,
+      "rows": 15810
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_frozen\\stage3\\cluster_annual_returns.parquet",
+      "sha256": "a57687c548f7915f5de9365a2eb9d00939c6b93e17484b06c8b255ddb2281b5c",
+      "bytes": 7978,
+      "rows": 339
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_quarterly_returns.parquet",
+      "sha256": "7a09476a130bbef9aa1d8a507c1f7d182e15fe3512dfbbed8775137675d949a9",
+      "bytes": 17847,
+      "rows": 1356
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_profile_quant.parquet",
+      "sha256": "75ce86d45b2158363cb8f0ea99599404074fb6e143e878c0e7f595ae3cbdc266",
+      "bytes": 22962,
+      "rows": 16
+    }
+  ],
+  "notes": "H-06：群的定量特徵表，純程式算無LLM。群代表序列=成員報酬簡單平均（同stage3_hrp._cluster_meta_and_corr口徑）。crisis樹不做（樣本不足2年）。"
+}

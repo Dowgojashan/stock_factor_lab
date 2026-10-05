@@ -36,11 +36,20 @@ from _design_test_quality_metric_variants import eligible_uids  # noqa: E402
 
 def build_silhouette_picks(tree_key: str, is_start: str, is_end: str, variant: str,
                            months_long, meta_pool, f_combo_map, idx: pd.DataFrame,
-                           ratio: str = "legacy", log=print) -> dict:
+                           ratio: str = "legacy", log=print,
+                           quality_window_months: int | None = None) -> dict:
     """回傳 {"equal": [...], "proportional": [...], "_meta": {...}}。
 
     `variant`："baseline"（保留V1，全部候選人）或"exclude_v1"（沿用
     `eligible_uids()`篩選邏輯）。
+
+    🆕 2026-10-05：`quality_window_months`——代表策略挑選用的品質分數
+    （Calmar=CAGR/|MDD|）預設用整個IS窗（這次是17年）算，天生偏好長期穩健
+    的估值型策略（這類策略多年平均Calmar較高，但不代表近期表現好）。傳入
+    這個參數（例如36＝近3年）可以改成只用IS窗**最後N個月**算品質分數，藉此
+    讓近期表現好的成長/動能策略有更高機會被選進代表名單——樹的建法（linkage/
+    分群）完全不變，只改「群內挑誰」這一步用的排序依據。None＝維持原行為
+    （全樣本品質，向下相容既有呼叫）。
     """
     log(f">> 建樹（fixed k_mode，取得可重切的linkage）IS {is_start}~{is_end}...")
     tree = WF.build_tree_for_window(tree_key, is_start, is_end, months_long, meta_pool, f_combo_map, log)
@@ -67,7 +76,15 @@ def build_silhouette_picks(tree_key: str, is_start: str, is_end: str, variant: s
 
     cagr_is = WF._cagr_matrix(wide_is)
     mdd_is = WF._mdd_matrix(wide_is)
-    quality_is_base = cagr_is / mdd_is.abs().replace(0, np.nan)
+    if quality_window_months is not None:
+        wide_recent = wide_is.iloc[:, -quality_window_months:]
+        log(f"   品質分數改用近{quality_window_months}個月（{wide_recent.columns[0]}"
+            f"~{wide_recent.columns[-1]}）計算，非整個IS窗的{wide_is.shape[1]}個月")
+        cagr_q = WF._cagr_matrix(wide_recent)
+        mdd_q = WF._mdd_matrix(wide_recent)
+        quality_is_base = cagr_q / mdd_q.abs().replace(0, np.nan)
+    else:
+        quality_is_base = cagr_is / mdd_is.abs().replace(0, np.nan)
     pos = pd.Series(range(len(wide_is.index)), index=wide_is.index)
 
     sizes_full = assign.groupby(f"cluster_{WF.LEVEL}").size()
@@ -94,5 +111,6 @@ def build_silhouette_picks(tree_key: str, is_start: str, is_end: str, variant: s
         out[allocation] = a_members
     out["_meta"] = {"k_is_selected": k_is, "k_fixed": scan["k_fixed"], "n_universe": n_uni,
                     "n_eligible": len(elig), "target_total": tot,
-                    "is_start": is_start, "is_end": is_end, "variant": variant}
+                    "is_start": is_start, "is_end": is_end, "variant": variant,
+                    "quality_window_months": quality_window_months}
     return out

@@ -1,0 +1,44 @@
+{
+  "stage": "cluster_macro_interface",
+  "produced_at": "2026-08-31T11:22:26",
+  "git_sha": "be3282f",
+  "params": {
+    "excluded_quant_columns": [
+      "window_start_year",
+      "window_end_year",
+      "best_year",
+      "worst_year"
+    ],
+    "identity_fields_used": [
+      "identity_label"
+    ],
+    "identity_fields_excluded": [
+      "mechanism_note",
+      "performance_pattern",
+      "caveat"
+    ]
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage3\\cluster_identity.parquet",
+      "sha256": "119b9f93b9c86b7f9b1b25a5103e7a78c92d96aea6e4a864ad9d3fd634eeed02",
+      "bytes": 16258,
+      "rows": 16
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_profile_quant.parquet",
+      "sha256": "75ce86d45b2158363cb8f0ea99599404074fb6e143e878c0e7f595ae3cbdc266",
+      "bytes": 22962,
+      "rows": 16
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_frozen\\stage3\\cluster_macro_interface.parquet",
+      "sha256": "687656f70cc1e840b5ab14ce8768481ad29147985d18f94b0142205bb6e3bf62",
+      "bytes": 21329,
+      "rows": 16
+    }
+  ],
+  "notes": "S-01：群→總經介面。純程式組裝(H-06+H-08合併)，無LLM。排除規則見模組docstring與contracts.CLUSTER_MACRO_INTERFACE schema註解。"
+}

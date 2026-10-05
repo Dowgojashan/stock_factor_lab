@@ -391,14 +391,15 @@ def call_agent_a_3a(retrospective_facts: dict, *, model: str, api_key: str,
 # 疊加 A2——不是照抄了事。理由必須明寫依據 3b 的哪幾項；引用 3a 回顧區當
 # 理由視為違規。這裡用 `facts_lean.build_decision_facts()` 物理排除 3a／
 # outcome／diagnosis，agent 根本看不到回顧區資料，不是只靠 prompt 約束。
-# 動作空間固定為 A0／A2／A4／A5／W2c（W1~W3 已於 A5 前置驗證失敗棄用，見
-# D29；W2c 於 D50 前置驗證通過、D51 接上執行層，選它現在真的會改變後續
-# 季度的持股計算，見 `simulate.ActiveConfig`）。
+# 動作空間固定為 A0／A2／A4／A5／W2c／CoverageTilt（W1~W3 已於 A5 前置驗證
+# 失敗棄用，見 D29；W2c 於 D50 前置驗證通過、D51 接上執行層；CoverageTilt
+# 2026-09-29 接線，設計文件§7.4b④原本的前置驗證結果是效果null/微負，跟W2c
+# 不是同一個成熟度，見 coverage_tilt_reference_json 的 caveats）。
 
 _AGENT_A_DECISION_SYSTEM_PROMPT = (
     "你是投組監控系統的分析 agent（Agent-A），現在執行的是「決策」"
     "（設計文件 §10 階段 5）。你要從固定的動作空間裡選一個，並說明理由。\n\n"
-    "動作空間（只能選這五個之一）：\n"
+    "動作空間（只能選這六個之一）：\n"
     "- A0：維持現狀（不改變投組）\n"
     "- A2：切換 allocation（equal↔proportional），只影響持股在群間的配重，"
     "**不解決規模曝險問題**（這是已知限制，見 available_actions_csv 的歷史"
@@ -411,7 +412,13 @@ _AGENT_A_DECISION_SYSTEM_PROMPT = (
     "執行層，不是純紀錄的文字）——所以跟其他動作一樣，必須認真評估、不可"
     "隨便選，也不可因為它是新選項就迴避評估；w2c_reference_json 的"
     "caveats 欄位須一併考慮，不可只看正面數字，但 caveats 不是「不要選它」"
-    "的理由，是「選的話要在理由裡承認這些限制」\n\n"
+    "的理由，是「選的話要在理由裡承認這些限制」\n"
+    "- CoverageTilt：條件式覆蓋率傾斜（只在 Hot Segment 觸發時啟動，見"
+    "hot_segment_baseline_action_csv，是跟 M1-D 平行、獨立的判準，不是"
+    "M1-D 的一部分）。🔴 跟 W2c 不同：coverage_tilt_reference_json 記載的"
+    "前置驗證結果是效果幾乎null、甚至略朝負向，**不是**已驗證有效的動作，"
+    "選它時理由必須誠實反映這個證據強度（例如純粹想追蹤/示範用途），不可"
+    "宣稱或暗示這個動作已經證明能改善報酬。\n\n"
     "鐵則：\n"
     "1. 不可引用【客觀資料】以外的任何數字。\n"
     "2. **理由必須明寫依據預測評估（prospective_assessment）的哪幾項**——"
@@ -419,12 +426,13 @@ _AGENT_A_DECISION_SYSTEM_PROMPT = (
     "不要因為看不到就猜測或杜撰回顧區可能講了什麼。\n"
     "3. **選 A0 也必須寫理由**——『不動』是一個決定，不是預設值，要說明"
     "為什麼在目前狀態下不動是合理的。\n"
-    "4. 若考慮選 A2 或 W2c，只能引用 available_actions_csv／"
-    "w2c_reference_json 裡**已經算好**的歷史條件分布或驗證結果，"
-    "**不可以自己計算或推算『如果選這個，預期能改善多少』**——沒有這種"
-    "授權，那是無根據的推算。\n"
-    "5. m1d_baseline_action_csv 是程式依規則算出的基準動作，你可以說明"
-    "為什麼採用或為什麼偏離，但不能無視它、也不能假裝它建議了別的東西。"
+    "4. 若考慮選 A2／W2c／CoverageTilt，只能引用 available_actions_csv／"
+    "w2c_reference_json／coverage_tilt_reference_json 裡**已經算好**的歷史"
+    "條件分布或驗證結果，**不可以自己計算或推算『如果選這個，預期能改善"
+    "多少』**——沒有這種授權，那是無根據的推算。\n"
+    "5. m1d_baseline_action_csv／hot_segment_baseline_action_csv 是程式依"
+    "規則算出的基準動作，你可以說明為什麼採用或為什麼偏離，但不能無視它、"
+    "也不能假裝它建議了別的東西——兩者是各自獨立的判準，不要混為一談。"
 )
 
 _AGENT_A_DECISION_SCHEMA = {
@@ -432,7 +440,8 @@ _AGENT_A_DECISION_SCHEMA = {
     "schema": {
         "type": "object",
         "properties": {
-            "decision": {"type": "string", "enum": ["A0", "A2", "A4", "A5", "W2c"],
+            "decision": {"type": "string",
+                        "enum": ["A0", "A2", "A4", "A5", "W2c", "CoverageTilt"],
                         "description": "選定的動作。"},
             "decision_detail": {
                 "type": "string",
@@ -440,12 +449,15 @@ _AGENT_A_DECISION_SCHEMA = {
                                "組合（須引用 available_actions_csv 裡實際"
                                "存在的組合）；若選 W2c，須引用 "
                                "w2c_reference_json 的驗證結果與 caveats；"
-                               "其他動作可留空字串或簡述。"},
+                               "若選 CoverageTilt，須引用 "
+                               "coverage_tilt_reference_json 的驗證結果與 "
+                               "caveats；其他動作可留空字串或簡述。"},
             "reasoning": {
                 "type": "string",
                 "description": "決策理由，必須明寫依據 prospective_assessment "
-                               "的哪幾項，以及跟 m1d_baseline_action_csv 的"
-                               "關係（採用或偏離，為什麼）。"},
+                               "的哪幾項，以及跟 m1d_baseline_action_csv／"
+                               "hot_segment_baseline_action_csv 的關係（採用或"
+                               "偏離，為什麼）。"},
         },
         "required": ["decision", "decision_detail", "reasoning"],
         "additionalProperties": False,
@@ -459,9 +471,9 @@ def build_decision_prompt(decision_facts: dict) -> str:
     return (
         "【客觀資料 · 由程式算出，不可推翻，數字已格式化，請直接照抄】\n"
         f"{json.dumps(decision_facts, ensure_ascii=False, indent=2, default=str)}\n\n"
-        "請從動作空間（A0／A2／A4／A5／W2c）選一個，依給定的 JSON schema 輸出"
-        "決策與理由。記住：理由只能引用 prospective_assessment 裡的內容，"
-        "不可自行計算任何動作的預期效果。"
+        "請從動作空間（A0／A2／A4／A5／W2c／CoverageTilt）選一個，依給定的"
+        " JSON schema 輸出決策與理由。記住：理由只能引用 prospective_assessment"
+        " 裡的內容，不可自行計算任何動作的預期效果。"
     )
 
 

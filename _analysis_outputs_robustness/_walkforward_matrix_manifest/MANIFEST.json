@@ -1,7 +1,7 @@
 {
   "stage": "walkforward_matrix",
-  "produced_at": "2026-09-06T00:38:42",
-  "git_sha": "fc40f3a",
+  "produced_at": "2026-10-04T21:05:56",
+  "git_sha": "eb31267",
   "params": {
     "min_is_grid": [
       72,
@@ -42,45 +42,45 @@
   "inputs": [
     {
       "path": "_frozen\\stage0\\candidate_index.parquet",
-      "sha256": "b308a282f48511117739a3d3215dd00601a03c8247a9693edaad1644de57a8e2",
-      "bytes": 1453737,
-      "rows": 15810
+      "sha256": "54e369877a436963aad4d3f244cf274156d81dee62996146e09ae83171a584e2",
+      "bytes": 3543431,
+      "rows": 37937
     },
     {
       "path": "_frozen\\stage1\\returns_monthly.parquet",
-      "sha256": "c449417668b6ff2ad58ecd475141e6a1f8dafb79b9600412056bd06bd7394cb3",
-      "bytes": 35729254,
-      "rows": 4547404
+      "sha256": "1bb0e0b13c0132511dcdc984834b1ada548ed38f1922330df7d77f1c772daf69",
+      "bytes": 80851974,
+      "rows": 10351353
     },
     {
       "path": "_frozen\\stage1\\returns_meta.parquet",
-      "sha256": "4a7dd7dc4e9cabd38e4bd04dfec742e1df99b7bc3a0f62216ad08deacf4e0010",
-      "bytes": 181944,
-      "rows": 15810
+      "sha256": "f63da9130dd549491b3408558b2cd8d40c40ef2550da84b9b39e5f559c783c80",
+      "bytes": 411907,
+      "rows": 37937
     },
     {
       "path": "_frozen\\stage1\\strategy_marks.parquet",
-      "sha256": "4b81d7fb55665f465dbfc394c027b764c0805c373d32a719b4b2b6c3c59e4b03",
-      "bytes": 544970,
-      "rows": 15810
+      "sha256": "cd0195d405fd08f9c1ed742d993fdacee7057fff62cb5c65dcf67f9e38cee96e",
+      "bytes": 1336445,
+      "rows": 37937
     }
   ],
   "outputs": [
     {
       "path": "_analysis_outputs_robustness\\walkforward_matrix_detail.csv",
-      "sha256": "719af3e4824af37cbb15f45f9d344906b21144abd0548ab932b73d831bc126cd",
-      "bytes": 2222625
+      "sha256": "9d8e72fa9bdc4259c50cd2dd737b098a604858769d4b746d4ec56b42269d96a6",
+      "bytes": 740865
     },
     {
       "path": "_analysis_outputs_robustness\\walkforward_matrix_summary.csv",
-      "sha256": "c1c3d706f291792a815c2c195bae931e7ff12e7c23273b5c82991abc6587b1de",
-      "bytes": 8604
+      "sha256": "dcdc08d3d0adbf70f24c4db3f644e096c5a44431002bab80a2df9695c7b0854b",
+      "bytes": 6706
     },
     {
       "path": "_analysis_outputs_robustness\\walkforward_members.parquet",
-      "sha256": "4703c885f514628dfccae52e189e5615f0c356d9660353524bdf3cf042f22ef6",
-      "bytes": 3932801,
-      "rows": 8100
+      "sha256": "5188a3841cd92d09c91c6ad29812bc6fd8c991d15e3202ddc692c7a70e5b9bc7",
+      "bytes": 4941186,
+      "rows": 2700
     }
   ],
   "notes": "H-26/H-27/H-21：anchored walk-forward × 精選比例 × 分配方式的完整交叉。三維度不預先挑選（先挑=上帝視角，見模組docstring）。C_random已移除。"

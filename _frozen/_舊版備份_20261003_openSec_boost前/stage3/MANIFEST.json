@@ -1,0 +1,351 @@
+{
+  "stage": "stage3_hrp",
+  "produced_at": "2026-09-30T22:39:51",
+  "git_sha": "eb31267",
+  "params": {
+    "trees_built": [
+      "TW_normal",
+      "US_normal",
+      "XM_normal",
+      "TW_crisis",
+      "US_crisis",
+      "XM_crisis"
+    ],
+    "L1_target": {
+      "TW": 7,
+      "US": 7,
+      "XM": 6
+    },
+    "L3_target": {
+      "TW": 346,
+      "US": 235,
+      "XM": 581
+    },
+    "L1_target_method": "silhouette（H-03，見cluster_count_selection.py）",
+    "linkage_method_chosen": {
+      "TW_normal": "ward",
+      "US_normal": "ward",
+      "XM_normal": "ward",
+      "TW_crisis": "ward",
+      "US_crisis": "ward",
+      "XM_crisis": "ward"
+    },
+    "linkage_selection_criterion": "L3切割時最大群佔比最低者勝出，非cophenetic（見程式註解：single linkage 實測出現鏈狀效應)",
+    "method_comparison": {
+      "TW_normal": {
+        "single": {
+          "cophenetic": 0.7036989799487207,
+          "max_share": 0.9680941576857629,
+          "n_singleton": 275
+        },
+        "ward": {
+          "cophenetic": 0.4766037460481245,
+          "max_share": 0.016874645490640952,
+          "n_singleton": 0
+        }
+      },
+      "US_normal": {
+        "single": {
+          "cophenetic": 0.7242037236595497,
+          "max_share": 0.9572966507177033,
+          "n_singleton": 177
+        },
+        "ward": {
+          "cophenetic": 0.29913085247945237,
+          "max_share": 0.03409090909090909,
+          "n_singleton": 0
+        }
+      },
+      "XM_normal": {
+        "single": {
+          "cophenetic": 0.7558471439637164,
+          "max_share": 0.9629200979301135,
+          "n_singleton": 441
+        },
+        "ward": {
+          "cophenetic": 0.8812167847846943,
+          "max_share": 0.010594257734253282,
+          "n_singleton": 0
+        }
+      },
+      "TW_crisis": {
+        "single": {
+          "cophenetic": 0.5889495457701689,
+          "max_share": 0.9651871809415768,
+          "n_singleton": 291
+        },
+        "ward": {
+          "cophenetic": 0.8062469067452884,
+          "max_share": 0.018859897901304594,
+          "n_singleton": 0
+        }
+      },
+      "US_crisis": {
+        "single": {
+          "cophenetic": 0.7580846642055004,
+          "max_share": 0.9629186602870813,
+          "n_singleton": 195
+        },
+        "ward": {
+          "cophenetic": 0.37721695720416354,
+          "max_share": 0.02368421052631579,
+          "n_singleton": 0
+        }
+      },
+      "XM_crisis": {
+        "single": {
+          "cophenetic": 0.8924513861869844,
+          "max_share": 0.6134431337636324,
+          "n_singleton": 479
+        },
+        "ward": {
+          "cophenetic": 0.8856104664975416,
+          "max_share": 0.012730914756287558,
+          "n_singleton": 0
+        }
+      }
+    },
+    "level_diag": {
+      "TW_normal": {
+        "L1": {
+          "n_clusters": 7,
+          "max_share": 0.33026091888825865,
+          "n_singleton": 0
+        },
+        "L3": {
+          "n_clusters": 346,
+          "max_share": 0.016874645490640952,
+          "n_singleton": 0
+        }
+      },
+      "US_normal": {
+        "L1": {
+          "n_clusters": 7,
+          "max_share": 0.35382775119617227,
+          "n_singleton": 0
+        },
+        "L3": {
+          "n_clusters": 235,
+          "max_share": 0.03409090909090909,
+          "n_singleton": 0
+        }
+      },
+      "XM_normal": {
+        "L1": {
+          "n_clusters": 6,
+          "max_share": 0.4020921433340752,
+          "n_singleton": 0
+        },
+        "L3": {
+          "n_clusters": 581,
+          "max_share": 0.010594257734253282,
+          "n_singleton": 0
+        }
+      },
+      "TW_crisis": {
+        "L1": {
+          "n_clusters": 7,
+          "max_share": 0.539208735110607,
+          "n_singleton": 0
+        },
+        "L3": {
+          "n_clusters": 346,
+          "max_share": 0.018859897901304594,
+          "n_singleton": 0
+        }
+      },
+      "US_crisis": {
+        "L1": {
+          "n_clusters": 7,
+          "max_share": 0.255622009569378,
+          "n_singleton": 0
+        },
+        "L3": {
+          "n_clusters": 235,
+          "max_share": 0.02368421052631579,
+          "n_singleton": 0
+        }
+      },
+      "XM_crisis": {
+        "L1": {
+          "n_clusters": 6,
+          "max_share": 0.4127754284442466,
+          "n_singleton": 0
+        },
+        "L3": {
+          "n_clusters": 581,
+          "max_share": 0.012730914756287558,
+          "n_singleton": 0
+        }
+      }
+    },
+    "cophenetic": {
+      "TW_normal": 0.4766037460481245,
+      "US_normal": 0.29913085247945237,
+      "XM_normal": 0.8812167847846943,
+      "TW_crisis": 0.8062469067452884,
+      "US_crisis": 0.37721695720416354,
+      "XM_crisis": 0.8856104664975416
+    },
+    "ari_l3_vs_fcombo": {
+      "TW_normal": 0.1436114378018582,
+      "US_normal": 0.23000623032798168,
+      "XM_normal": 0.17743393842409586,
+      "TW_crisis": 0.05452842614729961,
+      "US_crisis": 0.1539916131492742,
+      "XM_crisis": 0.11914837366665554
+    },
+    "n_dropped_zero_var": {
+      "TW_normal": 0,
+      "US_normal": 0,
+      "XM_normal": 0,
+      "TW_crisis": 0,
+      "US_crisis": 0,
+      "XM_crisis": 0
+    },
+    "windows": {
+      "TW": [
+        "2007-01",
+        "2025-12"
+      ],
+      "US": [
+        "2002-01",
+        "2025-12"
+      ],
+      "XM": [
+        "2007-01",
+        "2025-12"
+      ]
+    },
+    "crisis_months_n": {
+      "TW": 17,
+      "US": 22,
+      "XM": 26
+    }
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage1\\returns_monthly.parquet",
+      "sha256": "39efabe9c08a8983b24f964b5101e98591747aaccbf22a0c7b2f359eee873e1a",
+      "bytes": 52203966,
+      "rows": 6670871
+    },
+    {
+      "path": "_frozen\\stage1\\returns_meta.parquet",
+      "sha256": "a9807d72aba13be7fb667957724522f0e4d11df4b0b43c5286b72ca4ee30dcb2",
+      "bytes": 265745,
+      "rows": 23691
+    },
+    {
+      "path": "_frozen\\stage1\\strategy_marks.parquet",
+      "sha256": "0e1b4d0e0edddc8284446cbc705a62354b8b2d69893cacec569fc0ccf7d0c349",
+      "bytes": 855744,
+      "rows": 23691
+    },
+    {
+      "path": "_frozen\\stage0\\candidate_index.parquet",
+      "sha256": "6cc5ef0c895042f41253c62e9c8bd428612843873c1282b94d3a2eeb07e0964b",
+      "bytes": 2182538,
+      "rows": 23691
+    },
+    {
+      "path": "_frozen\\stage2\\regime\\regime_table_TW.parquet",
+      "sha256": "c8b736811ad8b6cbcf70ea1b3df9b44a2fb188e7267507fbf1b7f511e2e7cd7c",
+      "bytes": 8773,
+      "rows": 43
+    },
+    {
+      "path": "_frozen\\stage2\\regime\\regime_table_US.parquet",
+      "sha256": "f592786973d2274a04d84959f89765d2f73d2bf3d342b0537d9533756b6d6e35",
+      "bytes": 7982,
+      "rows": 29
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_frozen\\stage3\\cluster_assign.parquet",
+      "sha256": "c289f38bd3db496d87b78faf70cc073e51d5db6101fc716ff7a6683f04dd7ed2",
+      "bytes": 919648,
+      "rows": 89858
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_meta.parquet",
+      "sha256": "e5365917664fc4a64159e83ef9bbbeac58357a362528fb08f75ad21a7f2c295d",
+      "bytes": 46326,
+      "rows": 2364
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_corr_matrix_TW_normal.parquet",
+      "sha256": "24050218feff99df7ca2794d9b91be4178475e5751f91e883cd0bb04e33b525e",
+      "bytes": 6235,
+      "rows": 7
+    },
+    {
+      "path": "_frozen\\stage3\\linkage_TW_normal.npy",
+      "sha256": "fbf05d8356120c1d4d904decd6bbdf45dfded2163c290fe3b1ab4e7ec38ec34d",
+      "bytes": 451424
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_corr_matrix_US_normal.parquet",
+      "sha256": "61a4a6ed77d18a4999b5b8cf4656a12ec06f829bf8882d03e95e0be718ea0cc5",
+      "bytes": 6235,
+      "rows": 7
+    },
+    {
+      "path": "_frozen\\stage3\\linkage_US_normal.npy",
+      "sha256": "17e22868d31e0999d1d1e569c59cb1fbfec4b1971bf723ca074622ab97399115",
+      "bytes": 267616
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_corr_matrix_XM_normal.parquet",
+      "sha256": "6fc98c8e18e7c48925aed5a399f2e87c37267af35d4b2f792f6180ef13a2d7e7",
+      "bytes": 5518,
+      "rows": 6
+    },
+    {
+      "path": "_frozen\\stage3\\linkage_XM_normal.npy",
+      "sha256": "3b9d9adcbf8bd02717d510ca63f1527be22b6497f28ce4b1c9bfed79e73af8dd",
+      "bytes": 718976
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_corr_matrix_TW_crisis.parquet",
+      "sha256": "36fcb3f1b89ebc49c93a4096fc70b700dbcc394a6f5b8d04a4b636ad619b9a63",
+      "bytes": 6235,
+      "rows": 7
+    },
+    {
+      "path": "_frozen\\stage3\\linkage_TW_crisis.npy",
+      "sha256": "379e25dcfe4c219d4c0fd8e6c2d6ca01c2a1011fb111206a0d025805f6718ab9",
+      "bytes": 451424
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_corr_matrix_US_crisis.parquet",
+      "sha256": "24996d76e1cab196da0d3b7a5264c27137a0c01a8721bb833bd6b3642519c232",
+      "bytes": 6235,
+      "rows": 7
+    },
+    {
+      "path": "_frozen\\stage3\\linkage_US_crisis.npy",
+      "sha256": "28a25ae05cb954943b5ddf0ae3109ca85d7270e267d47072467cb38109688d22",
+      "bytes": 267616
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_corr_matrix_XM_crisis.parquet",
+      "sha256": "c6b1cb4180a3b9648ee8ec1892c8a22dd555f6342f1dcae9db42599885ce6cf5",
+      "bytes": 5518,
+      "rows": 6
+    },
+    {
+      "path": "_frozen\\stage3\\linkage_XM_crisis.npy",
+      "sha256": "214a23b7d8bce895db9947ec57e1432fcf1cc68acdd073b50fc48246d634fc47",
+      "bytes": 718976
+    },
+    {
+      "path": "_frozen\\stage3\\co_fail_regimes.parquet",
+      "sha256": "26cf32ccabffb32733e8f49be56869ab436f99278e90cc7deb48e03c0281dc9c",
+      "bytes": 6700,
+      "rows": 20
+    }
+  ],
+  "notes": "normal+crisis 六棵樹"
+}

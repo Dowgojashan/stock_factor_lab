@@ -56,6 +56,29 @@ LOOKAHEAD_FLAGGED = {"MOM1"}
 # DB 實有 21 個因子（TW/US 相同），扣掉 PE（老師 2026-08-05 排除，只留給 V 用）→ 20 個。
 # 2026-08-06 collector 補齊：台股 MOM/MOM1 修復（原 99.93% NULL），
 # 並新增 ACCRUAL/REV_G/VOL/NETDEBT_EBITDA 補齊「應計品質/成長/波動」三個空白類別。
+#
+# 🆕 2026-10 老師9/29指示新增成長型因子（見`文件/老師9-29意見待辦_下次會議10-7.md`）：
+#   EPS_G（本季EPS-去年同季EPS）/|去年同季EPS|，2026-10新算並寫入DB，factor id=27
+#   ROE_G  本季ROE-去年同季ROE（絕對變化量，非成長率——避免ROE貼近0時除以極小值失真），
+#          2026-10新算並寫入DB，factor id=28
+#   RD_S  研發/營收比，資料庫本來就有（2026-08-12交付），研發強度可視為成長/創新代理指標，
+#         這次解禁納入（2005年後季頻完整，2005年前只有年頻，見下方NOT_IN_POOL說明）
+#   🔴 這次是**新增更多F1可選種類**，不是取代——舊的20個因子/既有策略/既有結果
+#   （`results_artifacts/{market}_L1_{原20個因子}_M/`）完全不動，`is_done()`會自動
+#   跳過已完成的因子，只backtest這3個新的（`--dry-run`可以先確認狀態，見下方跑法）。
+#
+# 🆕 2026-10-02 使用者定案：新增2個動能型F1候選（PROX_52WK_HIGH/MOM_3M），
+#   不加估值型（使用者明確表示「不要再加估值因子做為主力因子」）。
+#   這兩個是從4個文獻佐證候選（PROX_52WK_HIGH/MOM_3M/EV_EBITDA/PEG）裡，先用
+#   `run_factor_batches.py` 的N=5快篩候選批次（非官方SOP，只是便宜的初篩工具）
+#   篩出的——EV_EBITDA雖然N=5快篩也過，但屬估值型故不採用；PEG快篩不過（ρ=-0.100,
+#   p=0.873，桶CAGR呈駝峰型不單調）直接淘汰。
+#   PROX_52WK_HIGH 現價/過去252交易日最高價，George & Hwang (2004) The 52-Week
+#     High and Momentum Investing, Journal of Finance；factor id=29
+#   MOM_3M  現價/63交易日前價格-1，Jegadeesh & Titman (1993) Returns to Buying
+#     Winners and Selling Losers, Journal of Finance；factor id=30
+#   ⚠️ N=5快篩過關不代表官方N=9桶Phase1會過關（EV_EBITDA本身就是反例：N=5快篩
+#   強過關但官方N=9桶只拿到⚠️邊際），這兩個因子仍要跑完下面這支官方Phase1才能定案。
 FACTORS = [
     "ROE", "EPS", "FCF_P", "DEBTRATIO", "REVENUE",      # 體質/規模
     "EV_EBITDA", "EV_S", "PB", "PS", "P_IC",            # 估值倍數
@@ -65,21 +88,28 @@ FACTORS = [
     "REV_G",                                             # 成長
     "VOL",                                               # 波動
     "NETDEBT_EBITDA",                                    # 財務結構（償債能力）
+    "EPS_G", "ROE_G", "RD_S",                           # 成長（2026-10新增，見上方說明）
+    "PROX_52WK_HIGH", "MOM_3M",                         # 動量（2026-10-02新增，見上方說明）
 ]
 
-# 📌 **刻意不納入因子池**（2026-08-12 使用者決定：先維持現有規模）
+# 📌 **刻意不納入因子池**（2026-08-12 使用者決定：先維持現有規模；2026-10 RD_S解禁，
+#    理由見上方，GP_A/CURRENT_RATIO/INV_G仍不納入——GP_A是獲利能力非成長、CURRENT_RATIO
+#    是流動性非成長、INV_G雖名為成長但在會計異常文獻裡通常是負向品質訊號〔存貨成長過高
+#    常代表滯銷或財報操作〕，跟老師要的「投信炒作成長度」正向成長概念方向可能相反，
+#    2026-10 review後決定不用）：
 #    collector 已於 2026-08-12 交付 4 個新因子（Task D），資料庫裡有值：
-#      GP_A / CURRENT_RATIO / RD_S / INV_G
+#      GP_A / CURRENT_RATIO / RD_S(已解禁) / INV_G
 #    不納入的理由（要恢復時把它們加回上面的 FACTORS 即可）：
-#    1. 台股這 4 個的原始科目在 TEJ Pro 只到 **2005-06** 起，2000-2004 全空。
+#    1. 台股這幾個的原始科目在 TEJ Pro 只到 **2005-06** 起（2026-10查證：實際是「只到
+#       2005年後才轉季頻揭露，2005年前是年頻」，不是完全沒資料，但早期資料明顯較稀疏），
 #       9 個桶同樣都少前 5 年 → Spearman ρ 不受影響，但**絕對 CAGR 系統性低估**，
-#       在 Phase 2「贏基準 2pp」的門檻上會吃虧，與其他 20 個因子不對等。
+#       在 Phase 2「贏基準 2pp」的門檻上會吃虧，與其他因子不對等。
 #    2. 加了要整批重跑 Phase 2~4（無逐策略續傳），台美合計約 15-20 小時。
-#    3. 多重檢定風險：20 → 24 等於多開 4 次檢定。
+#    3. 多重檢定風險：因子數增加等於多開檢定次數。
 #    ⚠️ 恢復時：Phase 2 的舊目錄（{market}_L2_all_M 等）必須先封存，
-#       否則標籤相同會被 is_done() 判定已完成而靜默沿用舊的 19 因子回測
+#       否則標籤相同會被 is_done() 判定已完成而靜默沿用舊的因子池回測
 #       （phase_variants.assert_pool_unchanged 會擋下並報錯）。
-NOT_IN_POOL = ["GP_A", "CURRENT_RATIO", "RD_S", "INV_G"]
+NOT_IN_POOL = ["GP_A", "CURRENT_RATIO", "INV_G"]
 
 CATALOG_DIR = Path("_catalog")
 RUN_LOG = CATALOG_DIR / "phase1_run_log.txt"

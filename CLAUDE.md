@@ -7,6 +7,59 @@
 
 ## 0. 讀這份文件前，先看幾件事
 
+0a. **🔴🔴 2026-10-01 踩過的坑，下次重跑研究部主鏈前必看：`k_stability.csv` 不會自動跟著候選池更新。**
+   `research/walkforward_matrix.py` 的 `k_mode="silhouette_is"` 不是現場算 k，是讀
+   `_analysis_outputs_robustness/k_stability.csv`（由獨立模組 `research.k_stability` 產生）
+   這份**凍結檔**。這次台股加成長因子、重建 stage0~3／`stage3_hrp.L1_TARGET` 之後，
+   **忘記重跑 `python -m research.k_stability`**，導致已經跑完一整輪（~5.3小時）的
+   `walkforward_matrix` 裡，`k_mode="fixed"` 的結果是對的（直接讀當下 `L1_TARGET`，
+   不依賴這份凍結檔），但 `k_mode="silhouette_is"` 的結果全部是用舊池（6,679檔）、
+   舊 `L1_TARGET=6` 算出來的 k，實質上没跟上新池——這是**靜默的、不會報錯**的資料
+   不同步，用 `walkforward_members.parquet` 選策略名單時完全看不出來哪裡不對，
+   只有去對比「現場重算」跟「凍結檔」的代表策略數才會發現。
+   **教訓／規則（往後每次重跑研究部主鏈都要檢查）**：只要改了
+   `stage3_hrp.L1_TARGET` 或重建了候選池（stage0~3 任一環），**`research.k_stability`
+   也要跟著重跑**，然後 `research.walkforward_matrix` 才能重跑；順序顛倒或漏掉
+   `k_stability` 這一步，`silhouette_is` 的結果會悄悄過期但完全不會報錯、也不會被
+   任何契約檢查抓到（`walkforward_matrix.py` 只驗證 `k_stability.csv` 涵蓋了所需的
+   IS 窗，不驗證它是不是用同一批候選池算的）。
+   **舊檔案備份原則**：發現這類「重跑會覆蓋掉舊版本」的情況，覆蓋前一律先把舊檔案
+   複製一份留存（這次的作法：`_analysis_outputs_robustness/_舊版備份_20260930_加成長因子前/`
+   存了舊版 `k_stability.csv`／`walkforward_matrix_detail.csv`／`walkforward_members.parquet`
+   等 8 個檔案，從 git HEAD 復原），不要只靠 git history——使用者明確要求「舊的檔案
+   紀錄也要留著，不要輕易被覆蓋掉」，這是長期原則不是這次特例。
+   🔴 **這次修正留下的已知缺口（XM 退步，刻意不修）**：使用者只要求修 TW（「我們主要
+   只是要看TW有沒有改善」），US/XM 延用「舊值」——但備份用的是 git HEAD（9/6
+   commit，加成長因子**之前**的版本），不是這次 session 稍早 `walkforward_matrix`
+   全量重跑（已經套用新 `L1_TARGET={"TW":7,"US":7,"XM":6}`）之後的中繼狀態。結果
+   XM 的 `k_mode="fixed"` 從「正確的 L1_TARGET=6」被這次合併**退回成更舊的 3**
+   （`t_walkforward_k_mode_uses_is_only_k` 測試已抓到：`n_clusters(3) != L1_TARGET(6)`）。
+   US 本身没受影響（候選池從未變動）。下次若要正式處理 US/XM，**不要**沿用
+   `_舊版備份_20260930_加成長因子前/` 裡的 XM 資料，要嘛重新對 XM 跑一次完整
+   `k_stability`+`walkforward_matrix`（XM 樹最貴，單棵約638s×14窗≈2.5小時起跳），
+   要嘛去找有沒有更接近的中繼快照。
+
+0b. **🔴🔴 2026-10-04 使用者明確裁示的長期規則：建 HRP 樹絕對不要用寫死的固定 k，一律先重算再建樹。**
+   這次 TW 改用 openSec_boost 變體（候選池 15,009→29,255）後，先用舊的
+   `stage3_hrp.L1_TARGET["TW"]=7`（上一輪池子選出來的）把六棵樹全部建完（含 US/XM），
+   跑完才發現：拿新建好的 TW linkage 用 `cluster_count_selection.py` 重新掃一次輪廓係數，
+   建議值是 **k=6** 不是 7——等於整整一輪 stage3+stage4+k_stability+walkforward_matrix
+   的 TW 部分全部要重做（walkforward_matrix 甚至因此直接殺掉重跑，白工約4-5小時）。
+   **教訓／規則（往後任何時候候選池或因子池有變動，建樹前一定要做，不要等建完才發現）**：
+   1. 先跑 `python -m research.cluster_count_selection --tree {market}_normal`
+      （便宜，沿用既有linkage只重算距離矩陣+輪廓係數掃描，數十秒~數分鐘量級，
+      不是重新建樹）拿到建議的 k。
+   2. 確認跟 `stage3_hrp.L1_TARGET[market]` 現在的值是否相符，不符就先改掉常數。
+   3. 改完常數才去跑 `stage3_hrp`／`stage4_strategy_map`／`k_stability`／
+      `walkforward_matrix` 這條鏈，不要用舊k建完再補救。
+   同一次也學到：改某一個市場的候選池時，`stage3_hrp.run()`／`k_stability.run()`／
+   `walkforward_matrix.run()` 都支援 `trees=[...]`／`--trees` 只跑指定市場，但
+   `stage3_hrp.run()` 的輸出檔（`cluster_assign.parquet`/`cluster_meta.parquet`/
+   `co_fail_regimes.parquet`）是**整批覆寫、不會跟舊資料合併**，只跑單一市場會
+   把其他市場的列整個清空——要保留其他市場不動，必須自己寫混合重建腳本
+   （讀出舊檔案裡其他市場的列、算出這個市場的新結果、merge、再寫回），
+   不能直接呼叫 `run(trees=["TW"])`。
+
 0. **🔴🔴 `文件/現況銜接.md` —— 最先讀這份。** 它用三分鐘講完「現在做到哪、下一步是什麼、
    哪些事已經決定不做（不要重新提案）、這次踩過哪些坑」。本 CLAUDE.md 講的是**專案怎麼運作**
    （長期不太變的事），`現況銜接.md` 講的是**現在的狀態**（會一直變）。兩者衝突時以日期新的為準。

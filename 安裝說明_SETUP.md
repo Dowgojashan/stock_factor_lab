@@ -20,9 +20,7 @@
      3. 適用於 Windows 的 C++ CMake 工具
    - 裝完**重開機**。沒有這個，第 5 步 Cython 編譯會失敗（其餘套件仍會裝好）。
 
-3. **MariaDB 資料庫**（🔴 2026-09-10 起改用**獨立版 MariaDB Server**，不要裝 XAMPP——
-   XAMPP 一次裝進 Apache／PHP／phpMyAdmin／FTP／Mercury Mail，這個專案只用得到
-   MySQL/MariaDB，其餘都是白白多出來的攻擊面，而且 XAMPP 預設 root 空密碼）
+3. **MariaDB 資料庫**（🔴 2026-09-10 起改用**獨立版 MariaDB Server**，
    1. 下載官方安裝檔：https://mariadb.org/download/ → 選 **MariaDB Server**、
       Windows、目前的 LTS 版本（本專案安裝時是 11.4.3 LTS，之後更新的 LTS 版本
       也可以，同一個引擎家族、同一套 SQL 語法）

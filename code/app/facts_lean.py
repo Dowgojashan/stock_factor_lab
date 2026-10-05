@@ -100,6 +100,20 @@ def m1d_state_csv(m1d: dict) -> str:
     # 誤以為那是「建議」而照抄；action 用另一個管道單獨提供給流程控制邏輯。
 
 
+def hot_segment_state_csv(hot_segment: dict) -> str:
+    """Hot Segment（triggers.py 的 evaluate_hot_segment_quarter 輸出）——跟 M1-D
+    平行、獨立的第二個可以驅動動作的判準（設計文件§7.4b③，2026-09-29接線）。
+    跟 `m1d_state_csv()` 同樣的規則：action 欄位不放進 CSV，避免 agent 誤把程式
+    決定的基準動作當成「建議」照抄。"""
+    rows = [{
+        "metric": "coverage_count", "value": round(hot_segment["coverage_count"], 4)
+                 if hot_segment["coverage_count"] == hot_segment["coverage_count"] else None,
+        "p25": hot_segment["p25"], "p10": hot_segment["p10"],
+        "state": hot_segment["state"],
+    }]
+    return _to_csv(rows, columns=["metric", "value", "p25", "p10", "state"])
+
+
 def available_actions_csv(actions: list[dict]) -> str:
     """`actions.list_available_actions()` 的輸出——只含 §7.7 過濾過、
     看不到 window 4 的歷史窗次資料，本身就是物理隔離的一部分。"""
@@ -111,7 +125,8 @@ def available_actions_csv(actions: list[dict]) -> str:
     return _to_csv(rows, columns=["ratio", "allocation", "n_windows_visible", "mean_oos_cagr"])
 
 
-def build_prospective_facts(env: dict, proc: dict, m1d: dict) -> dict:
+def build_prospective_facts(env: dict, proc: dict, m1d: dict,
+                            hot_segment: dict | None = None) -> dict:
     """3b：預測區 facts。🔴 物理上不含任何流量變數——組完後立刻跑防洩題檢查，
     不是事後補救，是這個函式的必經路徑（呼叫端無法繞過）。
 
@@ -121,6 +136,11 @@ def build_prospective_facts(env: dict, proc: dict, m1d: dict) -> dict:
     混淆（B 質疑「3b 完全沒引用這份資料，跟預測評估脫節」，抓得對）——已
     移除，`available_actions_csv` 留給階段 5 決策時的 facts 建構式用（尚未
     實作）。
+
+    `hot_segment`：`triggers.evaluate_hot_segment_quarter()` 的輸出，選填、
+    預設 None 以保持向後相容（2026-09-29 新增，跟 M1-D 平行的第二組預測層判準，
+    設計文件§7.4b）——提供時併入 3b facts，讓 agent 同時看到兩組獨立判準；
+    不提供時行為跟接線前完全一樣。
     """
     # 🔴 2026-09-17（同一次 Agent-B 質疑抓到的第二個真問題）：呼叫端曾經把
     # `env`（用季初 as_of 算的）跟 `m1d`（用季末 end 算的）混在同一份「現況」
@@ -138,6 +158,8 @@ def build_prospective_facts(env: dict, proc: dict, m1d: dict) -> dict:
         "three_tier_state_csv": three_tier_state_csv(env, proc),
         "m1d_state_csv": m1d_state_csv(m1d),
     }
+    if hot_segment is not None:
+        facts["hot_segment_state_csv"] = hot_segment_state_csv(hot_segment)
     _assert_no_flow_leakage(facts, context="build_prospective_facts")
     return facts
 
@@ -273,13 +295,18 @@ def m1d_baseline_action_csv(m1d: dict) -> str:
 # ============================================================ 階段 5：決策
 
 def build_decision_facts(m1d: dict, actions: list[dict], prospective_output: dict,
-                         w2c_reference: dict | None = None) -> dict:
+                         w2c_reference: dict | None = None,
+                         hot_segment: dict | None = None,
+                         coverage_tilt_reference: dict | None = None) -> dict:
     """階段 5 決策用的 facts：M1-D 基準動作 ＋ 可用動作的歷史條件分布
     （§7.7 過濾過，看不到 window 4）＋ W2c 的一次性驗證結果（D50，選填，
     給呼叫端傳 `actions.w2c_reference()`）＋ 3b 的完整輸出（決策理由只能
     引用 3b，不可引用 3a——見設計文件 §10「理由必須明寫依據 3b 的哪幾項」）。
     🔴 刻意不放 3a／outcome／diagnosis：物理上讓決策 agent 看不到回顧區資料，
-    不靠 prompt 文字約束（跟 §7.7 的一貫精神一致）。"""
+    不靠 prompt 文字約束（跟 §7.7 的一貫精神一致）。
+
+    `hot_segment`／`coverage_tilt_reference`：2026-09-29新增，跟`m1d`／`w2c_reference`
+    平行的第二組判準＋動作參照，選填、預設None保持向後相容。"""
     facts = {
         "m1d_baseline_action_csv": m1d_baseline_action_csv(m1d),
         "available_actions_csv": available_actions_csv(actions),
@@ -287,6 +314,12 @@ def build_decision_facts(m1d: dict, actions: list[dict], prospective_output: dic
     }
     if w2c_reference is not None:
         facts["w2c_reference_json"] = _compact_json(w2c_reference)
+    if hot_segment is not None:
+        facts["hot_segment_baseline_action_csv"] = _to_csv(
+            [{"state": hot_segment["state"], "baseline_action": hot_segment["action"]}],
+            columns=["state", "baseline_action"])
+    if coverage_tilt_reference is not None:
+        facts["coverage_tilt_reference_json"] = _compact_json(coverage_tilt_reference)
     _assert_no_flow_leakage(facts, context="build_decision_facts")
     return facts
 

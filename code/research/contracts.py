@@ -23,28 +23,47 @@ import pandas as pd
 MARKETS = ("TW", "US")
 
 #: 候選池列數
+#: 🔄 2026-10-06 更新：台股新增成長因子 EPS_G/ROE_G（F1）+ RD_S 納入 F1 池、
+#: C 因子新增 REVENUE（PHASE3_C_FACTORS），台股 Phase1~4 全鏈重跑（美股本輪暫不處理，
+#: 沿用舊值，見下方「美股暫不動」註記）。
 #: 🔄 2026-08-22 更新：價格資料異常修復（台股接縫186檔／美股確認26檔）後，
 #: openSec 全鏈在台美兩市場重跑；同時修正了 Phase2 因子順序競態 bug
 #: （白名單字串比對因子池順序不同，5個OCF_E配對曾被靜默跳過）。
 #: 舊值（污染資料，已作廢）：TW 7,162／US 6,916／合計 14,078。
-EXPECTED_ROWS = {"TW": 7128, "US": 8682}
-EXPECTED_ROWS_TOTAL = sum(EXPECTED_ROWS.values())          # 15,810
+#: 舊值（2026-08-22 修復後，加成長因子前）：TW 7,128／US 8,682／合計 15,810。
+#: 舊值（2026-10-02 加成長因子後，openSec 9個primary）：TW 15,009／US 8,682。
+#: 🆕 2026-10-03：台股改用 openSec_boost 變體（Phase2 強制納入 ROE/EPS/ROIC/
+#:   REV_G/MOM_3M 5個regime-dependent因子當primary，見對話紀錄），TW 15,009→29,255。
+#: ⚠️ 美股暫不動：這次重跑範圍只限台股，美股維持 8,682（這台機器的
+#: results_artifacts/ 本來就缺美股完整的逐策略回測產物，見CLAUDE.md §2，
+#: 無法重新驗證，延用舊凍結資料——跟9/30 TW-only混合重建是同一個模式）。
+EXPECTED_ROWS = {"TW": 29255, "US": 8682}
+EXPECTED_ROWS_TOTAL = sum(EXPECTED_ROWS.values())          # 37,937
 
-#: v0/v1 拆分（實測，2026-08-22 修復後重跑）
-EXPECTED_V_SPLIT = {"TW": {"v0": 4451, "v1": 2677},
+#: v0/v1 拆分
+#: 🔄 台股（2026-10-03 openSec_boost 重跑後）：v0=18,779／v1=10,476。
+#: 美股（2026-08-22 修復後重跑，暫未更新）：v0=4,838／v1=3,844。
+EXPECTED_V_SPLIT = {"TW": {"v0": 18779, "v1": 10476},
                     "US": {"v0": 4838, "v1": 3844}}
 
 #: F2 空集合策略數（老師「F1+C 就好」的分流依據）。
 #: 這個數字對得上，就證明策略字串拆解是正確的——是階段0 最有力的驗收。
+#: 🔄 台股 2026-10-06 重跑後 384→661——新增 EPS_G/ROE_G 兩個 primary 因子的
+#: F2 空集合策略、以及 C 因子新增 REVENUE 後更多 F1+C 組合贏過基準，兩者共同推升。
+#: 🆕 2026-10-03 openSec_boost 重跑後 661→1,381——primary 從9個擴到14個、加上
+#: C因子全面改成六大類代表（見sweep_config.PHASE3_C_FACTORS），更多單F1+C組合
+#: 贏過基準而納入候選池。
 #: ⚠️ 美股從 652 變成 786——F2_empty 策略不涉及 F1×F2 配對，理論上不受
 #: primary清單改變影響；差異來自美股基準被污染灌水 1.29pp 導致原本門檻過嚴，
 #: 修復後大量 F1+C 策略重新贏過基準而納入候選池（與整體池暴增25.5%同一成因）。
-EXPECTED_F2_EMPTY = {"TW": 384, "US": 786}
+EXPECTED_F2_EMPTY = {"TW": 1381, "US": 786}
 
 #: 獨立 F 組合數（快篩「多樣性假象」的根源；也是 HRP L3 群數的錨點）
-#: 🔄 台股 primary 清單改變（ROE 出、OCF_E 進）導致組合數微降；
-#: 美股因基準修正、候選門檻放寬而組合數上升。
-EXPECTED_F_COMBOS = {"TW": 218, "US": 235}
+#: 🔄 台股 2026-10-06：218→346，與 Phase2 晉升的 346 組 F 組合數一致（內部驗證通過）。
+#: 🆕 2026-10-03 openSec_boost：346→471，與 Phase2(openSec_boost) 晉升的 521 組
+#: F組合中、實際在 Phase4 候選池留下至少一筆的 471 組一致（內部驗證通過）。
+#: 美股因基準修正、候選門檻放寬而組合數上升（暫未更新）。
+EXPECTED_F_COMBOS = {"TW": 471, "US": 235}
 
 #: 自建宇宙基準年化報酬（研究部 v9 更正版：同宇宙、同成本、含股利、等權）
 #: 🔄 2026-08-22 用修復後價格重算：TW 8.67%→8.43%、US 12.35%→11.06%
@@ -77,12 +96,17 @@ HRP_IS_WINDOWS = {
 HRP_OOS_WINDOW = ("2019-01", "2025-12")   # 84月，三市場皆同
 
 #: 五分類因子表（研究部 v9 / GateC C-2）
+#: 🔄 2026-10-06 新增成長型（EPS_G/ROE_G，同季 YoY 變化量，與其對應的水準型
+#: 因子 EPS/ROE 是不同構面——水準型答的是「現在體質好不好」，成長型答的是
+#: 「體質變好還是變壞」，因此不併入既有 體質型，另開一類）；RD_S（研發/銷售比）
+#: 併入 體質型（衡量投入強度／護城河，屬水準型指標，非成長率）。
 FACTOR_TYPE_MAP = {
     **{f: "估值型" for f in ("PB", "PS", "P_IC", "EV_S", "EV_EBITDA", "FCF_P", "FCF_OI", "PE")},
-    **{f: "體質型" for f in ("ROE", "EPS", "ROIC", "CROIC", "OCF_E", "ACCRUAL")},
-    **{f: "動能型" for f in ("MOM", "MOM1", "VOL")},
+    **{f: "體質型" for f in ("ROE", "EPS", "ROIC", "CROIC", "OCF_E", "ACCRUAL", "RD_S")},
+    **{f: "動能型" for f in ("MOM", "MOM1", "VOL", "PROX_52WK_HIGH", "MOM_3M")},
     **{f: "規模型" for f in ("REVENUE", "REV_G")},
     **{f: "結構型" for f in ("DEBTRATIO", "NETDEBT_EBITDA")},
+    **{f: "成長型" for f in ("EPS_G", "ROE_G")},
 }
 
 #: 主鍵規則。實測台美策略字串**碰撞 1,381 個**（同一套因子命名規則、字串不編碼
@@ -270,7 +294,7 @@ CANDIDATE_INDEX = Schema(
         Column("C_rule", "str", nullable=True),
         Column("V", "cat", allowed=("v0", "v1")),
         Column("factor_type", "cat",
-               allowed=("估值型", "體質型", "動能型", "規模型", "結構型", "混合型")),
+               allowed=("估值型", "體質型", "動能型", "規模型", "結構型", "成長型", "混合型")),
         Column("factor_type_basis", "str"),
         # --- 階段 −1 既有指標（候選 CSV） ---
         Column("CAGR", "float"),
@@ -1331,7 +1355,7 @@ STRATEGY_MAP = Schema(
         Column("C_rule", "str", nullable=True),
         Column("V", "cat", allowed=("v0", "v1")),
         Column("factor_type", "cat",
-               allowed=("估值型", "體質型", "動能型", "規模型", "結構型", "混合型")),
+               allowed=("估值型", "體質型", "動能型", "規模型", "結構型", "成長型", "混合型")),
         Column("factor_type_basis", "str"),
         # --- 整段績效（階段−1候選CSV / stats.parquet） ---
         Column("CAGR", "float"),

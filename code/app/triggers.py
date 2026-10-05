@@ -85,3 +85,68 @@ def run_quarterly_series(mcap_wide: pd.DataFrame, cond: M1DCondition,
         rows.append(r)
         state = r["state"]
     return pd.DataFrame(rows)
+
+
+# ============================================================ Hot Segment（設計文件 §7.4b③，
+# 跟 M1-D 平行、獨立觸發，不是誰包含誰——兩者可能同時觸發、只觸發一個、或都不觸發）
+#
+# 🔴 判斷方向跟 M1-D 相反：M1-D 是「偏離越高越異常」，Hot Segment 是「覆蓋率越低越異常」。
+# 門檻用 2015-2023 歷史分布算出（見 `_analysis_outputs_applayer/hot_segment_coverage_test*.csv`，
+# `coverage_count`／N=市場已校準值／X=10%／calib_2015_2023 這個切面），XM 尚未校準，
+# 沿用時直接報錯，不可假設落在 TW/US 中間（跟 `monitor.hot_segment_layer()` 同一個立場）。
+
+HOT_SEGMENT_P25 = {"TW": 0.3363, "US": 0.3039}  # 觀察門檻：低於此值 → OBSERVING
+HOT_SEGMENT_P10 = {"TW": 0.3080, "US": 0.2595}  # 異常門檻：低於此值 → TRIGGERED
+
+
+@dataclasses.dataclass
+class HotSegmentCondition:
+    """登記時點固定下來的 Hot Segment 門檻——跟 `M1DCondition` 平行，
+    但這裡登記的是門檻本身（市場已校準的歷史分位數），不是登記時的覆蓋率水準
+    （M1-D 比的是「相對登記時的累計偏離」，Hot Segment 比的是「相對歷史分布的絕對水位」，
+    兩者的判斷邏輯本來就不同，不要誤以為要對齊成同一種比較方式）。"""
+    market: str
+    p25: float
+    p10: float
+
+
+def register_hot_segment(market: str) -> HotSegmentCondition:
+    """階段 1：期初登記。門檻是市場已校準的歷史分位數（見上方常數），不需要
+    當下的覆蓋率數字，純粹是選對市場對應的門檻。"""
+    if market not in HOT_SEGMENT_P25:
+        raise ValueError(f"Hot Segment 尚未替 {market} 校準門檻（目前只有 TW/US）")
+    return HotSegmentCondition(market=market, p25=HOT_SEGMENT_P25[market], p10=HOT_SEGMENT_P10[market])
+
+
+def evaluate_hot_segment_quarter(cond: HotSegmentCondition, coverage_count: float,
+                                 prev_state: str) -> dict:
+    """階段 2：每季比對。`coverage_count` 是 `monitor.hot_segment_layer()` 算出的
+    市場層級覆蓋率（不是策略層級的 coverage_frac）。跟 M1-D 同一套雙門檻遲滯設計，
+    但方向相反——低於門檻才算異常。`coverage_count` 若為 NaN（見
+    `monitor.hot_segment_layer()` 的誠實回傳）直接視為 NONE 並在 `note` 標記，
+    不可讓 NaN 悄悄比較出一個看似正常的結果。
+    """
+    if coverage_count is None or coverage_count != coverage_count:  # NaN 檢查
+        # 🔴 2026-09-30 code review修正：原本這裡強制回傳"NONE"（等同A0，一切
+        # 正常）——docstring明明寫「不可讓NaN悄悄比較出一個看似正常的結果」，
+        # 但NONE/A0本身就是「看似正常」的結果，兩者矛盾。改成維持prev_state
+        # 不變（資料算不出來≠市場恢復正常，尤其若上一季是TRIGGERED、這一季
+        # 剛好碰到熱門股全缺市值資料，不該因此悄悄解除傾斜）。
+        action = {"NONE": "A0", "OBSERVING": "A4", "TRIGGERED": "A5"}[prev_state]
+        return {"coverage_count": coverage_count, "p25": cond.p25, "p10": cond.p10,
+               "prev_state": prev_state, "state": prev_state, "action": action,
+               "note": "coverage_count 無法計算（熱門股全部缺市值資料），"
+                       "本季不判定、維持上一季狀態不變"}
+
+    if coverage_count < cond.p10:
+        new_state = "TRIGGERED"
+    elif coverage_count < cond.p25:
+        new_state = "TRIGGERED" if prev_state == "TRIGGERED" else "OBSERVING"
+    else:
+        new_state = "NONE"
+
+    action = {"NONE": "A0", "OBSERVING": "A4", "TRIGGERED": "A5"}[new_state]
+    return {
+        "coverage_count": coverage_count, "p25": cond.p25, "p10": cond.p10,
+        "prev_state": prev_state, "state": new_state, "action": action,
+    }

@@ -1,0 +1,50 @@
+{
+  "stage": "stage1_marks",
+  "produced_at": "2026-09-30T21:37:15",
+  "git_sha": "eb31267",
+  "params": {
+    "rotation_high_pct": 0.95,
+    "effn_low_pct": 0.1,
+    "empty_high_pct": 0.95,
+    "tertile": [
+      0.3333333333333333,
+      0.6666666666666666
+    ],
+    "price_jump_extreme": 3.0,
+    "monthly_jump_extreme": 1.0,
+    "alpha_gate_benchmark_cagr": {
+      "TW": 0.084256,
+      "US": 0.110556
+    },
+    "alpha_gate_window": "full-sample（非IS窗，H-11拍板前的過渡做法）"
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage0\\candidate_index.parquet",
+      "sha256": "6cc5ef0c895042f41253c62e9c8bd428612843873c1282b94d3a2eeb07e0964b",
+      "bytes": 2182538,
+      "rows": 23691
+    },
+    {
+      "path": "_frozen\\stage1\\strategy_scan.parquet",
+      "sha256": "f6b6fb00637e161d3922bec8d3bde261e8b73cd05363af6fe751d228b15b335d",
+      "bytes": 3180543,
+      "rows": 23691
+    },
+    {
+      "path": "_frozen\\stage1\\returns_monthly.parquet",
+      "sha256": "39efabe9c08a8983b24f964b5101e98591747aaccbf22a0c7b2f359eee873e1a",
+      "bytes": 52203966,
+      "rows": 6670871
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_frozen\\stage1\\strategy_marks.parquet",
+      "sha256": "0e1b4d0e0edddc8284446cbc705a62354b8b2d69893cacec569fc0ccf7d0c349",
+      "bytes": 855744,
+      "rows": 23691
+    }
+  ],
+  "notes": "兩把刀方向：低effective_n+高rotation_score（不輪動）；empty_ratio過高。stability_grade 公式為本階段解讀，見 module docstring。W-08：data_glitch=單日跳動≥300%或單月報酬≥100%（OR合併，只標記不淘汰，門檻用diagnose_price_anomalies的CAGR_inflation_pp反推校準，見contracts.py）。H-01：passes_alpha_gate=CAGR>=自建宇宙基準（只標記不淘汰，不覆寫is_usable），見開發待辦追蹤.md H-01"
+}

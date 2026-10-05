@@ -72,10 +72,30 @@ def _spec(market):
             "primary": P, "secondary": A,
             "primary_margin": 0.02, "secondary_tol": 0.01,
         },
+        # 🆕 2026-10-02 使用者定案：openSec 的 9 個 primary 裡估值型佔 4 個(44%)，
+        #   使用者認為這是「一直沒辦法改善」的結構性原因，要求把「雖未通過 Phase1
+        #   全樣本(2000-2025)單調性檢定、但 2024-2025 個別報酬明顯贏大盤」的 5 個
+        #   因子強制拉進 primary：ROE/EPS/ROIC(體質型,⚠️邊際/❌淘汰,各自表現
+        #   +36%/+36%/+34%)、REV_G(成長/規模型,❌淘汰,+32%)、MOM_3M(動能型,
+        #   ⚠️邊際,+23%)——查證過程見對話紀錄，2024-2025 own-direction 個別
+        #   top-tercile 報酬皆明顯贏全市場基準(~10.6%)。EV_EBITDA 雖然也贏基準
+        #   (+16.9%) 但因為是估值型，使用者明確排除（不要再加估值因子當主力）。
+        #   因子池（primary∪secondary）仍是同一組 24 個（= openSec/all），
+        #   只是重新分配誰夠格當 primary，**不需要重跑回測**——`_POOL_SHARE` 刻意
+        #   設成自己持有（見下方），用目錄 junction 連到既有 TW_L2_all_M 的回測
+        #   產物，而不是真的建一份新回測（這組因子池的 primary 不是 A 的前綴子集，
+        #   若硬共用 l2_label() 的順序比對會 assert 失敗，junction 繞過這個限制，
+        #   語意上仍然誠實——底層策略回測資料完全相同，只有分析層的門檻不同）。
+        "openSec_boost": {
+            "desc": "強化版：primary 除 openSec 的9個外，再強制納入2024-2025個別"
+                     "表現顯著贏大盤的5個(ROE/EPS/ROIC/REV_G/MOM_3M)，secondary 維持全開放",
+            "primary": P + ["ROE", "EPS", "ROIC", "REV_G", "MOM_3M"], "secondary": A,
+            "primary_margin": 0.02, "secondary_tol": 0.01,
+        },
     }
 
 
-VARIANTS = {k: None for k in ("strict", "relaxed", "all", "openSec")}   # 供 argparse choices 用
+VARIANTS = {k: None for k in ("strict", "relaxed", "all", "openSec", "openSec_boost")}   # 供 argparse choices 用
 
 # ==================== 為什麼有 openSec 這個變體 ====================
 # 三方對照（見 _analysis_outputs_variants/）發現：
@@ -95,6 +115,12 @@ VARIANTS = {k: None for k in ("strict", "relaxed", "all", "openSec")}   # 供 ar
 _POOL_SHARE = {
     "strict": "strict", "relaxed": "strict",   # 都是同樣 12 個因子
     "all": "all", "openSec": "all",            # 都是同樣 19 個因子
+    # openSec_boost 的 24 個因子跟 all/openSec 完全一樣（同一個集合），但 primary
+    # 的 5 個新增因子不是 all 因子池排序的前綴子集，硬共用 l2_label() 的順序比對
+    # 會 assert 失敗（見上方 openSec_boost 的註解）。設成自己持有（owner=自己）
+    # 跳過順序比對，改用目錄 junction 把 TW_L2_openSec_boost_M 指到既有
+    # TW_L2_all_M 的回測產物（不是重跑，是同一份資料換個分析門檻）。
+    "openSec_boost": "openSec_boost",
 }
 
 

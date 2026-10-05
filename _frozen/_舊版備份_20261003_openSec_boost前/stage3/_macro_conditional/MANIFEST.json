@@ -1,0 +1,36 @@
+{
+  "stage": "cluster_macro_conditional",
+  "produced_at": "2026-09-01T10:24:54",
+  "git_sha": "9b338b3",
+  "params": {
+    "trees": [
+      "TW_normal",
+      "US_normal",
+      "XM_normal"
+    ],
+    "level": "L1"
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage3\\cluster_assign.parquet",
+      "sha256": "ca3c56a47b8b3da494155d62e6c58acfb4428714fa04fea82cf41689b49a3ae5",
+      "bytes": 295416,
+      "rows": 60158
+    },
+    {
+      "path": "_frozen\\stage4\\macro_performance.parquet",
+      "sha256": "a95262ccd953e3f7123d9ab52f74069a66ff5c5d9b4a48064a712b448153872b",
+      "bytes": 883869,
+      "rows": 63240
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_frozen\\stage3\\cluster_macro_conditional.parquet",
+      "sha256": "94e3f9950b5c4a4a565dbc82cb3a88ca829f289267f2b6655e15c624c08d086c",
+      "bytes": 9132,
+      "rows": 64
+    }
+  ],
+  "notes": "S-02：群的投資時鐘四格條件式績效，純程式算(H-06同一套群代表=成員簡單平均邏輯)，無LLM。決策層看條件式績效、不看無條件績效，理由見模組docstring。"
+}

@@ -1,0 +1,4 @@
+﻿tree_id,tree_key,n_strategies,enb_raw,n_clusters_l1,enb_clusters,redundancy_ratio,k_vs_enb_raw,cluster_independence
+TW_normal,TW,6679,3.2651,6,1.9611,2045.58,1.8376,0.3268
+US_normal,US,8360,4.3635,7,1.488,1915.91,1.6042,0.2126
+XM_normal,XM,15040,5.7732,3,1.7915,2605.15,0.5196,0.5972

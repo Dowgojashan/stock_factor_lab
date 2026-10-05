@@ -41,7 +41,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 from fcv_core import MarketData, run_spec, is_done, ART_DIR      # noqa: E402
-from sweep_config import COMMON_FACTORS, build_p3, MARKET_START   # noqa: E402
+from sweep_config import PHASE3_C_FACTORS, build_p3, MARKET_START   # noqa: E402
 from condition_factory import build_conditions                    # noqa: E402
 from phase1_linearity import IN_SAMPLE_END                        # noqa: E402
 from phase2_pairing import make_spec as make_p2_spec              # noqa: E402
@@ -98,7 +98,8 @@ def main():
         "n_allowed_f_pairs": len(allowed),
         "note": "F 白名單來自 Phase 2 體質檢查表；V 仍關閉",
     }
-    spec["P3"] = build_p3(COMMON_FACTORS)      # 20 個 C（ROE/EPS/FCF_P 衍生）
+    spec["P3"] = build_p3(PHASE3_C_FACTORS)    # 27 個 C（ROE/EPS/FCF_P/REVENUE 衍生，
+                                                # 2026-10新增REVENUE來源，見sweep_config.py）
 
     P1 = build_conditions(spec["P1"])
     P3 = build_conditions(spec["P3"])

@@ -34,7 +34,11 @@ STAGE4 = FROZEN / "stage4"
 STAGE3_ISOOS = FROZEN / "stage3_isoos"
 
 MARKETS = ("TW", "US")
-VARIANT = "openSec"          # 採用的正式設計（研究部 v9 定案）
+# 🆕 2026-10-03 改成逐市場字典：TW 這次重跑用 openSec_boost（25因子池、Phase2
+#   強制納入5個regime-dependent因子，見對話紀錄），US 完全沒碰、維持原 openSec
+#   不動（這次台股加成長/動能因子是 TW-only 的範圍，跟 0a 節 k_stability 的坑
+#   一樣的教訓：改一個市場不要連帶影響沒碰過的市場）。
+VARIANT = {"TW": "openSec_boost", "US": "openSec"}          # 採用的正式設計（研究部 v9 定案；逐市場可不同）
 IN_SAMPLE_END = "2025-12"
 
 # 落差2（SDD DD-01）：v0 的產物留在 L3，v1 在 L4。
@@ -44,10 +48,10 @@ JOB_BY_V = {"v0": "L3", "v1": "L4"}
 
 
 def job_label(market: str, v: str) -> str:
-    """回傳該策略回測產物所在的 job 目錄名，如 `TW_L3_openSec_M`。"""
+    """回傳該策略回測產物所在的 job 目錄名，如 `TW_L3_openSec_boost_M`。"""
     if v not in JOB_BY_V:
         raise ValueError(f"未知的 V 值: {v!r}（僅接受 v0/v1）")
-    return f"{market}_{JOB_BY_V[v]}_{VARIANT}_M"
+    return f"{market}_{JOB_BY_V[v]}_{VARIANT[market]}_M"
 
 
 def artifacts_path(market: str, strategy: str, v: str) -> Path:
@@ -57,7 +61,7 @@ def artifacts_path(market: str, strategy: str, v: str) -> Path:
 
 def candidates_csv(market: str) -> Path:
     """階段 −1 的候選池 CSV。注意：UTF-8 with BOM，須 encoding='utf-8-sig'。"""
-    return PHASE4_DIR / f"{market}_L4_{VARIANT}_final_candidates.csv"
+    return PHASE4_DIR / f"{market}_L4_{VARIANT[market]}_final_candidates.csv"
 
 
 def stats_parquet(market: str, v: str) -> Path:

@@ -28,7 +28,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 from fcv_core import MarketData, run_spec, is_done, ART_DIR      # noqa: E402
-from sweep_config import COMMON_FACTORS, build_p3, MARKET_START   # noqa: E402
+from sweep_config import PHASE3_C_FACTORS, build_p3, MARKET_START   # noqa: E402
 from condition_factory import build_conditions                    # noqa: E402
 from phase1_linearity import IN_SAMPLE_END                        # noqa: E402
 from phase2_pairing import make_spec as make_p2_spec              # noqa: E402
@@ -70,7 +70,7 @@ def main():
         "n_allowed_f_pairs": len(allowed),
         "note": "只跑 v1；v0 沿用 Phase 3 的 {market}_L3_M",
     }
-    spec["P3"] = build_p3(COMMON_FACTORS)
+    spec["P3"] = build_p3(PHASE3_C_FACTORS)   # 27個C，2026-10新增REVENUE來源
 
     P3 = build_conditions(spec["P3"])
     n_expect = len(allowed) * (len(P3) + 1) * len(V_MODES)

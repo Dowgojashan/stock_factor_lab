@@ -1,0 +1,43 @@
+{
+  "stage": "stage0_index",
+  "produced_at": "2026-09-30T21:29:53",
+  "git_sha": "eb31267",
+  "params": {
+    "variant": "openSec",
+    "pk_rule": "strategy_uid = market + '::' + strategy",
+    "job_by_v": {
+      "v0": "L3",
+      "v1": "L4"
+    },
+    "in_sample_end": "2025-12",
+    "rebuild_mode": "hybrid_tw_fresh_us_preserved"
+  },
+  "inputs": [
+    {
+      "path": "_analysis_outputs_phase4\\TW_L4_openSec_final_candidates.csv",
+      "sha256": "f9111cf1f9eb46bc3ad2b8965f9a93a75639dea9b2765d1d78c9f843437e2c46",
+      "bytes": 2699743
+    },
+    {
+      "path": "code\\results_artifacts\\TW_L3_openSec_M\\stats.parquet",
+      "sha256": "77df4e3f0fea35d1b65ba03361737ffa83d235a5287e299a944b41db65f6bf3b",
+      "bytes": 678288,
+      "rows": 9688
+    },
+    {
+      "path": "code\\results_artifacts\\TW_L4_openSec_M\\stats.parquet",
+      "sha256": "b4fada8f984cb13dd10a9e7948af8a8001ecaa216211a77c3343254cd93340bb",
+      "bytes": 674797,
+      "rows": 9687
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_frozen\\stage0\\candidate_index.parquet",
+      "sha256": "6cc5ef0c895042f41253c62e9c8bd428612843873c1282b94d3a2eeb07e0964b",
+      "bytes": 2182538,
+      "rows": 23691
+    }
+  ],
+  "notes": "2026-09-30 混合重建：台股新增 EPS_G/ROE_G/RD_S(F1)+REVENUE(C) 後全鏈重跑，經 stage0_index._load_market('TW') 重新驗證；美股完全沿用 2026-08-22 修復後的舊凍結資料，未重新驗證、未改動（使用者明確指示「美股先不管他，先把台股處理好再說」）。"
+}

@@ -166,6 +166,95 @@ def l1_distance(dist_a: dict[str, float], dist_b: dict[str, float]) -> float:
     return sum(abs(dist_a.get(k, 0.0) - dist_b.get(k, 0.0)) for k in keys)
 
 
+# ============================================================ Hot Segment（環境層，狀態變數，
+# 跟 M1-D 平行獨立——設計文件 §7.4b，2026-09-22 規格定案，2026-09-29 正式接線）
+#
+# 業界對應：Momentum 因子（Jegadeesh and Titman 1993），覆蓋率口徑對應 MSCI Momentum
+# Indexes Methodology 的 coverage 概念。N/X 已用 2015-2023 真實資料校準（見
+# `_design_test_hot_segment.py`）：TW 用 lag=1 自相關最強的 N=3；US 用 N=6（TW 校準出的
+# N=3 在 US 上自相關偏弱，兩個市場各自照自己的結果選，不跨市場沿用同一個值）。
+
+HOT_SEGMENT_N = {"TW": 3, "US": 6}  # 月數；XM 尚未獨立校準，見下方 hot_segment_layer 的檢查
+HOT_SEGMENT_X = 0.10                 # 統一 10%（top decile），跨市場一致
+
+
+def monthly_close(md) -> pd.DataFrame:
+    """月底收盤價（`price:close` 月頻重取樣）——動能排名跟覆蓋率計算共用同一份，
+    不要在呼叫端各自重算（沿用 `_design_test_hot_segment.py` 的既有教訓）。"""
+    close = md.get_field("price:close")
+    return close.resample("M").last()
+
+
+def momentum_asof(monthly: pd.DataFrame, as_of: str, months: int) -> pd.Series:
+    """`as_of` 當下，往前 `months` 個月的累積報酬（逐股票）。用 `price:close`
+    直接算，不透過 factor pipeline（動能不是候選池因子）。資料不足時拋
+    `ValueError`，呼叫端要誠實處理，不能靜默跳過。"""
+    ts = pd.Timestamp(as_of)
+    idx = monthly.index[monthly.index <= ts]
+    if len(idx) <= months:
+        raise ValueError(f"{as_of} 往前{months}個月的月頻資料不足（只有{len(idx)}筆）")
+    end_px = monthly.loc[idx[-1]]
+    start_px = monthly.loc[idx[-1 - months]]
+    return (end_px / start_px - 1.0)
+
+
+def hot_segment(ret_row: pd.Series, x_pct: float = HOT_SEGMENT_X) -> list[str]:
+    """該時點的動能報酬序列 → 排名前 x_pct 的股票清單（NaN 一律排除）。"""
+    valid = ret_row.dropna()
+    if valid.empty:
+        return []
+    cutoff = valid.quantile(1 - x_pct)
+    return valid[valid >= cutoff].index.tolist()
+
+
+def hot_segment_layer(md, idx: pd.DataFrame, uids: list[str], mktcap_row: pd.Series,
+                      as_of: str, market: str) -> dict:
+    """環境層＋過程層混合指標：算出這一季的 Hot Segment 清單，以及目前代表策略
+    對它的覆蓋率（市場層級聚合，用於 M1-D 旁的獨立觸發判定，見 `triggers.
+    evaluate_hot_segment_quarter()`）。
+
+    🔴 跟 Coverage Tilt 用的策略層級 `coverage_frac(r,t)`（見 `weights.py`）是
+    **不同粒度**的計算，這裡只算彙總後的市場層級 coverage_count／coverage_mktcap，
+    不要跟策略層級的覆蓋比例混用同一個函式（設計文件 §7.4b②／④是兩個獨立公式）。
+
+    `mktcap_row`：`asof_row(mcap_wide, as_of)` 的輸出，跟 `environment_layer()`
+    共用同一份市值資料。
+    """
+    from app._design_test_guaranteed_megacap_slot import selects_symbol
+
+    if market not in HOT_SEGMENT_N:
+        raise ValueError(f"Hot Segment 尚未替 {market} 校準 N 值（目前只有 TW/US），"
+                         f"不可沿用其他市場的門檻，見設計文件§7.4b範圍限定")
+    n_months = HOT_SEGMENT_N[market]
+
+    monthly = monthly_close(md)
+    mom = momentum_asof(monthly, as_of, n_months)
+    hot = hot_segment(mom, HOT_SEGMENT_X)
+
+    covered = set()
+    for uid in uids:
+        row = idx.loc[uid]
+        for sym in hot:
+            if sym in covered:
+                continue
+            if selects_symbol(md, row, as_of, sym) is True:
+                covered.add(sym)
+    cov_count = (len(covered) / len(hot)) if hot else float("nan")
+
+    hot_mk = mktcap_row.reindex(hot)
+    if hot_mk.isna().all() or hot_mk.sum() == 0:
+        cov_mktcap = float("nan")
+    else:
+        covered_mk = mktcap_row.reindex(list(covered)).fillna(0.0)
+        cov_mktcap = float(covered_mk.sum() / hot_mk.fillna(0.0).sum())
+
+    return {
+        "as_of": as_of, "market": market, "n_months": n_months, "x_pct": HOT_SEGMENT_X,
+        "n_hot": len(hot), "hot_segment": hot,
+        "coverage_count": cov_count, "coverage_mktcap": cov_mktcap,
+    }
+
+
 # ============================================================ 結果層（流量變數，僅回顧區可用）
 
 #: §8待辦item10（2026-09-22）：window4 用股票層方法重算的真實 B_all（全買

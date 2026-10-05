@@ -12,12 +12,41 @@ from pathlib import Path
 
 # ==================== 因子（台美共同 3 個）====================
 # ⚠️ 台股實際因子數待 DB 確認（A4 §9）；目前依定案用共同 3 個。
+# 🔴 這個常數是`run_factor_batches.py`「C只衍生自體質三因子」這個不變量的依據
+#   （該檔57行原話），不要直接改這裡去加新因子，會悄悄改變那支診斷工具的既有行為。
+#   Phase 3/4正式C要擴充，改用下面新增的`PHASE3_C_FACTORS`。
 COMMON_FACTORS = {
     "ROE":   "report:roe",
     "EPS":   "report:eps",
     "FCF_P": "report:fcf_p",
 }
 FACTORS_BY_MARKET = {"US": COMMON_FACTORS, "TW": COMMON_FACTORS}
+
+# 🆕 2026-10-02 使用者定案：C來源改成「六大類別各選一個2024-2025快篩最強代表」，
+# 取代原本只有ROE/EPS/FCF_P/REVENUE（四個都是水準型、偏估值/體質）這組。
+# 選法：依 contracts.FACTOR_TYPE_MAP 的六分類，每類挑 2024-2025 單因子快篩
+# （top-tercile長倉）累計報酬最高者，查證過程見
+# `文件/老師9-29意見待辦_下次會議10-7.md`。
+#   估值型 → EV_EBITDA（+14.66%，原本的FCF_P只有+6.72%，換成更強的代表）
+#   動能型 → PROX_52WK_HIGH（+27.93%，George & Hwang 2004；原本C完全沒有動能類來源）
+#   成長型 → EPS_G（+15.02%，本次session新增的正式F1因子）
+#   結構型 → DEBTRATIO（+12.94%，原本C完全沒有結構/槓桿類來源）
+#   規模型 → REV_G（+11.14%，原本的REVENUE只有+8.57%；⚠️ REV_G在正式Phase1健檢
+#            〔全樣本2000-2025〕其實是❌淘汰(ρ=0.233，無單調關係)，這裡刻意選它
+#            是因為「近期表現好、長樣本不過關」的regime-dependent因子，使用者
+#            知情後仍決定採用，寫論文時要誠實標註這個取捨）
+#   體質型 → OCF_E（+13.17%，原本的ROE/EPS分別只有+12.76%/+12.51%，三者都算
+#            體質型，OCF_E最強所以取代掉原本兩個）
+# ⚠️ PROX_52WK_HIGH 截至這份設定異動時，Phase1正式健檢尚未完成（候選批次測試
+#    進行中），先放進來但若驗證不過關要記得移除。
+PHASE3_C_FACTORS = {
+    "EV_EBITDA": "report:ev_ebitda",
+    "PROX_52WK_HIGH": "report:prox_52wk_high",
+    "EPS_G": "report:eps_g",
+    "DEBTRATIO": "report:debtratio",
+    "REV_G": "report:rev_g",
+    "OCF_E": "report:ocf_e",
+}
 
 # ==================== N 分位（粗細兩種）====================
 N_LIST = [5, 10]
