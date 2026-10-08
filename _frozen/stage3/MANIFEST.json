@@ -1,63 +1,278 @@
 {
   "stage": "stage3_hrp",
-  "produced_at": "2026-10-04T12:36:09",
-  "git_sha": "eb31267",
+  "produced_at": "2026-10-08T18:38:45",
+  "git_sha": "222fc89",
   "params": {
     "trees_built": [
       "TW_normal",
-      "TW_crisis"
+      "US_normal",
+      "XM_normal",
+      "TW_crisis",
+      "US_crisis",
+      "XM_crisis"
     ],
     "L1_target": {
       "TW": 6,
       "US": 7,
       "XM": 6
     },
-    "rebuild_mode": "hybrid_tw_k6_us_xm_preserved"
+    "L3_target": {
+      "TW": 471,
+      "US": 303,
+      "XM": 774
+    },
+    "L1_target_method": "silhouette（H-03，見cluster_count_selection.py）",
+    "linkage_method_chosen": {
+      "TW_normal": "ward",
+      "US_normal": "ward",
+      "XM_normal": "ward",
+      "TW_crisis": "ward",
+      "US_crisis": "ward",
+      "XM_crisis": "ward"
+    },
+    "linkage_selection_criterion": "L3切割時最大群佔比最低者勝出，非cophenetic（見程式註解：single linkage 實測出現鏈狀效應)",
+    "method_comparison": {
+      "TW_normal": {
+        "single": {
+          "cophenetic": 0.7646731239613597,
+          "max_share": 0.9758552830759916,
+          "n_singleton": 350
+        },
+        "ward": {
+          "cophenetic": 0.23648156721174296,
+          "max_share": 0.018922191946715107,
+          "n_singleton": 0
+        }
+      },
+      "US_normal": {
+        "single": {
+          "cophenetic": 0.7213909212888717,
+          "max_share": 0.9800739042986107,
+          "n_singleton": 226
+        },
+        "ward": {
+          "cophenetic": 0.2675711267294786,
+          "max_share": 0.015716357172926704,
+          "n_singleton": 0
+        }
+      },
+      "XM_normal": {
+        "single": {
+          "cophenetic": 0.9000294746720406,
+          "max_share": 0.5408546509201686,
+          "n_singleton": 592
+        },
+        "ward": {
+          "cophenetic": 0.8856166839466075,
+          "max_share": 0.013687768643325127,
+          "n_singleton": 0
+        }
+      },
+      "TW_crisis": {
+        "single": {
+          "cophenetic": 0.7999654838611824,
+          "max_share": 0.9744550408719346,
+          "n_singleton": 392
+        },
+        "ward": {
+          "cophenetic": 0.5085988031825318,
+          "max_share": 0.018051771117166212,
+          "n_singleton": 0
+        }
+      },
+      "US_crisis": {
+        "single": {
+          "cophenetic": 0.7603691023819623,
+          "max_share": 0.9836287946115346,
+          "n_singleton": 261
+        },
+        "ward": {
+          "cophenetic": 0.26932580937937095,
+          "max_share": 0.018476074652696572,
+          "n_singleton": 0
+        }
+      },
+      "XM_crisis": {
+        "single": {
+          "cophenetic": 0.9201566041701962,
+          "max_share": 0.5465092016859325,
+          "n_singleton": 647
+        },
+        "ward": {
+          "cophenetic": 0.8942061160542513,
+          "max_share": 0.012727955598213913,
+          "n_singleton": 0
+        }
+      }
+    },
+    "level_diag": {
+      "TW_normal": {
+        "L1": {
+          "n_clusters": 6,
+          "max_share": 0.3402588555858311,
+          "n_singleton": 0
+        },
+        "L3": {
+          "n_clusters": 471,
+          "max_share": 0.018922191946715107,
+          "n_singleton": 0
+        }
+      },
+      "US_normal": {
+        "L1": {
+          "n_clusters": 7,
+          "max_share": 0.30960288133214836,
+          "n_singleton": 0
+        },
+        "L3": {
+          "n_clusters": 303,
+          "max_share": 0.015716357172926704,
+          "n_singleton": 0
+        }
+      },
+      "XM_normal": {
+        "L1": {
+          "n_clusters": 6,
+          "max_share": 0.5347201936318491,
+          "n_singleton": 0
+        },
+        "L3": {
+          "n_clusters": 774,
+          "max_share": 0.013687768643325127,
+          "n_singleton": 0
+        }
+      },
+      "TW_crisis": {
+        "L1": {
+          "n_clusters": 6,
+          "max_share": 0.6503935815924917,
+          "n_singleton": 0
+        },
+        "L3": {
+          "n_clusters": 471,
+          "max_share": 0.018051771117166212,
+          "n_singleton": 0
+        }
+      },
+      "US_crisis": {
+        "L1": {
+          "n_clusters": 7,
+          "max_share": 0.33799522896300105,
+          "n_singleton": 0
+        },
+        "L3": {
+          "n_clusters": 303,
+          "max_share": 0.018476074652696572,
+          "n_singleton": 0
+        }
+      },
+      "XM_crisis": {
+        "L1": {
+          "n_clusters": 6,
+          "max_share": 0.3863038851562826,
+          "n_singleton": 0
+        },
+        "L3": {
+          "n_clusters": 774,
+          "max_share": 0.012727955598213913,
+          "n_singleton": 0
+        }
+      }
+    },
+    "cophenetic": {
+      "TW_normal": 0.23648156721174296,
+      "US_normal": 0.2675711267294786,
+      "XM_normal": 0.8856166839466075,
+      "TW_crisis": 0.5085988031825318,
+      "US_crisis": 0.26932580937937095,
+      "XM_crisis": 0.8942061160542513
+    },
+    "ari_l3_vs_fcombo": {
+      "TW_normal": 0.17595000784865,
+      "US_normal": 0.20202341853725803,
+      "XM_normal": 0.1775969479602117,
+      "TW_crisis": 0.07425063289558255,
+      "US_crisis": 0.0929382092014454,
+      "XM_crisis": 0.11277341990983876
+    },
+    "n_dropped_zero_var": {
+      "TW_normal": 0,
+      "US_normal": 0,
+      "XM_normal": 0,
+      "TW_crisis": 0,
+      "US_crisis": 0,
+      "XM_crisis": 0
+    },
+    "windows": {
+      "TW": [
+        "2007-01",
+        "2025-12"
+      ],
+      "US": [
+        "2002-01",
+        "2025-12"
+      ],
+      "XM": [
+        "2007-01",
+        "2025-12"
+      ]
+    },
+    "crisis_months_n": {
+      "TW": 17,
+      "US": 22,
+      "XM": 26
+    }
   },
   "inputs": [
     {
       "path": "_frozen\\stage1\\returns_monthly.parquet",
-      "sha256": "1bb0e0b13c0132511dcdc984834b1ada548ed38f1922330df7d77f1c772daf69",
-      "bytes": 80851974,
-      "rows": 10351353
+      "sha256": "4713dedffe8969263d19aed96166b25f3cb63c812a7a31c6b3700010396b1164",
+      "bytes": 114193546,
+      "rows": 14607899
     },
     {
       "path": "_frozen\\stage1\\returns_meta.parquet",
-      "sha256": "f63da9130dd549491b3408558b2cd8d40c40ef2550da84b9b39e5f559c783c80",
-      "bytes": 411907,
-      "rows": 37937
+      "sha256": "728ca65670052d3f6938960e675a1388604817ce821bc56a4ca30d31bfe5af48",
+      "bytes": 560120,
+      "rows": 52111
     },
     {
       "path": "_frozen\\stage1\\strategy_marks.parquet",
-      "sha256": "cd0195d405fd08f9c1ed742d993fdacee7057fff62cb5c65dcf67f9e38cee96e",
-      "bytes": 1336445,
-      "rows": 37937
+      "sha256": "d5ffb4a29aa775b2c681086fc7f4c0c2d63abfaf9606998947d36eb632d445db",
+      "bytes": 1891219,
+      "rows": 52111
     },
     {
       "path": "_frozen\\stage0\\candidate_index.parquet",
-      "sha256": "54e369877a436963aad4d3f244cf274156d81dee62996146e09ae83171a584e2",
-      "bytes": 3543431,
-      "rows": 37937
+      "sha256": "34e14b4069c518d7e82c57e419787467c81d5e7bfb027f096ff4506b53006fab",
+      "bytes": 4836688,
+      "rows": 52111
+    },
+    {
+      "path": "_frozen\\stage2\\regime\\regime_table_TW.parquet",
+      "sha256": "c8b736811ad8b6cbcf70ea1b3df9b44a2fb188e7267507fbf1b7f511e2e7cd7c",
+      "bytes": 8773,
+      "rows": 43
+    },
+    {
+      "path": "_frozen\\stage2\\regime\\regime_table_US.parquet",
+      "sha256": "f592786973d2274a04d84959f89765d2f73d2bf3d342b0537d9533756b6d6e35",
+      "bytes": 7982,
+      "rows": 29
     }
   ],
   "outputs": [
     {
       "path": "_frozen\\stage3\\cluster_assign.parquet",
-      "sha256": "ece184921a38903a4d27dde81e300b7e9ba396e94f645f863b851eadce94fbe0",
-      "bytes": 1473204,
-      "rows": 139138
+      "sha256": "5156b402203550905488a76fb66fb6568f935d118fdc6ae7b56ac15fe94d271a",
+      "bytes": 2038188,
+      "rows": 191458
     },
     {
       "path": "_frozen\\stage3\\cluster_meta.parquet",
-      "sha256": "b591c834146956bcd2de201094cef9930042bff1f3b3433c00897c5696440d5d",
-      "bytes": 55095,
-      "rows": 2862
-    },
-    {
-      "path": "_frozen\\stage3\\co_fail_regimes.parquet",
-      "sha256": "200de903770d7b6feb129046257e5b79ad87a6627780b57e9efd7e3e6ec8622f",
-      "bytes": 6696,
-      "rows": 19
+      "sha256": "41e8948eae67d8fb429211a2901cbd1d725e6aa92caf2aa6bfa1c213afbb1712",
+      "bytes": 63714,
+      "rows": 3134
     },
     {
       "path": "_frozen\\stage3\\cluster_corr_matrix_TW_normal.parquet",
@@ -71,6 +286,28 @@
       "bytes": 845664
     },
     {
+      "path": "_frozen\\stage3\\cluster_corr_matrix_US_normal.parquet",
+      "sha256": "9eab6a5a1bab12b98dc2bdf02875804ac03a5c026157f446272d01851c743a31",
+      "bytes": 6235,
+      "rows": 7
+    },
+    {
+      "path": "_frozen\\stage3\\linkage_US_normal.npy",
+      "sha256": "520e3f18e08956aa9f5cf4326fceec6e7cd93f63bff2362815c32bd3d65d407b",
+      "bytes": 684224
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_corr_matrix_XM_normal.parquet",
+      "sha256": "152fb4d81852e45da23b8fd1557aee66d3731b1d8012566816b3d137d2ae0ee7",
+      "bytes": 5518,
+      "rows": 6
+    },
+    {
+      "path": "_frozen\\stage3\\linkage_XM_normal.npy",
+      "sha256": "ad916542b55975ba0036862b1ce3282007d0b6ca40b5de4aee33b2344e094c52",
+      "bytes": 1533728
+    },
+    {
       "path": "_frozen\\stage3\\cluster_corr_matrix_TW_crisis.parquet",
       "sha256": "84b76c00d45ebfe8b9df9137556af4431393093682487281b286fff916df8bc3",
       "bytes": 5518,
@@ -80,7 +317,35 @@
       "path": "_frozen\\stage3\\linkage_TW_crisis.npy",
       "sha256": "b1a95c5647cb96ffc43047325e31e4e005e588dc0827c402b214039589fa16ff",
       "bytes": 845664
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_corr_matrix_US_crisis.parquet",
+      "sha256": "d32fcecd9a92245ac7aa8c63d8bff697cb3bdb6a22e83b3cafeb0fe5c489cb4f",
+      "bytes": 6235,
+      "rows": 7
+    },
+    {
+      "path": "_frozen\\stage3\\linkage_US_crisis.npy",
+      "sha256": "83befbb5b87f8fde764493ead31396b2c95e9f1d21335fcc2197811213523a85",
+      "bytes": 684224
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_corr_matrix_XM_crisis.parquet",
+      "sha256": "213762dc7193956d7ca4fb71e981cf7fa7d3ddeaee9fb5219337fc2bb420a946",
+      "bytes": 5518,
+      "rows": 6
+    },
+    {
+      "path": "_frozen\\stage3\\linkage_XM_crisis.npy",
+      "sha256": "963f9468dd4617295b35155cfcc0837a4f051e16652eee8702a249dd99c37da2",
+      "bytes": 1533728
+    },
+    {
+      "path": "_frozen\\stage3\\co_fail_regimes.parquet",
+      "sha256": "f81a32adfeef9ec1fb4d802887c29f35bda01cebe7b3b03252fb4e99a27897d4",
+      "bytes": 6676,
+      "rows": 19
     }
   ],
-  "notes": "2026-10-04 混合重建：台股改用新選出的 k=6（cluster_count_selection.py 對openSec_boost新池重掃輪廓係數的建議值，取代舊的寫死k=7）重建TW_normal/TW_crisis；美股/XM完全沿用今晚稍早用k=7建好的凍結資料，未重新計算（使用者明確指示這次只處理台股，US/XM先不管）。"
+  "notes": "normal+crisis 六棵樹"
 }
