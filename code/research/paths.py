@@ -34,11 +34,16 @@ STAGE4 = FROZEN / "stage4"
 STAGE3_ISOOS = FROZEN / "stage3_isoos"
 
 MARKETS = ("TW", "US")
-# 🆕 2026-10-03 改成逐市場字典：TW 這次重跑用 openSec_boost（25因子池、Phase2
-#   強制納入5個regime-dependent因子，見對話紀錄），US 完全沒碰、維持原 openSec
+# 🆕 2026-10-08 更新：US 換成 openSec_balanced（美股專用，primary除Phase1過關者外
+#   用客觀顯著性p<0.05/|ρ|最大補位單薄因子類型，跟TW的openSec_boost方法論刻意不同
+#   ——TW用2024-2025 regime-specific經驗判斷，US用Phase1-native統計顯著性，見對話
+#   紀錄與memory），US候選池8,682→22,856。TW沿用openSec_boost（25因子池、Phase2
+#   強制納入5個regime-dependent因子）不動。
+# 🆕 2026-10-03 改成逐市場字典：TW 這次重跑用 openSec_boost，US 原本維持 openSec
 #   不動（這次台股加成長/動能因子是 TW-only 的範圍，跟 0a 節 k_stability 的坑
-#   一樣的教訓：改一個市場不要連帶影響沒碰過的市場）。
-VARIANT = {"TW": "openSec_boost", "US": "openSec"}          # 採用的正式設計（研究部 v9 定案；逐市場可不同）
+#   一樣的教訓：改一個市場不要連帶影響沒碰過的市場）——現在US也正式換了，上面
+#   這條教訓對下一次還沒碰的市場仍然有效。
+VARIANT = {"TW": "openSec_boost", "US": "openSec_balanced"}  # 採用的正式設計（研究部 v9 定案；逐市場可不同）
 IN_SAMPLE_END = "2025-12"
 
 # 落差2（SDD DD-01）：v0 的產物留在 L3，v1 在 L4。

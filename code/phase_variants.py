@@ -92,10 +92,35 @@ def _spec(market):
             "primary": P + ["ROE", "EPS", "ROIC", "REV_G", "MOM_3M"], "secondary": A,
             "primary_margin": 0.02, "secondary_tol": 0.01,
         },
+        # 🆕 2026-10-06 使用者定案（僅適用美股）：openSec 的 primary 估值型佔比過高
+        #   (62.5%，8個裡5個)，但使用者明確要求**不要**像 openSec_boost 那樣用
+        #   「2024-2025個別表現」這種regime-specific經驗判斷去強制補因子——改用
+        #   一套跟regime無關、純粹Phase1自己算出來的客觀指標：對每個「完全沒有
+        #   primary代表」或「只有1個代表」的類型，檢查該類型其餘候選因子裡有
+        #   沒有 p<0.05（顯著）的，若有就取|ρ|最大的那個拉進primary；若全部
+        #   候選都不顯著（p>0.05，即沒有證據證明有單調關係）則不補，維持原狀
+        #   （不能為了湊類型數量硬拉不顯著的因子進來）。
+        #   查證結果（US Phase1，2026-10-06）：
+        #     成長型 → EPS_G（ρ=0.700, p=0.0358, 顯著）入選；
+        #              ROE_G（ρ=0.083, p=0.8312, 不顯著）落選
+        #     結構型 → NETDEBT_EBITDA（ρ=-0.750, p=0.0199, 顯著）入選；
+        #              DEBTRATIO（ρ=0.067, p=0.8647, 不顯著）落選
+        #     動能型 → VOL已自然過關(primary)，第二候選PROX_52WK_HIGH
+        #              （ρ=-0.750, p=0.0199, 顯著）也入選，動能型因此有2個代表
+        #     規模型／體質型 → 剩餘候選（REV_G／OCF_E,ROIC,CROIC）皆不顯著，不補
+        #   因子池（primary∪secondary）跟openSec/all相同，只是分析層角色重分配，
+        #   `_POOL_SHARE`比照openSec_boost自己持有，不需重跑回測。
+        "openSec_balanced": {
+            "desc": "美股專用：primary 除 Phase1 過關者外，對缺席/單薄的類型用"
+                     "客觀顯著性(p<0.05、|ρ|最大)補入代表，不用regime-specific經驗判斷"
+                     "（EPS_G/NETDEBT_EBITDA/PROX_52WK_HIGH）",
+            "primary": P + ["EPS_G", "NETDEBT_EBITDA", "PROX_52WK_HIGH"], "secondary": A,
+            "primary_margin": 0.02, "secondary_tol": 0.01,
+        },
     }
 
 
-VARIANTS = {k: None for k in ("strict", "relaxed", "all", "openSec", "openSec_boost")}   # 供 argparse choices 用
+VARIANTS = {k: None for k in ("strict", "relaxed", "all", "openSec", "openSec_boost", "openSec_balanced")}   # 供 argparse choices 用
 
 # ==================== 為什麼有 openSec 這個變體 ====================
 # 三方對照（見 _analysis_outputs_variants/）發現：
@@ -121,6 +146,10 @@ _POOL_SHARE = {
     # 跳過順序比對，改用目錄 junction 把 TW_L2_openSec_boost_M 指到既有
     # TW_L2_all_M 的回測產物（不是重跑，是同一份資料換個分析門檻）。
     "openSec_boost": "openSec_boost",
+    # openSec_balanced：同樣的道理（因子池跟all/openSec集合相同，但primary的
+    # 3個補位因子不是all排序的前綴子集），自己持有、用目錄複製/連結把
+    # US_L2_openSec_balanced_M指到既有US_L2_all_M的回測產物。
+    "openSec_balanced": "openSec_balanced",
 }
 
 

@@ -121,8 +121,12 @@ class QuarterInputs:
                                # B_all，不是借用等權大盤當替身
     hot_segment_cond: object = None  # triggers.HotSegmentCondition，2026-09-29
                                      # 新增，選填保持向後相容——未提供時 Hot
-                                     # Segment／Coverage Tilt 整段跳過，行為
-                                     # 跟接線前完全一樣
+                                     # Segment／Coverage Tilt／RepSwap 整段跳過，
+                                     # 行為跟接線前完全一樣
+    cluster_of: dict = None          # weights.load_cluster_membership() 第一個
+                                     # 回傳值，RepSwap 專用，2026-10-08 新增，選填
+    members_by_cluster: dict = None  # weights.load_cluster_membership() 第二個
+                                     # 回傳值，RepSwap 專用，2026-10-08 新增，選填
 
 
 @dataclasses.dataclass
@@ -143,20 +147,30 @@ class ActiveConfig:
     last_decision_was_coverage_tilt: bool = False  # 供下一季判斷是否套用 Coverage
                                                     # Tilt，跟 W2c 同一套「每季重新
                                                     # 評估、不持續」邏輯（2026-09-29）
+    last_decision_was_rep_swap: bool = False  # RepSwap（代表策略置換），2026-10-08
+                                               # 新增，跟 Coverage Tilt 同一套「每季
+                                               # 重新評估、不持續」邏輯——跟 Coverage
+                                               # Tilt 是同一個 Hot Segment 觸發下的
+                                               # 互斥選項（agent 每季只能選其中一個
+                                               # decision_code，兩個旗標不會同時為真）
 
 
 def resolve_portfolio_weights(inputs: QuarterInputs, config: ActiveConfig,
                               as_of: str, *, apply_w2c: bool,
-                              apply_coverage_tilt: bool = False) -> dict[str, float]:
+                              apply_coverage_tilt: bool = False,
+                              apply_rep_swap: bool = False) -> dict[str, float]:
     """依目前的 `ActiveConfig` 解出這個時點的投組權重：先用當前 allocation
     對應的策略名單算 w0——若 `apply_coverage_tilt` 為真，w0 改用 Coverage Tilt
-    的策略層級傾斜（§7.4b④，2026-09-29）取代純等權（Hot Segment清單用`as_of`
-    自己當下重算，不沿用季末算好的清單——跟`resolve_weights()`本身「持股隨
-    as_of/end各自變動」是同一個時序精神）；再若 `apply_w2c` 為真，在這個 w0
-    之上疊加 W2c 的股票層級市值傾斜（§7.5，D50/D51）。兩者可以同時觸發
-    （各自獨立判定，見 triggers.py），套用順序是先策略層再股票層，因為
-    Coverage Tilt 調的是「策略間比重」、W2c 調的是「股票間比重」，疊加時
-    後者在前者算出的基礎上再傾斜是合理的組合方式，不是任意順序。
+    的策略層級傾斜（§7.4b④，2026-09-29）取代純等權；若 `apply_rep_swap` 為真，
+    改用 RepSwap 置換後的名單（2026-10-08新增，`weights.rep_swap_members()`）
+    算純等權（Hot Segment清單用`as_of`自己當下重算，不沿用季末算好的清單——
+    跟`resolve_weights()`本身「持股隨as_of/end各自變動」是同一個時序精神）；
+    再若 `apply_w2c` 為真，在這個 w0 之上疊加 W2c 的股票層級市值傾斜
+    （§7.5，D50/D51）。W2c 跟（Coverage Tilt／RepSwap 兩者之一）可以同時觸發
+    （各自獨立判定，見 triggers.py：M1-D 跟 Hot Segment 平行），套用順序是先
+    策略層再股票層；但 Coverage Tilt／RepSwap 兩者本身互斥——`apply_coverage_
+    tilt`／`apply_rep_swap` 不會同時為真（由 `config.last_decision_was_*` 決定，
+    單一 decision_code 只能驅動其中一個），這裡不做互斥檢查，信任呼叫端。
 
     🔴 2026-09-30 code review修正：市場一律從`inputs.hot_segment_cond.market`
     取得，不接受呼叫端另外傳入——原本這裡是獨立的`market`參數、預設值"TW"，
@@ -174,6 +188,21 @@ def resolve_portfolio_weights(inputs: QuarterInputs, config: ActiveConfig,
         mom = monitor.momentum_asof(monthly, as_of, monitor.HOT_SEGMENT_N[market])
         hot = monitor.hot_segment(mom, monitor.HOT_SEGMENT_X)
         w0 = weights_mod.apply_coverage_tilt(inputs.md, inputs.idx, uids, as_of, hot)
+    elif apply_rep_swap:
+        if inputs.hot_segment_cond is None:
+            raise ValueError("apply_rep_swap=True 但 inputs.hot_segment_cond 是 None")
+        if inputs.cluster_of is None or inputs.members_by_cluster is None:
+            raise ValueError("apply_rep_swap=True 但 inputs.cluster_of/members_by_cluster"
+                             "未提供——RepSwap 需要先用 weights.load_cluster_membership()"
+                             "載入分群資料")
+        market = inputs.hot_segment_cond.market
+        monthly = monitor.monthly_close(inputs.md)
+        mom = monitor.momentum_asof(monthly, as_of, monitor.HOT_SEGMENT_N[market])
+        hot = monitor.hot_segment(mom, monitor.HOT_SEGMENT_X)
+        swap_result = weights_mod.rep_swap_members(
+            inputs.md, inputs.idx, uids, as_of, hot,
+            inputs.cluster_of, inputs.members_by_cluster)
+        w0 = resolve_weights(inputs.md, inputs.idx, swap_result["members"], as_of)
     else:
         w0 = resolve_weights(inputs.md, inputs.idx, uids, as_of)
     if not apply_w2c:
@@ -185,7 +214,9 @@ def resolve_portfolio_weights(inputs: QuarterInputs, config: ActiveConfig,
 def run_quarter(inputs: QuarterInputs, *, arm: str, as_of: str, end: str,
                 prev_state: str, prev_weights: dict[str, float] | None,
                 config: ActiveConfig, memory: dict, excess_history: list[float],
-                dry_run: bool = True, prev_hot_state: str = "NONE") -> dict:
+                dry_run: bool = True, prev_hot_state: str = "NONE",
+                prev_nav: float = 1.0, nav_peak: float = 1.0,
+                dd_history=None, prev_dd_state: str = "NONE") -> dict:
     """跑完一季的完整流程（§10 階段 2~7，不含階段 6 人機對話——那是 L3 專屬，
     另外設計）。回傳這一季的完整結果，供落盤 checkpoint 與下一季串接用。
 
@@ -200,15 +231,42 @@ def run_quarter(inputs: QuarterInputs, *, arm: str, as_of: str, end: str,
     `run_simulation()`（跟 `prev_state`／`prev_weights` 一樣，都是呼叫端算好
     才傳進來的既有慣例）。`prev_hot_state` 是 Hot Segment 的上一季狀態，跟
     `prev_state`（M1-D）平行、各自獨立（2026-09-29新增，預設"NONE"保持向後相容）。
-    """
+
+    `prev_nav`／`nav_peak`／`dd_history`／`prev_dd_state`：回撤觸發用（2026-10-08
+    新增）。`prev_nav` 是上一季結束時的累積淨值（從1.0開始複利），`nav_peak` 是
+    目前為止見過的最高淨值，`dd_history` 是歷史回撤序列（index=日期）供
+    expanding window百分位比對，`prev_dd_state` 是回撤觸發的上一季狀態。全部
+    預設值對應「模擬剛開始、沒有任何歷史」，保持向後相容。"""
     apply_w2c = config.last_decision_was_w2c and prev_state == "TRIGGERED"
     apply_coverage_tilt = (inputs.hot_segment_cond is not None
                            and config.last_decision_was_coverage_tilt
                            and prev_hot_state == "TRIGGERED")
+    apply_rep_swap = (inputs.hot_segment_cond is not None
+                      and config.last_decision_was_rep_swap
+                      and prev_hot_state == "TRIGGERED")
     weights_as_of = resolve_portfolio_weights(inputs, config, as_of, apply_w2c=apply_w2c,
-                                              apply_coverage_tilt=apply_coverage_tilt)
+                                              apply_coverage_tilt=apply_coverage_tilt,
+                                              apply_rep_swap=apply_rep_swap)
     weights_end = resolve_portfolio_weights(inputs, config, end, apply_w2c=apply_w2c,
-                                            apply_coverage_tilt=apply_coverage_tilt)
+                                            apply_coverage_tilt=apply_coverage_tilt,
+                                            apply_rep_swap=apply_rep_swap)
+
+    # RepSwap 稽核紀錄（2026-10-08新增）：`resolve_portfolio_weights()`只回傳權重，
+    # 不回傳置換明細，這裡額外算一次（用`end`，跟其餘過程層指標同一個時間點）
+    # 只為了把swap清單寫進checkpoint供事後稽核，不影響`weights_end`本身的計算
+    # （效能上重算一次rep_swap_members()比起整個流程是便宜的，不值得為了省這次
+    # 重算去改resolve_portfolio_weights()的回傳型態、牽動W2c/CoverageTilt兩條
+    # 既有路徑的回傳介面）。
+    rep_swap_log = None
+    if apply_rep_swap:
+        market = inputs.hot_segment_cond.market
+        monthly = monitor.monthly_close(inputs.md)
+        mom = monitor.momentum_asof(monthly, end, monitor.HOT_SEGMENT_N[market])
+        hot = monitor.hot_segment(mom, monitor.HOT_SEGMENT_X)
+        member_uids_for_swap = inputs.uids_by_allocation[config.allocation]
+        rep_swap_log = weights_mod.rep_swap_members(
+            inputs.md, inputs.idx, member_uids_for_swap, end, hot,
+            inputs.cluster_of, inputs.members_by_cluster)
     mcap_row_end = monitor.asof_row(inputs.mcap_wide, end)
     member_uids = inputs.uids_by_allocation[config.allocation]
 
@@ -219,6 +277,19 @@ def run_quarter(inputs: QuarterInputs, *, arm: str, as_of: str, end: str,
                                     cap_weight_series=inputs.cap_weight_series,
                                     ball_returns=inputs.ball_returns)
     m1d = triggers.evaluate_quarter(inputs.m1d_cond, inputs.mcap_wide, end, prev_state)
+
+    # 回撤觸發（2026-10-08新增，跟M1-D/Hot Segment平行、獨立判定）：用這一季的
+    # 已實現報酬（outcome["portfolio_realized_return"]）更新累積淨值與回撤水位。
+    # 🔴 這裡用的是「這一季的投組報酬」，不是候選池/大盤，回撤描述的是「這個
+    # 監控系統自己這次模擬的淨值曲線」，跟現行 outcome_layer 已有的四種報酬
+    # 基準（equal_weight／cap_weight／ball／自己）是不同性質的量測，不要混用。
+    nav_now = prev_nav * (1.0 + outcome["portfolio_realized_return"])
+    new_nav_peak = max(nav_peak, nav_now)
+    current_dd = monitor.drawdown_state(new_nav_peak, nav_now)
+    dd_cond = triggers.register_drawdown()
+    drawdown = triggers.evaluate_drawdown_quarter(dd_cond, dd_history, end, current_dd, prev_dd_state)
+    drawdown["nav_after"] = nav_now
+    drawdown["nav_peak_after"] = new_nav_peak
 
     # Hot Segment：跟 M1-D 平行、獨立判定（2026-09-29接線，§7.4b）。
     # `inputs.hot_segment_cond` 為 None 時整段跳過，回傳值也是 None——呼叫端
@@ -254,9 +325,12 @@ def run_quarter(inputs: QuarterInputs, *, arm: str, as_of: str, end: str,
         "arm": arm, "quarter_end": end, "as_of": as_of,
         "env": env, "proc": proc, "outcome": outcome, "m1d": m1d, "diagnosis": diag,
         "hot_segment": hot_seg,
+        "drawdown": drawdown,
         "weights_end": weights_end,
+        "rep_swap_log": rep_swap_log,
         "config_used": {"allocation": config.allocation, "w2c_applied": apply_w2c,
-                        "coverage_tilt_applied": apply_coverage_tilt},
+                        "coverage_tilt_applied": apply_coverage_tilt,
+                        "rep_swap_applied": apply_rep_swap},
     }
 
     # control0 臂：完全不調整，不呼叫任何 agent（§11.1「對照0：完全不調整
@@ -292,7 +366,9 @@ def run_quarter(inputs: QuarterInputs, *, arm: str, as_of: str, end: str,
         m1d, actions.list_available_actions(end), result_3b["explanation"],
         w2c_reference=actions.w2c_reference(),
         hot_segment=hot_seg,
-        coverage_tilt_reference=actions.coverage_tilt_reference() if hot_seg is not None else None)
+        coverage_tilt_reference=actions.coverage_tilt_reference() if hot_seg is not None else None,
+        rep_swap_reference=actions.rep_swap_reference() if hot_seg is not None else None,
+        drawdown=drawdown)
     result_decision = agents.call_agent_a_decision(
         decision_facts, model=inputs.model, api_key=inputs.api_key, dry_run=dry_run)
 
@@ -302,15 +378,16 @@ def run_quarter(inputs: QuarterInputs, *, arm: str, as_of: str, end: str,
 
     # 🔴 D51：這一季的決策決定「下一季」要用什麼 config 建構投組（§7.5
     # 持續性規則——A2 換了 allocation 就一直維持到再被明確換回去；W2c／
-    # Coverage Tilt 都不持續，見 ActiveConfig 的 docstring）。A0／A4／A5
-    # 都不改變 config。"CoverageTilt" 是 2026-09-29 新增的第六個動作代碼。
+    # Coverage Tilt／RepSwap 都不持續，見 ActiveConfig 的 docstring）。A0／A4／A5
+    # 都不改變 config。"RepSwap" 是 2026-10-08 新增的第七個動作代碼。
     decision_code = result_decision["explanation"]["decision"]
     next_allocation = config.allocation
     if decision_code == "A2":
         next_allocation = "proportional" if config.allocation == "equal" else "equal"
     config_after = ActiveConfig(allocation=next_allocation,
                                 last_decision_was_w2c=(decision_code == "W2c"),
-                                last_decision_was_coverage_tilt=(decision_code == "CoverageTilt"))
+                                last_decision_was_coverage_tilt=(decision_code == "CoverageTilt"),
+                                last_decision_was_rep_swap=(decision_code == "RepSwap"))
 
     quarter_result["config_after"] = dataclasses.asdict(config_after)
     quarter_result.update({
@@ -376,12 +453,20 @@ def run_simulation(run_id: str, *, model: str, api_key: str, dry_run: bool = Tru
 
     cond = triggers.register_m1d(mcap_wide, REGISTRATION_DATE)
     hot_segment_cond = triggers.register_hot_segment("TW")
+    # RepSwap（2026-10-08新增）需要 HRP 分群指派，跟 mcap_wide／m 同一個「一次性
+    # 載入、整個模擬迴圈共用」慣例——`load_cluster_membership()` 只讀一次，不在
+    # 每季的 `run_quarter()` 裡重讀 parquet。
+    cluster_assign_path = (Path(__file__).resolve().parent.parent.parent
+                           / "_frozen" / "stage3" / "cluster_assign.parquet")
+    cluster_of, members_by_cluster = weights_mod.load_cluster_membership(
+        cluster_assign_path, tree_id="TW_normal")
     inputs = QuarterInputs(md=md, md_map=md_map, idx=idx, mcap_wide=mcap_wide,
                            uids_by_allocation=uids_by_allocation, m1d_cond=cond,
                            model=model, api_key=api_key,
                            cap_weight_series=cap_weight_series,
                            ball_returns=ball_returns,
-                           hot_segment_cond=hot_segment_cond)
+                           hot_segment_cond=hot_segment_cond,
+                           cluster_of=cluster_of, members_by_cluster=members_by_cluster)
 
     quarters = QUARTER_ENDS[:max_quarters] if max_quarters else QUARTER_ENDS
 
@@ -390,6 +475,9 @@ def run_simulation(run_id: str, *, model: str, api_key: str, dry_run: bool = Tru
     for arm in ARMS:
         state = "NONE"
         hot_state = "NONE"  # Hot Segment 平行狀態，2026-09-29新增
+        dd_state = "NONE"   # 回撤觸發平行狀態，2026-10-08新增
+        nav, nav_peak = 1.0, 1.0
+        dd_history = pd.Series(dtype=float)
         prev_weights = None
         config = ActiveConfig()  # D51：每個臂從基準設定重新開始（equal、無傾斜）
         # §8 記憶結構：單一 Agent-A 架構（Agent-B 移除後，見開發追蹤 D44），
@@ -404,6 +492,20 @@ def run_simulation(run_id: str, *, model: str, api_key: str, dry_run: bool = Tru
             state = last["m1d"]["state"]
             if last.get("hot_segment"):  # 舊checkpoint（接線前跑的）沒有這欄，退回"NONE"
                 hot_state = last["hot_segment"]["state"]
+            if last.get("drawdown"):  # 舊checkpoint（接線前跑的）沒有這欄，退回初始值
+                dd_state = last["drawdown"]["state"]
+                nav = last["drawdown"]["nav_after"]
+                nav_peak = last["drawdown"]["nav_peak_after"]
+                # dd_history 從全部既有 checkpoint 重建（不是存累積狀態本身），
+                # 跟 config/state 用「只存上一筆、其餘靠重算」不同——這裡要的是
+                # 完整序列（expanding window 百分位需要全部歷史點，不是只需要
+                # 最後一筆），用既有 checkpoint 重建比額外存一份序列更不會跟
+                # 真實歷史漂移。
+                dd_points = {c["quarter_end"]: c["drawdown"]["current_dd"]
+                            for c in checkpoints if c.get("drawdown")}
+                dd_history = pd.Series(dd_points)
+                dd_history.index = pd.to_datetime(dd_history.index)
+                dd_history = dd_history.sort_index()
             agent_a_memory = last.get("agent_a_memory_after", agent_a_memory)
             excess_history = last.get("excess_history_after", [])
             if "config_after" in last:  # D51：舊 checkpoint（D51 之前跑的）沒有這欄，退回基準設定
@@ -422,9 +524,14 @@ def run_simulation(run_id: str, *, model: str, api_key: str, dry_run: bool = Tru
                                  prev_state=state, prev_weights=prev_weights,
                                  config=config, memory=agent_a_memory,
                                  excess_history=excess_history, dry_run=dry_run,
-                                 prev_hot_state=hot_state)
+                                 prev_hot_state=hot_state, prev_nav=nav,
+                                 nav_peak=nav_peak, dd_history=dd_history,
+                                 prev_dd_state=dd_state)
             state = result["m1d"]["state"]
             hot_state = result["hot_segment"]["state"] if result["hot_segment"] else "NONE"
+            dd_state = result["drawdown"]["state"]
+            nav, nav_peak = result["drawdown"]["nav_after"], result["drawdown"]["nav_peak_after"]
+            dd_history[pd.Timestamp(end)] = result["drawdown"]["current_dd"]
             prev_weights = result["weights_end"]
             config = ActiveConfig(**result["config_after"])
             excess_history = excess_history + [result["outcome"]["excess_vs_ball"]]

@@ -360,3 +360,21 @@ def expanding_percentile(history: pd.Series, as_of_date: str, value: float) -> f
     if len(past) == 0:
         return float("nan")
     return float((past < value).mean())
+
+
+# ============================================================ 回撤觸發（2026-10-08新增，
+# 跟 M1-D／Hot Segment平行、獨立判定，見 triggers.py 的 DrawdownCondition）
+#
+# 🔴 這裡算的「目前回撤水位」本身是**狀態變數**（當下相對歷史峰值的距離，跟
+# `environment_layer()`算「目前前N大市值佔比」同一個性質：某一時點可直接觀測的
+# 水位），即使它是從流量變數（`outcome["portfolio_realized_return"]`逐季累積）
+# 算出來的——跟`triggers.py`開頭的三條硬規則表一致：流量變數不可驅動投組變更，
+# 但可以驅動A0/A4/A5（不動/升級），而「目前回撤多深」正是用來驅動升級判斷，不是
+# 用來驅動W2c/CoverageTilt/RepSwap這類投組變更動作，見`triggers.evaluate_
+# drawdown_quarter()`docstring的完整說明。
+
+def drawdown_state(nav_peak: float, nav_now: float) -> float:
+    """`nav_now` 相對 `nav_peak`（本次模擬迄今最高點）的回撤，<=0（0＝站在新高）。"""
+    if nav_peak <= 0:
+        return 0.0
+    return float(nav_now / nav_peak - 1.0)

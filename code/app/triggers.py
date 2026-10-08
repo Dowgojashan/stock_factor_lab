@@ -150,3 +150,86 @@ def evaluate_hot_segment_quarter(cond: HotSegmentCondition, coverage_count: floa
         "coverage_count": coverage_count, "p25": cond.p25, "p10": cond.p10,
         "prev_state": prev_state, "state": new_state, "action": action,
     }
+
+
+# ============================================================ 回撤觸發（Drawdown Escalation，
+# 2026-10-08新增，跟 M1-D／Hot Segment 平行、獨立判定——但**用途不同**，見下方
+# `evaluate_drawdown_quarter()` docstring）
+
+# 🔴🔴 跟 M1-D(X_P90/X_P75) 或 Hot Segment(HOT_SEGMENT_P25/P10) 不同：這兩組既有
+# 門檻都是用真實歷史資料校準出來的凍結值（M1-D 用 2007-2023、Hot Segment 用
+# 2015-2023，見各自上方的常數註解）。回撤目前沒有對應的校準資料可用，若直接
+# 手動指定一個絕對數字（例如「回撤超過-15%」）等於憑印象發明一個沒查證過的
+# 門檻，跟本專案的查證原則衝突。這裡改用**expanding window自我比較**（跟
+# `monitor.expanding_percentile()`既有機制同一個精神）——拿「目前回撤相對這次
+# 模擬自己過去已實現的回撤分布，落在第幾百分位」當判準，不需要外部基準，門檻
+# 本身（0.75/0.90）只是跟M1-D/Hot Segment同一個雙門檻遲滯慣例的百分位切點，
+# 不是憑空的新數字。⚠️ 代價：模擬季數少時（本系統正式模擬只有8季）百分位估計
+# 統計上很薄——這跟本系統其餘「單一段OOS」的既有限制同一個性質，誠實揭露即可，
+# 不是這裡獨有的新問題。
+DRAWDOWN_P75 = 0.75
+DRAWDOWN_P90 = 0.90
+
+
+@dataclasses.dataclass
+class DrawdownCondition:
+    """跟 `M1DCondition`／`HotSegmentCondition` 平行，但這裡不登記任何水準
+    （回撤定義上就是『相對歷史峰值的距離』，不需要另外登記基準點）。"""
+    p75: float = DRAWDOWN_P75
+    p90: float = DRAWDOWN_P90
+
+
+def register_drawdown() -> DrawdownCondition:
+    """階段 1：回撤觸發沒有需要登記的水準，純粹回傳門檻設定——保留跟
+    `register_m1d()`/`register_hot_segment()` 一致的呼叫介面，方便 `simulate.py`
+    統一處理三組觸發條件的初始化方式。"""
+    return DrawdownCondition()
+
+
+def evaluate_drawdown_quarter(cond: DrawdownCondition, dd_history, as_of: str,
+                              current_dd: float, prev_state: str) -> dict:
+    """階段 2：每季比對。`dd_history` 是這次模擬到目前為止（不含本季）的回撤序列
+    （index=日期，value=當季回撤，<=0），`current_dd` 是這一季的回撤。
+
+    🔴🔴 **這裡的回傳值只能驅動 A0／A4／A5（不改投組），不可驅動 A1／A2／
+    W2c／CoverageTilt／RepSwap 這類投組變更動作**——`monitor.drawdown_state()`
+    docstring已說明「目前回撤水位」本身視為狀態變數，但它的輸入
+    （`outcome["portfolio_realized_return"]`逐季累積）仍是流量變數的產物，為了
+    不踩到設計文件§7.0／§9.0「流量變數不可驅動投組變更」這條**實測驗證過**的
+    硬規則（體制持續性r=-0.003，用流量變數的落差去推下一季的投組決策等於倒果
+    為因），這裡刻意比照 Hot Segment 的 state→action 映射（只給 A0/A4/A5），
+    呼叫端（`simulate.py`）不可以、也沒有被設計成可以把這個狀態接到
+    `ActiveConfig` 的任何投組變更旗標上——跟 `last_decision_was_w2c`／
+    `last_decision_was_coverage_tilt`／`last_decision_was_rep_swap` 不是同一類
+    東西，這個狀態只能流進 facts 給決策 agent 當**第三個基準動作參考**
+    （`facts_lean.drawdown_baseline_action_csv`），跟 m1d/hot_segment 的基準
+    動作並列，不綁定任何特定可選動作。
+
+    資料不足（`dd_history`為空或expanding_percentile回NaN）時維持prev_state不變
+    （跟Hot Segment NaN處理同一個誠實立場：資料算不出來≠一切正常）。
+    """
+    from app import monitor
+    if dd_history is None or len(dd_history) == 0:
+        pct = float("nan")
+    else:
+        pct = monitor.expanding_percentile(dd_history.abs(), as_of, abs(current_dd))
+
+    if pct != pct:  # NaN
+        action = {"NONE": "A0", "OBSERVING": "A4", "TRIGGERED": "A5"}[prev_state]
+        return {"current_dd": current_dd, "percentile": pct, "p75": cond.p75, "p90": cond.p90,
+               "prev_state": prev_state, "state": prev_state, "action": action,
+               "note": "回撤歷史觀測不足（expanding window仍在累積中），"
+                       "本季不判定、維持上一季狀態不變"}
+
+    if pct >= cond.p90:
+        new_state = "TRIGGERED"
+    elif pct >= cond.p75:
+        new_state = "TRIGGERED" if prev_state == "TRIGGERED" else "OBSERVING"
+    else:
+        new_state = "NONE"
+
+    action = {"NONE": "A0", "OBSERVING": "A4", "TRIGGERED": "A5"}[new_state]
+    return {
+        "current_dd": current_dd, "percentile": pct, "p75": cond.p75, "p90": cond.p90,
+        "prev_state": prev_state, "state": new_state, "action": action,
+    }

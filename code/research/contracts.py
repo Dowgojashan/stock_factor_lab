@@ -32,19 +32,20 @@ MARKETS = ("TW", "US")
 #: 舊值（污染資料，已作廢）：TW 7,162／US 6,916／合計 14,078。
 #: 舊值（2026-08-22 修復後，加成長因子前）：TW 7,128／US 8,682／合計 15,810。
 #: 舊值（2026-10-02 加成長因子後，openSec 9個primary）：TW 15,009／US 8,682。
-#: 🆕 2026-10-03：台股改用 openSec_boost 變體（Phase2 強制納入 ROE/EPS/ROIC/
-#:   REV_G/MOM_3M 5個regime-dependent因子當primary，見對話紀錄），TW 15,009→29,255。
-#: ⚠️ 美股暫不動：這次重跑範圍只限台股，美股維持 8,682（這台機器的
-#: results_artifacts/ 本來就缺美股完整的逐策略回測產物，見CLAUDE.md §2，
-#: 無法重新驗證，延用舊凍結資料——跟9/30 TW-only混合重建是同一個模式）。
-EXPECTED_ROWS = {"TW": 29255, "US": 8682}
-EXPECTED_ROWS_TOTAL = sum(EXPECTED_ROWS.values())          # 37,937
+#: 舊值（2026-10-03，台股改openSec_boost後）：TW 29,255／US 8,682（美股暫不動）。
+#: 🆕 2026-10-08：美股改用 openSec_balanced 變體（primary除Phase1過關者外，
+#:   用客觀顯著性p<0.05/|ρ|最大補位單薄因子類型，跟TW的openSec_boost方法論
+#:   刻意不同——TW用regime-specific經驗判斷、US用Phase1-native統計顯著性，
+#:   見對話紀錄與memory project_openSec_boost_w2c_early_activation_2026-10），
+#:   US 8,682→22,856。TW沿用openSec_boost不動。
+EXPECTED_ROWS = {"TW": 29255, "US": 22856}
+EXPECTED_ROWS_TOTAL = sum(EXPECTED_ROWS.values())          # 52,111
 
 #: v0/v1 拆分
 #: 🔄 台股（2026-10-03 openSec_boost 重跑後）：v0=18,779／v1=10,476。
-#: 美股（2026-08-22 修復後重跑，暫未更新）：v0=4,838／v1=3,844。
+#: 🆕 美股（2026-10-08 openSec_balanced 重跑後）：v0=12,784／v1=10,072。
 EXPECTED_V_SPLIT = {"TW": {"v0": 18779, "v1": 10476},
-                    "US": {"v0": 4838, "v1": 3844}}
+                    "US": {"v0": 12784, "v1": 10072}}
 
 #: F2 空集合策略數（老師「F1+C 就好」的分流依據）。
 #: 這個數字對得上，就證明策略字串拆解是正確的——是階段0 最有力的驗收。
@@ -56,14 +57,18 @@ EXPECTED_V_SPLIT = {"TW": {"v0": 18779, "v1": 10476},
 #: ⚠️ 美股從 652 變成 786——F2_empty 策略不涉及 F1×F2 配對，理論上不受
 #: primary清單改變影響；差異來自美股基準被污染灌水 1.29pp 導致原本門檻過嚴，
 #: 修復後大量 F1+C 策略重新贏過基準而納入候選池（與整體池暴增25.5%同一成因）。
-EXPECTED_F2_EMPTY = {"TW": 1381, "US": 786}
+#: 🆕 2026-10-08：美股換openSec_balanced（primary 11個：Phase1過關8個+客觀顯著性
+#: 補位3個），786→2314（實際從重跑後candidate_index驗證得出，primary清單擴大、
+#: C因子池不變，更多F1+C單獨組合贏過基準而納入）。
+EXPECTED_F2_EMPTY = {"TW": 1381, "US": 2314}
 
 #: 獨立 F 組合數（快篩「多樣性假象」的根源；也是 HRP L3 群數的錨點）
 #: 🔄 台股 2026-10-06：218→346，與 Phase2 晉升的 346 組 F 組合數一致（內部驗證通過）。
 #: 🆕 2026-10-03 openSec_boost：346→471，與 Phase2(openSec_boost) 晉升的 521 組
 #: F組合中、實際在 Phase4 候選池留下至少一筆的 471 組一致（內部驗證通過）。
-#: 美股因基準修正、候選門檻放寬而組合數上升（暫未更新）。
-EXPECTED_F_COMBOS = {"TW": 471, "US": 235}
+#: 🆕 2026-10-08：美股換openSec_balanced後 235→303，與 phase2_analyze.py(openSec_
+#: balanced) log「依Phase2篩後：F組合303個」一致（內部驗證通過）。
+EXPECTED_F_COMBOS = {"TW": 471, "US": 303}
 
 #: 自建宇宙基準年化報酬（研究部 v9 更正版：同宇宙、同成本、含股利、等權）
 #: 🔄 2026-08-22 用修復後價格重算：TW 8.67%→8.43%、US 12.35%→11.06%

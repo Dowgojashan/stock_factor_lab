@@ -161,3 +161,36 @@ def coverage_tilt_reference() -> dict:
             "尚未針對US/XM市場跑β驗證，只有TW window 1-3這一組證據",
         ],
     }
+
+
+def rep_swap_reference() -> dict:
+    """RepSwap（代表策略置換）的參照資料，跟 `coverage_tilt_reference()` 同樣是
+    **一次性**說明文件，不是隨 `as_of` 變化的即時查詢。
+
+    🔴🔴 2026-10-08 新增，比 Coverage Tilt 更早期的成熟度——**截至目前沒有任何
+    歷史回測或前瞻驗證結果**，連 Coverage Tilt 的「β網格掃過、效果null/微負」
+    這種程度的證據都還沒有。使用者2026-10-08的決定是「先把程式邏輯寫好、
+    可以被選用，測試留到美股候選池重建完成、跟台股一起測」——這裡誠實記錄
+    這個狀態，`caveats` 必須完整帶給 agent，不可因為是「新選項」就被選用時
+    暗示已經驗證過。"""
+    return {
+        "mechanism": "RepSwap：Hot Segment觸發時，把目前代表策略裡「完全沒持有"
+                     "任何Hot Segment成分股」的成員，換成同一個HRP群內尚未入選、"
+                     "且確實持有Hot Segment成分股、品質（Calmar）最高的候選策略。"
+                     "只換配額內的『誰』，不改配額本身（群間代表數m不變）、不改"
+                     "權重公式（換完仍是純等權）——跟Coverage Tilt（調整策略間"
+                     "權重比例）是完全不同的機制，見`weights.rep_swap_members()`。"
+                     "每季最多置換3個代表（REP_SWAP_MAX_SWAPS），刻意保守控制周轉率。",
+        "validation_status": "🔴 無任何歷史回測/前瞻驗證結果——這是全新動作，"
+                             "2026-10-08剛完成程式實作，尚未實際跑過任何一季",
+        "caveats": [
+            "完全沒有被驗證過有效、無效、或有害——不是像Coverage Tilt那樣「測過"
+            "但效果弱」，是「還沒測過」，證據強度比Coverage Tilt更低",
+            "選它時理由必須誠實反映「這是未驗證的新動作，選用目的是增加系統"
+            "可選動作的多樣性／示範用途，不能宣稱或暗示能改善覆蓋率或報酬」",
+            "置換邏輯本身依賴HRP分群凍結結果（`_frozen/stage3/cluster_assign.parquet`），"
+            "若候選池與分群建立時的池子不同步，可能有策略查不到自己的群"
+            "（`rep_swap_members()`回傳的`n_no_cluster`會誠實記錄這種情況，不是"
+            "靜默跳過）",
+        ],
+    }

@@ -1,25 +1,29 @@
 {
   "stage": "stage0_index",
-  "produced_at": "2026-10-03T19:56:17",
-  "git_sha": "eb31267",
+  "produced_at": "2026-10-08T13:11:27",
+  "git_sha": "8f6a411",
   "params": {
     "variant": {
       "TW": "openSec_boost",
-      "US": "openSec"
+      "US": "openSec_balanced"
     },
     "pk_rule": "strategy_uid = market + '::' + strategy",
     "job_by_v": {
       "v0": "L3",
       "v1": "L4"
     },
-    "in_sample_end": "2025-12",
-    "rebuild_mode": "hybrid_tw_openSec_boost_us_preserved"
+    "in_sample_end": "2025-12"
   },
   "inputs": [
     {
       "path": "_analysis_outputs_phase4\\TW_L4_openSec_boost_final_candidates.csv",
       "sha256": "d4467d8b4da2292a6bc950f4aafb5888f89055c3a91145fb72bb4cb52dff8cf5",
       "bytes": 5559620
+    },
+    {
+      "path": "_analysis_outputs_phase4\\US_L4_openSec_balanced_final_candidates.csv",
+      "sha256": "9bea39e0d7f2a87895526e94f29288d9e216504c86e2f79bd6970a22a6af12c7",
+      "bytes": 4324900
     },
     {
       "path": "code\\results_artifacts\\TW_L3_openSec_boost_M\\stats.parquet",
@@ -32,15 +36,27 @@
       "sha256": "526b63bc24155fbbe33f8182973af41ebdba552fa3b22d38e357cd6125aedf47",
       "bytes": 1392213,
       "rows": 20253
+    },
+    {
+      "path": "code\\results_artifacts\\US_L3_openSec_balanced_M\\stats.parquet",
+      "sha256": "47f25e4ece1266be4b05d6d70e786f66c1af01f68ae1e01929612dde0349a86e",
+      "bytes": 905805,
+      "rows": 13029
+    },
+    {
+      "path": "code\\results_artifacts\\US_L4_openSec_balanced_M\\stats.parquet",
+      "sha256": "7ebf40fac1008f99c5e8ce61969f21fc4c263ff8947cbc87d51b08b04335217d",
+      "bytes": 905150,
+      "rows": 13029
     }
   ],
   "outputs": [
     {
       "path": "_frozen\\stage0\\candidate_index.parquet",
-      "sha256": "54e369877a436963aad4d3f244cf274156d81dee62996146e09ae83171a584e2",
-      "bytes": 3543431,
-      "rows": 37937
+      "sha256": "34e14b4069c518d7e82c57e419787467c81d5e7bfb027f096ff4506b53006fab",
+      "bytes": 4836688,
+      "rows": 52111
     }
   ],
-  "notes": "2026-10-03 混合重建：台股改用 openSec_boost 變體（Phase2 強制納入ROE/EPS/ROIC/REV_G/MOM_3M 5個regime-dependent因子當primary，候選池15,009→29,255）全鏈重跑，經 stage0_index._load_market('TW') 重新驗證；美股完全沿用舊凍結資料，未重新驗證、未改動（這台機器 results_artifacts/本來就缺美股完整回測產物，見CLAUDE.md §2；跟9/30 TW-only混合重建同一模式）。"
+  "notes": "修掉落差1(join stats)/落差2(artifacts_dir 規則解析)/落差5(複合主鍵)"
 }

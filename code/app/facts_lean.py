@@ -283,6 +283,18 @@ def multiscale_rollup_csv(quarter_summaries: list[dict]) -> str:
                                   "portfolio_realized_return", "excess_vs_equal_weight"])
 
 
+def drawdown_baseline_action_csv(drawdown: dict) -> str:
+    """跟 `m1d_baseline_action_csv()`／Hot Segment 基準動作同一個模式，但只能
+    是**第三個獨立的基準參考**，不綁定任何特定投組變更動作（見
+    `triggers.evaluate_drawdown_quarter()` docstring 的完整理由——流量變數
+    不可驅動投組變更，只能驅動 A0/A4/A5）。percentile 一併帶出，方便 agent
+    判斷這次升級是「剛好跨過門檻」還是「深度異常」，但理由裡**不可以**用這個
+    數字去推算任何動作的預期效果（§7.6 同一條鐵則）。"""
+    rows = [{"state": drawdown["state"], "baseline_action": drawdown["action"],
+            "percentile": drawdown.get("percentile")}]
+    return _to_csv(rows, columns=["state", "baseline_action", "percentile"])
+
+
 def m1d_baseline_action_csv(m1d: dict) -> str:
     """§10 階段 5：「程式：依 3b 提供對應動作」——triggers.py 的 state→action
     映射（NONE→A0／OBSERVING→A4／TRIGGERED→A5）當作**基準動作**，決策 agent
@@ -297,7 +309,9 @@ def m1d_baseline_action_csv(m1d: dict) -> str:
 def build_decision_facts(m1d: dict, actions: list[dict], prospective_output: dict,
                          w2c_reference: dict | None = None,
                          hot_segment: dict | None = None,
-                         coverage_tilt_reference: dict | None = None) -> dict:
+                         coverage_tilt_reference: dict | None = None,
+                         rep_swap_reference: dict | None = None,
+                         drawdown: dict | None = None) -> dict:
     """階段 5 決策用的 facts：M1-D 基準動作 ＋ 可用動作的歷史條件分布
     （§7.7 過濾過，看不到 window 4）＋ W2c 的一次性驗證結果（D50，選填，
     給呼叫端傳 `actions.w2c_reference()`）＋ 3b 的完整輸出（決策理由只能
@@ -306,7 +320,14 @@ def build_decision_facts(m1d: dict, actions: list[dict], prospective_output: dic
     不靠 prompt 文字約束（跟 §7.7 的一貫精神一致）。
 
     `hot_segment`／`coverage_tilt_reference`：2026-09-29新增，跟`m1d`／`w2c_reference`
-    平行的第二組判準＋動作參照，選填、預設None保持向後相容。"""
+    平行的第二組判準＋動作參照，選填、預設None保持向後相容。
+    `rep_swap_reference`：2026-10-08新增，跟`coverage_tilt_reference`同一個Hot
+    Segment觸發下的另一個動作參照，兩者互斥（agent每季只能選一個），選填。
+    `drawdown`：2026-10-08新增，第三組**獨立**判準（跟m1d/hot_segment平行），
+    但**不綁定任何特定投組變更動作**——只提供`drawdown_baseline_action_csv`
+    當第三個基準參考，`decision`的動作空間不會因為這個狀態而多任何新選項
+    （跟`m1d`/`hot_segment`不同，那兩個各自對應到W2c/CoverageTilt+RepSwap；
+    drawdown沒有對應的W類動作，只能影響A4/A5這個層級的判斷），選填。"""
     facts = {
         "m1d_baseline_action_csv": m1d_baseline_action_csv(m1d),
         "available_actions_csv": available_actions_csv(actions),
@@ -320,6 +341,10 @@ def build_decision_facts(m1d: dict, actions: list[dict], prospective_output: dic
             columns=["state", "baseline_action"])
     if coverage_tilt_reference is not None:
         facts["coverage_tilt_reference_json"] = _compact_json(coverage_tilt_reference)
+    if rep_swap_reference is not None:
+        facts["rep_swap_reference_json"] = _compact_json(rep_swap_reference)
+    if drawdown is not None:
+        facts["drawdown_baseline_action_csv"] = drawdown_baseline_action_csv(drawdown)
     _assert_no_flow_leakage(facts, context="build_decision_facts")
     return facts
 
