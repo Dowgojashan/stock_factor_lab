@@ -87,7 +87,14 @@ from . import freeze, hrp, paths
 #: TW 7→6（k=6時silhouette=-0.0011，k=3雖然全域最高但最大群佔比51.6%、退化解，
 #: 已排除）。US/XM 這次沒碰、沿用舊值不動（美股池沒變；XM是TW+US合併樹，
 #: 理論上也該跟著TW變動重掃，但使用者明確指示這次只處理台股，US/XM先不管）。
-L1_TARGET = {"TW": 6, "US": 7, "XM": 6}
+#: 🆕 2026-10-08 美股換openSec_balanced變體（8,682→22,856），US/XM池組成都變了，
+#: 這次兩個都要重掃。流程：先用舊k建一次樹拿新linkage（pass1）→
+#: cluster_count_selection掃k=3..20（見`_analysis_outputs_robustness/
+#: cluster_count_silhouette_scan.csv`）→ 核對建議值跟現在常數是否相符：
+#: TW 6→6（不變，池沒動）、US 7→**4**（k=4時silhouette=0.0541，是非退化解裡的
+#:全域最高點）、XM 6→**7**（k=7時silhouette=0.0632，全域最高的k=4是退化解，
+#: 最大群佔比55.1%，已排除）。US/XM 都要重建（pass2）。
+L1_TARGET = {"TW": 6, "US": 4, "XM": 7}
 #: L2 層級已移除（H-04，2026-08-28）：原L2_TARGET=40從未被任何下游決策邏輯
 #: 讀取（只在T3的profile欄位列表裡出現，且contracts/三份架構文件都找不到40
 #: 這個數字的依據），純粹是沒有用途的技術債，順手拿掉。

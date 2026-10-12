@@ -1,7 +1,7 @@
 {
   "stage": "stage3_hrp",
-  "produced_at": "2026-10-08T18:38:45",
-  "git_sha": "222fc89",
+  "produced_at": "2026-10-09T01:01:36",
+  "git_sha": "8292d71",
   "params": {
     "trees_built": [
       "TW_normal",
@@ -13,8 +13,8 @@
     ],
     "L1_target": {
       "TW": 6,
-      "US": 7,
-      "XM": 6
+      "US": 4,
+      "XM": 7
     },
     "L3_target": {
       "TW": 471,
@@ -120,8 +120,8 @@
       },
       "US_normal": {
         "L1": {
-          "n_clusters": 7,
-          "max_share": 0.30960288133214836,
+          "n_clusters": 4,
+          "max_share": 0.49894756536788437,
           "n_singleton": 0
         },
         "L3": {
@@ -132,8 +132,8 @@
       },
       "XM_normal": {
         "L1": {
-          "n_clusters": 6,
-          "max_share": 0.5347201936318491,
+          "n_clusters": 7,
+          "max_share": 0.28435504736468725,
           "n_singleton": 0
         },
         "L3": {
@@ -156,8 +156,8 @@
       },
       "US_crisis": {
         "L1": {
-          "n_clusters": 7,
-          "max_share": 0.33799522896300105,
+          "n_clusters": 4,
+          "max_share": 0.48664577389026614,
           "n_singleton": 0
         },
         "L3": {
@@ -168,7 +168,7 @@
       },
       "XM_crisis": {
         "L1": {
-          "n_clusters": 6,
+          "n_clusters": 7,
           "max_share": 0.3863038851562826,
           "n_singleton": 0
         },
@@ -264,15 +264,15 @@
   "outputs": [
     {
       "path": "_frozen\\stage3\\cluster_assign.parquet",
-      "sha256": "5156b402203550905488a76fb66fb6568f935d118fdc6ae7b56ac15fe94d271a",
-      "bytes": 2038188,
+      "sha256": "e5678a8cf4141f98f57e1d8afebf9c398fffa6ccbfbbae0654bfb115628f6be5",
+      "bytes": 2042680,
       "rows": 191458
     },
     {
       "path": "_frozen\\stage3\\cluster_meta.parquet",
-      "sha256": "41e8948eae67d8fb429211a2901cbd1d725e6aa92caf2aa6bfa1c213afbb1712",
-      "bytes": 63714,
-      "rows": 3134
+      "sha256": "12ac92063f281b040e0ad2c363cb7bf8ef695229e96a069978d67eb597bf987d",
+      "bytes": 63704,
+      "rows": 3130
     },
     {
       "path": "_frozen\\stage3\\cluster_corr_matrix_TW_normal.parquet",
@@ -287,9 +287,9 @@
     },
     {
       "path": "_frozen\\stage3\\cluster_corr_matrix_US_normal.parquet",
-      "sha256": "9eab6a5a1bab12b98dc2bdf02875804ac03a5c026157f446272d01851c743a31",
-      "bytes": 6235,
-      "rows": 7
+      "sha256": "a6b2eb6af1f09e491c56ac41e44c62c71f3fcb702275301b4b7e0156eff786a9",
+      "bytes": 4155,
+      "rows": 4
     },
     {
       "path": "_frozen\\stage3\\linkage_US_normal.npy",
@@ -298,9 +298,9 @@
     },
     {
       "path": "_frozen\\stage3\\cluster_corr_matrix_XM_normal.parquet",
-      "sha256": "152fb4d81852e45da23b8fd1557aee66d3731b1d8012566816b3d137d2ae0ee7",
-      "bytes": 5518,
-      "rows": 6
+      "sha256": "b8f1eeb8e39dc15e7e40213f6a4e304c0d740708c3e8afd22c154e75c9306360",
+      "bytes": 6235,
+      "rows": 7
     },
     {
       "path": "_frozen\\stage3\\linkage_XM_normal.npy",
@@ -320,9 +320,9 @@
     },
     {
       "path": "_frozen\\stage3\\cluster_corr_matrix_US_crisis.parquet",
-      "sha256": "d32fcecd9a92245ac7aa8c63d8bff697cb3bdb6a22e83b3cafeb0fe5c489cb4f",
-      "bytes": 6235,
-      "rows": 7
+      "sha256": "21c8aa0921a04e093e074e10e977b52556e4ee6c90a89c1e7ab18ac119c15ddd",
+      "bytes": 4155,
+      "rows": 4
     },
     {
       "path": "_frozen\\stage3\\linkage_US_crisis.npy",
@@ -331,9 +331,9 @@
     },
     {
       "path": "_frozen\\stage3\\cluster_corr_matrix_XM_crisis.parquet",
-      "sha256": "213762dc7193956d7ca4fb71e981cf7fa7d3ddeaee9fb5219337fc2bb420a946",
-      "bytes": 5518,
-      "rows": 6
+      "sha256": "d78b05730f633a461b19a196c1fe971684c41005c559dfc65f5d432ecfa02b69",
+      "bytes": 6235,
+      "rows": 7
     },
     {
       "path": "_frozen\\stage3\\linkage_XM_crisis.npy",
@@ -342,9 +342,9 @@
     },
     {
       "path": "_frozen\\stage3\\co_fail_regimes.parquet",
-      "sha256": "f81a32adfeef9ec1fb4d802887c29f35bda01cebe7b3b03252fb4e99a27897d4",
-      "bytes": 6676,
-      "rows": 19
+      "sha256": "2d3906451c93e58bc514e7efd506c2386225ef49b5a2864d77f79205fbbd10fb",
+      "bytes": 6660,
+      "rows": 17
     }
   ],
   "notes": "normal+crisis 六棵樹"

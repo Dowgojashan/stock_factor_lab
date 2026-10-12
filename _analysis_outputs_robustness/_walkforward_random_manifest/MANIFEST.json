@@ -1,7 +1,7 @@
 {
   "stage": "walkforward_random",
-  "produced_at": "2026-10-01T17:30:23",
-  "git_sha": "eb31267",
+  "produced_at": "2026-10-13T00:29:35",
+  "git_sha": "8292d71",
   "params": {
     "n_draws": 200,
     "seed": 42,
@@ -11,38 +11,38 @@
   "inputs": [
     {
       "path": "_frozen\\stage1\\returns_monthly.parquet",
-      "sha256": "39efabe9c08a8983b24f964b5101e98591747aaccbf22a0c7b2f359eee873e1a",
-      "bytes": 52203966,
-      "rows": 6670871
+      "sha256": "4713dedffe8969263d19aed96166b25f3cb63c812a7a31c6b3700010396b1164",
+      "bytes": 114193546,
+      "rows": 14607899
     },
     {
       "path": "_frozen\\stage1\\returns_meta.parquet",
-      "sha256": "a9807d72aba13be7fb667957724522f0e4d11df4b0b43c5286b72ca4ee30dcb2",
-      "bytes": 265745,
-      "rows": 23691
+      "sha256": "728ca65670052d3f6938960e675a1388604817ce821bc56a4ca30d31bfe5af48",
+      "bytes": 560120,
+      "rows": 52111
     },
     {
       "path": "_frozen\\stage1\\strategy_marks.parquet",
-      "sha256": "0e1b4d0e0edddc8284446cbc705a62354b8b2d69893cacec569fc0ccf7d0c349",
-      "bytes": 855744,
-      "rows": 23691
+      "sha256": "d5ffb4a29aa775b2c681086fc7f4c0c2d63abfaf9606998947d36eb632d445db",
+      "bytes": 1891219,
+      "rows": 52111
     },
     {
       "path": "_analysis_outputs_robustness\\walkforward_matrix_detail.csv",
-      "sha256": "0c7d23816416ba587646f39764faed245d1574e686bc716ad557fe6131313987",
-      "bytes": 2191306
+      "sha256": "b6fe48bff7c464e38ea7d323fddda7c398c94ca1fb53b644090828a1ef8b047a",
+      "bytes": 2209007
     }
   ],
   "outputs": [
     {
       "path": "_analysis_outputs_robustness\\walkforward_random.csv",
-      "sha256": "5066aebe204f970ae77b9e7ceaa46fedb4c149534ad93bc7362c2236c1812638",
-      "bytes": 141784
+      "sha256": "4a441b95ec3cf290393d811f0c352f4fff6631c6ee58bdd13291f9ab6bce2419",
+      "bytes": 146848
     },
     {
       "path": "_analysis_outputs_robustness\\walkforward_random_compare.csv",
-      "sha256": "eb3bf7053838fad46e6ceea936145c41664c2c29b11082940e7a201f07e3f45e",
-      "bytes": 12935
+      "sha256": "094fab24657a810c05409795ad9c4eb26d33758048a4743934d271ef250ada7c",
+      "bytes": 12561
     }
   ],
   "notes": "M-02b：walk-forward 版的 C_random。不建樹（隨機抽取與分群無關），去重後 414 組。不算群集中度欄位（需樹標籤，且 M-03 證明該欄對 A 是套套邏輯）。對照表帶 ratio 維度（ALL + 逐比例）。"

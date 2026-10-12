@@ -1,7 +1,7 @@
 {
   "stage": "cluster_macro_conditional",
-  "produced_at": "2026-10-05T21:34:28",
-  "git_sha": "65c436f",
+  "produced_at": "2026-10-12T03:25:26",
+  "git_sha": "8292d71",
   "params": {
     "trees": [
       "TW_normal",
@@ -13,23 +13,23 @@
   "inputs": [
     {
       "path": "_frozen\\stage3\\cluster_assign.parquet",
-      "sha256": "ece184921a38903a4d27dde81e300b7e9ba396e94f645f863b851eadce94fbe0",
-      "bytes": 1473204,
-      "rows": 139138
+      "sha256": "e5678a8cf4141f98f57e1d8afebf9c398fffa6ccbfbbae0654bfb115628f6be5",
+      "bytes": 2042680,
+      "rows": 191458
     },
     {
       "path": "_frozen\\stage4\\macro_performance.parquet",
-      "sha256": "2e43caebb88be5f563738dff420137d0187d3d9c1320b3bdcc61c4c141449f8f",
-      "bytes": 2100115,
-      "rows": 151748
+      "sha256": "2835c7122422450d57dd0f0dbefdc2527d97618d3a6f2e164f2e1c03d7d24f1c",
+      "bytes": 2795818,
+      "rows": 208444
     }
   ],
   "outputs": [
     {
       "path": "_frozen\\stage3\\cluster_macro_conditional.parquet",
-      "sha256": "8c3e956490bbae71963a21046609e12b334b6ba8cfc592ea9d6f66e4799f6559",
-      "bytes": 9187,
-      "rows": 76
+      "sha256": "8ee1fda06d42a3b39f10246686453f92f443f146a245e81ca513dfe146104a03",
+      "bytes": 9161,
+      "rows": 68
     }
   ],
   "notes": "S-02：群的投資時鐘四格條件式績效，純程式算(H-06同一套群代表=成員簡單平均邏輯)，無LLM。決策層看條件式績效、不看無條件績效，理由見模組docstring。"

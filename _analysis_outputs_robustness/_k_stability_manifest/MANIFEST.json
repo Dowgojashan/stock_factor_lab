@@ -1,41 +1,41 @@
 {
   "stage": "k_stability",
-  "produced_at": "2026-10-04T16:39:14",
-  "git_sha": "eb31267",
+  "produced_at": "2026-10-10T08:52:05",
+  "git_sha": "8292d71",
   "params": {
     "k_min": 3,
     "k_max": 20,
     "l1_target_fixed": {
       "TW": 6,
-      "US": 7,
-      "XM": 6
+      "US": 4,
+      "XM": 7
     }
   },
   "inputs": [
     {
       "path": "_frozen\\stage1\\returns_monthly.parquet",
-      "sha256": "1bb0e0b13c0132511dcdc984834b1ada548ed38f1922330df7d77f1c772daf69",
-      "bytes": 80851974,
-      "rows": 10351353
+      "sha256": "4713dedffe8969263d19aed96166b25f3cb63c812a7a31c6b3700010396b1164",
+      "bytes": 114193546,
+      "rows": 14607899
     },
     {
       "path": "_frozen\\stage1\\returns_meta.parquet",
-      "sha256": "f63da9130dd549491b3408558b2cd8d40c40ef2550da84b9b39e5f559c783c80",
-      "bytes": 411907,
-      "rows": 37937
+      "sha256": "728ca65670052d3f6938960e675a1388604817ce821bc56a4ca30d31bfe5af48",
+      "bytes": 560120,
+      "rows": 52111
     },
     {
       "path": "_frozen\\stage1\\strategy_marks.parquet",
-      "sha256": "cd0195d405fd08f9c1ed742d993fdacee7057fff62cb5c65dcf67f9e38cee96e",
-      "bytes": 1336445,
-      "rows": 37937
+      "sha256": "d5ffb4a29aa775b2c681086fc7f4c0c2d63abfaf9606998947d36eb632d445db",
+      "bytes": 1891219,
+      "rows": 52111
     }
   ],
   "outputs": [
     {
       "path": "_analysis_outputs_robustness\\k_stability.csv",
-      "sha256": "05f234d81e9c24b52f68c7f5c5cb9eea2d94b3f9821bd67f82c1522975c4b5a4",
-      "bytes": 2019
+      "sha256": "edcdbf1b315202347d21dddf72790b104ac11a3f8ee484b37845efbbac647654",
+      "bytes": 5753
     }
   ],
   "notes": "H-26b：診斷 L1_TARGET（用全窗選出的 6/7/3）在各 IS 窗下是否仍是輪廓係數的最佳解。若全數一致，walk-forward 的 k 前視偏誤即為形式上存在、實質無影響。"
