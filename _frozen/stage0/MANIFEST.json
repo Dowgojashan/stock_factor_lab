@@ -1,7 +1,7 @@
 {
   "stage": "stage0_index",
-  "produced_at": "2026-10-11T21:01:13",
-  "git_sha": "8292d71",
+  "produced_at": "2026-10-13T11:18:35",
+  "git_sha": "49c7789",
   "params": {
     "variant": {
       "TW": "openSec_boost",

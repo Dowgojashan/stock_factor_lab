@@ -1,7 +1,7 @@
 {
   "stage": "cluster_macro_conditional",
-  "produced_at": "2026-10-12T03:25:26",
-  "git_sha": "8292d71",
+  "produced_at": "2026-10-13T11:29:03",
+  "git_sha": "49c7789",
   "params": {
     "trees": [
       "TW_normal",

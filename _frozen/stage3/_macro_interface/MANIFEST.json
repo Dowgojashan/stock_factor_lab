@@ -1,7 +1,7 @@
 {
   "stage": "cluster_macro_interface",
-  "produced_at": "2026-10-12T03:25:25",
-  "git_sha": "8292d71",
+  "produced_at": "2026-10-13T11:28:55",
+  "git_sha": "49c7789",
   "params": {
     "excluded_quant_columns": [
       "window_start_year",
@@ -21,23 +21,23 @@
   "inputs": [
     {
       "path": "_frozen\\stage3\\cluster_identity.parquet",
-      "sha256": "2c67803dab3069a82121a252f086b0d7279aca5563151e600cc71e364838993d",
-      "bytes": 17869,
-      "rows": 16
+      "sha256": "bc8861ea9e7f32b228b0d94ce0a51c205f51a6b6826cf51fba790042f528997e",
+      "bytes": 17376,
+      "rows": 17
     },
     {
       "path": "_frozen\\stage3\\cluster_profile_quant.parquet",
-      "sha256": "e1b7cb6b053b4534457b7f25ccf3fd663715c3786fb6449b1a11de7acd600829",
-      "bytes": 23092,
-      "rows": 19
+      "sha256": "83c6fcfed0407763522a4a913b6c28997a3e689bd6edfe2c57d8d74d8e9ac7b0",
+      "bytes": 23117,
+      "rows": 17
     }
   ],
   "outputs": [
     {
       "path": "_frozen\\stage3\\cluster_macro_interface.parquet",
-      "sha256": "424eeea8dec2017588bbd128e43ae007206c68a3d319734259f9331689abe5fe",
-      "bytes": 21237,
-      "rows": 16
+      "sha256": "5fa9ce920a60c5259b97fd205f3590c8b6f3bad82a8ec0a7f4ebe8942e58af1f",
+      "bytes": 21469,
+      "rows": 17
     }
   ],
   "notes": "S-01：群→總經介面。純程式組裝(H-06+H-08合併)，無LLM。排除規則見模組docstring與contracts.CLUSTER_MACRO_INTERFACE schema註解。"

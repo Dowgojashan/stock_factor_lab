@@ -48,6 +48,18 @@ DEFAULT_PICKS_PATH = (Path(__file__).resolve().parent.parent.parent / "_analysis
                       / "rolling_window6_silhouette_members.parquet")
 
 
+#: 市值加權基準指數表，依市場對應——跟`simulate.run_simulation()`寫死抓
+#: `taiex_tr`同一組資料，只是這裡要支援多市場，不能再寫死。美股用`sp500_tr`
+#: （已查證資料庫確實有這張表，跟`taiex_tr`同一種「日頻total return指數」結構）。
+_CAP_WEIGHT_BENCHMARK_TABLE = {"TW": "taiex_tr", "US": "sp500_tr"}
+#: `monitor.fetch_mcap_wide()`的全市場逐日市值起算日——TW historically用
+#: 2007-01-01（HRP共同窗起點），US共同窗較早（2002-01），但這裡只是M1-D的
+#: 指數端集中度監控用，REGISTRATION_DATE固定是2023-12-31，兩個市場都只需要
+#: 這之前幾年的資料建立基準，不需要抓到各自HRP窗的最早起點，維持同一個早期
+#: 起算日即可（抓多不影響正確性，只是多抓幾年資料，沒有副作用）。
+_MCAP_WIDE_START = "2007-01-01"
+
+
 def build_rolling_inputs(model: str, api_key: str, *, picks_path: Path = DEFAULT_PICKS_PATH,
                          tree_key: str = "TW", scheme: str = "rolling_6_2",
                          window_no: int = 6) -> simulate.QuarterInputs:
@@ -55,7 +67,13 @@ def build_rolling_inputs(model: str, api_key: str, *, picks_path: Path = DEFAULT
     `uids_by_allocation`的來源從anchored的`walkforward_members.parquet`
     （scheme="E"/window_no=4）換成呼叫端指定的picks parquet
     （`tree_key`/`scheme`/`window_no`用來在該parquet裡篩對列，不同picks檔
-    可能有不同的scheme/window_no標籤，見§3.14各檔案的存檔方式）。"""
+    可能有不同的scheme/window_no標籤，見§3.14各檔案的存檔方式）。
+
+    🔴 2026-10-13 修正一個從未被踩到的bug：這支函式雖然早就支援`tree_key`
+    參數，但`fetch_mcap_wide()`呼叫沒有傳入`market=tree_key`（悄悄預設用
+    monitor.MARKET="TW"），且基準指數查詢寫死抓`taiex_tr`——這兩處只有在
+    `tree_key="US"`時才會露出問題，先前只被TW呼叫過，從沒實測踩到。
+    這次要把這支函式用在美股驗證，修正後兩處都改成依`tree_key`對應。"""
     import fcv_core  # noqa: F401  sys.path bootstrap
     from database import Database
     from fcv_core import MarketData
@@ -66,9 +84,10 @@ def build_rolling_inputs(model: str, api_key: str, *, picks_path: Path = DEFAULT
     md_map = {tree_key: md}
     db = Database(tree_key)
     conn = db.create_connection()
-    mcap_wide = monitor.fetch_mcap_wide(conn, start="2007-01-01")
+    mcap_wide = monitor.fetch_mcap_wide(conn, market=tree_key, start=_MCAP_WIDE_START)
 
-    tx = pd.read_sql("SELECT date, close FROM taiex_tr ORDER BY date", conn)
+    benchmark_table = _CAP_WEIGHT_BENCHMARK_TABLE[tree_key]
+    tx = pd.read_sql(f"SELECT date, close FROM {benchmark_table} ORDER BY date", conn)
     tx["date"] = pd.to_datetime(tx["date"])
     cap_weight_series = tx.set_index("date")["close"].astype(float).sort_index()
 

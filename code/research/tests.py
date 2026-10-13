@@ -882,8 +882,9 @@ def t_cluster_identity_resume_skips_completed_clusters():
 
 @test
 def t_cluster_identity_real_data():
-    """H-08：真實資料，cluster_identity契約通過，且16群（TW6/US7/XM3）全部涵蓋，
-    identity_label不得為空字串（否則等於沒有產出有意義的身份標籤）。
+    """H-08：真實資料，cluster_identity契約通過，且17群（TW6/US4/XM7，
+    2026-10-13因美股換openSec_balanced+跨市場樹重建而更新，見`stage3_hrp.L1_TARGET`）
+    全部涵蓋，identity_label不得為空字串（否則等於沒有產出有意義的身份標籤）。
     """
     p = paths.STAGE3 / "cluster_identity.parquet"
     if not p.exists():
@@ -892,8 +893,8 @@ def t_cluster_identity_real_data():
     C.validate(df, C.CLUSTER_IDENTITY, strict_columns=True)
     counts = df.groupby("tree_id", observed=True).size()
     assert counts.get("TW_normal", 0) == 6, f"TW_normal應有6群，實際{counts.get('TW_normal', 0)}"
-    assert counts.get("US_normal", 0) == 7, f"US_normal應有7群，實際{counts.get('US_normal', 0)}"
-    assert counts.get("XM_normal", 0) == 3, f"XM_normal應有3群，實際{counts.get('XM_normal', 0)}"
+    assert counts.get("US_normal", 0) == 4, f"US_normal應有4群，實際{counts.get('US_normal', 0)}"
+    assert counts.get("XM_normal", 0) == 7, f"XM_normal應有7群，實際{counts.get('XM_normal', 0)}"
     assert (df["identity_label"].str.len() > 0).all(), "identity_label不該有空字串"
     # 抗幻覺基本檢查：不應該出現總經推論常見的字眼（H-08鐵則3明文禁止）
     banned = ["升息", "降息", "通膨環境", "景氣循環", "適合在"]
@@ -908,7 +909,7 @@ def t_cluster_identity_real_data():
 
 @test
 def t_cluster_macro_interface_real_data():
-    """S-01：真實資料，契約通過，16群全涵蓋，且兩道防線都要驗證：
+    """S-01：真實資料，契約通過，17群（TW6/US4/XM7，2026-10-13更新）全涵蓋，且兩道防線都要驗證：
     ①schema層級——四個帶日曆年份的欄位(window_start/end_year、best/worst_year)
       物理上不存在於這張表（strict_columns=True已經會擋，這裡額外顯式檢查一次，
       因為這條規則是S-03安全性的核心，值得比其他schema測試更明確）
@@ -927,8 +928,8 @@ def t_cluster_macro_interface_real_data():
 
     counts = df.groupby("tree_id", observed=True).size()
     assert counts.get("TW_normal", 0) == 6
-    assert counts.get("US_normal", 0) == 7
-    assert counts.get("XM_normal", 0) == 3
+    assert counts.get("US_normal", 0) == 4
+    assert counts.get("XM_normal", 0) == 7
 
     banned_cols = ("window_start_year", "window_end_year", "best_year", "worst_year")
     for col in banned_cols:
@@ -950,8 +951,8 @@ def t_cluster_macro_interface_real_data():
 
 @test
 def t_macro_decision_input_real_data():
-    """S-02：真實資料，cluster_macro_conditional契約通過，16群×4格＝64列，
-    且群代表口徑要跟H-06/stage3_hrp一致（成員簡單平均）。
+    """S-02：真實資料，cluster_macro_conditional契約通過，17群×4格＝68列
+    （TW6/US4/XM7，2026-10-13更新），且群代表口徑要跟H-06/stage3_hrp一致（成員簡單平均）。
     """
     p = paths.STAGE3 / "cluster_macro_conditional.parquet"
     if not p.exists():
@@ -961,7 +962,7 @@ def t_macro_decision_input_real_data():
     df["level"] = df["level"].astype("category")
     df["clock_cell"] = df["clock_cell"].astype("category")
     C.validate(df, C.CLUSTER_MACRO_CONDITIONAL, strict_columns=True)
-    assert len(df) == 16 * 4, f"應為16群×4格=64列，實際{len(df)}"
+    assert len(df) == 17 * 4, f"應為17群×4格=68列，實際{len(df)}"
     for cell in ("復甦", "過熱", "停滯性通膨", "衰退"):
         assert cell in set(df.clock_cell), f"缺少clock_cell={cell}"
 
@@ -3395,7 +3396,7 @@ def t_beta_baseline_isonly_real_data():
         f"L1 的殘差變動 {d1:.4f} 未明顯大於 L3 的 {d3:.4f}——"
         "「L1 是單對統計量、論證必須建立在 L3」這個提醒失去依據，請重新檢視")
     assert (l1.n_pairs_full.min() <= 2), \
-        "L1 應有配對數 <= 2 的列（XM 只有 3 群），否則不穩健的成因要重新查"
+        "L1 應有配對數 <= 2 的列（群數最少的樹，配對數天然就少），否則不穩健的成因要重新查"
 
     # ⑤ 係數本身穩定
     assert abs(a.beta_median.median() - b.beta_median.median()) < 0.01, "beta 中位變動過大"
