@@ -1070,7 +1070,7 @@ def t_decision_layer_compare_snapshot_dry_run_structure():
     assert set(("tree_id", "market", "clock_cell", "macro_state", "A_rule",
               "B_llm", "C_all")) <= set(result)
     assert len(result["A_rule"]) == 1
-    assert result["C_all"] == [1, 2, 3]
+    assert result["C_all"] == [1, 2, 3, 4, 5, 6, 7]  # XM_normal現為7群（2026-10-13更新）
     assert result["B_llm"] == []   # dry-run 不花錢，不是真的決策結果
 
 
