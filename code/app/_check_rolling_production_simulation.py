@@ -43,6 +43,7 @@ import fcv_core  # noqa: E402
 import pandas as pd  # noqa: E402
 
 from app import monitor, simulate, triggers  # noqa: E402
+from app import weights as weights_mod  # noqa: E402
 
 DEFAULT_PICKS_PATH = (Path(__file__).resolve().parent.parent.parent / "_analysis_outputs_applayer"
                       / "rolling_window6_silhouette_members.parquet")
@@ -62,7 +63,8 @@ _MCAP_WIDE_START = "2007-01-01"
 
 def build_rolling_inputs(model: str, api_key: str, *, picks_path: Path = DEFAULT_PICKS_PATH,
                          tree_key: str = "TW", scheme: str = "rolling_6_2",
-                         window_no: int = 6) -> simulate.QuarterInputs:
+                         window_no: int = 6, registration_date: str | None = None,
+                         with_hot_segment: bool = False) -> simulate.QuarterInputs:
     """複製`simulate.run_simulation()`的setup邏輯（見該檔291~328行），只把
     `uids_by_allocation`的來源從anchored的`walkforward_members.parquet`
     （scheme="E"/window_no=4）換成呼叫端指定的picks parquet
@@ -73,7 +75,21 @@ def build_rolling_inputs(model: str, api_key: str, *, picks_path: Path = DEFAULT
     參數，但`fetch_mcap_wide()`呼叫沒有傳入`market=tree_key`（悄悄預設用
     monitor.MARKET="TW"），且基準指數查詢寫死抓`taiex_tr`——這兩處只有在
     `tree_key="US"`時才會露出問題，先前只被TW呼叫過，從沒實測踩到。
-    這次要把這支函式用在美股驗證，修正後兩處都改成依`tree_key`對應。"""
+    這次要把這支函式用在美股驗證，修正後兩處都改成依`tree_key`對應。
+
+    🔴 2026-10-14 新增兩個參數，支援非window4的歷史窗口（例如window2，
+    測Coverage Tilt/RepSwap真實觸發用）：
+      - `registration_date`：M1-D的登記基準日，None時沿用
+        `simulate.REGISTRATION_DATE`（window4的2023-12-31），**不是任何
+        窗口通用的日期**，換窗口一定要明確傳對應的OOS起算日前一天
+      - `with_hot_segment`：True時額外註冊Hot Segment門檻＋載入HRP分群
+        （`weights.load_cluster_membership()`），讓`QuarterInputs`支援
+        Coverage Tilt／RepSwap——預設False維持向後相容（美股原本就不需要
+        這段，之前這裡完全沒接過）。分群資料固定讀主線`_frozen/stage3/
+        cluster_assign.parquet`的`{tree_key}_normal`——這是全時間窗建的樹，
+        不隨window_no變化（跟HRP分群本身的設計一致：樹只建一次，walk-forward
+        窗口只是從同一棵樹的IS段選代表、OOS段驗證，不是每個窗口各建一棵樹）。
+    """
     import fcv_core  # noqa: F401  sys.path bootstrap
     from database import Database
     from fcv_core import MarketData
@@ -105,19 +121,32 @@ def build_rolling_inputs(model: str, api_key: str, *, picks_path: Path = DEFAULT
 
     # M1-D只看指數端集中度（mcap_wide），跟候選池anchored/rolling無關，
     # 直接沿用跟production同一套register_m1d，見本檔docstring說明
-    cond = triggers.register_m1d(mcap_wide, simulate.REGISTRATION_DATE)
+    reg_date = registration_date or simulate.REGISTRATION_DATE
+    cond = triggers.register_m1d(mcap_wide, reg_date)
+
+    extra = {}
+    if with_hot_segment:
+        extra["hot_segment_cond"] = triggers.register_hot_segment(tree_key)
+        cluster_assign_path = (Path(__file__).resolve().parent.parent.parent
+                               / "_frozen" / "stage3" / "cluster_assign.parquet")
+        cluster_of, members_by_cluster = weights_mod.load_cluster_membership(
+            cluster_assign_path, tree_id=f"{tree_key}_normal")
+        extra["cluster_of"] = cluster_of
+        extra["members_by_cluster"] = members_by_cluster
 
     return simulate.QuarterInputs(md=md, md_map=md_map, idx=idx, mcap_wide=mcap_wide,
                                   uids_by_allocation=uids_by_allocation, m1d_cond=cond,
-                                  model=model, api_key=api_key,
+                                  model=model, api_key=api_key, market=tree_key,
                                   cap_weight_series=cap_weight_series,
-                                  ball_returns=ball_returns)
+                                  ball_returns=ball_returns, **extra)
 
 
 def run_rolling_simulation(*, run_id_prefix: str, model: str, api_key: str, dry_run: bool = True,
                            max_quarters: int | None = None, picks_path: Path = DEFAULT_PICKS_PATH,
                            tree_key: str = "TW", scheme: str = "rolling_6_2",
-                           window_no: int = 6) -> None:
+                           window_no: int = 6, quarter_ends: list[str] | None = None,
+                           registration_date: str | None = None,
+                           with_hot_segment: bool = False) -> None:
     """跟`simulate.run_simulation()`同一套主迴圈骨架（見該檔271~389行），
     只換掉QuarterInputs的建構方式；`run_quarter()`本身完全重用、未修改。
 
@@ -125,7 +154,16 @@ def run_rolling_simulation(*, run_id_prefix: str, model: str, api_key: str, dry_
     2026-09-23 code review抓到：若寫死同一個run_id，dry_run產生的checkpoint
     會讓後續真實跑（dry_run=False）續跑邏輯誤判成「8季全部已完成」而整批
     跳過，不會報錯，會靜默地讓使用者以為跑了一輪真的、其實零次真實LLM呼叫。
-    """
+
+    🔴 2026-10-14新增`quarter_ends`/`registration_date`/`with_hot_segment`：
+    原版這裡的季度迴圈跟state tracking曾經只支援M1-D（沒有Hot Segment／
+    回撤觸發的跨季state），而且季度清單／登記日都寫死沿用
+    `simulate.QUARTER_ENDS`/`REGISTRATION_DATE`（window4的2024-2025）——
+    測其他歷史窗口（例如window2，2018-2020，用來真正觸發Coverage Tilt／
+    RepSwap）完全沒辦法用。這次補齊：①跨季state tracking對齊`simulate.
+    run_simulation()`原生迴圈（hot_state/dd_state/nav/nav_peak/dd_history
+    全部跟著續跑／累積）②季度清單與登記日改成參數，None時退回window4的
+    既有預設值，保持向後相容。"""
     from app import agents
 
     if not dry_run:
@@ -134,12 +172,20 @@ def run_rolling_simulation(*, run_id_prefix: str, model: str, api_key: str, dry_
         print(f"今日額度用量：{totals}")
 
     inputs = build_rolling_inputs(model, api_key, picks_path=picks_path, tree_key=tree_key,
-                                  scheme=scheme, window_no=window_no)
-    quarters = simulate.QUARTER_ENDS[:max_quarters] if max_quarters else simulate.QUARTER_ENDS
+                                  scheme=scheme, window_no=window_no,
+                                  registration_date=registration_date,
+                                  with_hot_segment=with_hot_segment)
+    reg_date = registration_date or simulate.REGISTRATION_DATE
+    all_quarters = quarter_ends or simulate.QUARTER_ENDS
+    quarters = all_quarters[:max_quarters] if max_quarters else all_quarters
 
     for arm in simulate.ARMS:
         run_id = f"{run_id_prefix}_{arm}"
         state = "NONE"
+        hot_state = "NONE"
+        dd_state = "NONE"
+        nav, nav_peak = 1.0, 1.0
+        dd_history = pd.Series(dtype=float)
         prev_weights = None
         config = simulate.ActiveConfig()
         agent_a_memory: dict = {"recent_quarter_full": None, "earlier_quarters_summary": []}
@@ -149,6 +195,17 @@ def run_rolling_simulation(*, run_id_prefix: str, model: str, api_key: str, dry_
             last = max(checkpoints, key=lambda c: quarters.index(c["quarter_end"])
                        if c["quarter_end"] in quarters else -1)
             state = last["m1d"]["state"]
+            if last.get("hot_segment"):
+                hot_state = last["hot_segment"]["state"]
+            if last.get("drawdown"):
+                dd_state = last["drawdown"]["state"]
+                nav = last["drawdown"]["nav_after"]
+                nav_peak = last["drawdown"]["nav_peak_after"]
+                dd_points = {c["quarter_end"]: c["drawdown"]["current_dd"]
+                            for c in checkpoints if c.get("drawdown")}
+                dd_history = pd.Series(dd_points)
+                dd_history.index = pd.to_datetime(dd_history.index)
+                dd_history = dd_history.sort_index()
             agent_a_memory = last.get("agent_a_memory_after", agent_a_memory)
             excess_history = last.get("excess_history_after", [])
             if "config_after" in last:
@@ -160,13 +217,20 @@ def run_rolling_simulation(*, run_id_prefix: str, model: str, api_key: str, dry_
             if end in checkpoints_end:
                 print(f"[{arm}] {end} 已有 checkpoint，跳過")
                 continue
-            as_of = simulate.REGISTRATION_DATE if i == 0 else quarters[i - 1]
+            as_of = reg_date if i == 0 else quarters[i - 1]
             print(f"[{arm}] 執行 {as_of} -> {end} ...")
             result = simulate.run_quarter(inputs, arm=arm, as_of=as_of, end=end,
                                           prev_state=state, prev_weights=prev_weights,
                                           config=config, memory=agent_a_memory,
-                                          excess_history=excess_history, dry_run=dry_run)
+                                          excess_history=excess_history, dry_run=dry_run,
+                                          prev_hot_state=hot_state, prev_nav=nav,
+                                          nav_peak=nav_peak, dd_history=dd_history,
+                                          prev_dd_state=dd_state)
             state = result["m1d"]["state"]
+            hot_state = result["hot_segment"]["state"] if result["hot_segment"] else "NONE"
+            dd_state = result["drawdown"]["state"]
+            nav, nav_peak = result["drawdown"]["nav_after"], result["drawdown"]["nav_peak_after"]
+            dd_history[pd.Timestamp(end)] = result["drawdown"]["current_dd"]
             prev_weights = result["weights_end"]
             config = simulate.ActiveConfig(**result["config_after"])
             excess_history = excess_history + [result["outcome"]["excess_vs_ball"]]

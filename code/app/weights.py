@@ -28,14 +28,24 @@ window 1-3（M1-D 幾乎從未觸發）不會被拖累，這是它跟失敗版 W
 機制，由Hot Segment觸發（不是M1-D），見`coverage_tilt_weights()`/`apply_
 coverage_tilt()`——**跟W2c不是同一個驗證成熟度**，前置驗證效果是null/微負，
 不是已證實有效的動作，見`actions.coverage_tilt_reference()`的caveats。
+
+🔴 **2026-10-13使用者正式拍板：W2c觸發時的單股上限由7%改為30%**（原本7%只是
+D50驗證時的保守預設；`文件/研究進度報告_2026-10-05.md`§3.3/§七記錄了「40%
+可以打贏大盤」「老師要求補測7~30%中間值」的討論過程，使用者在此基礎上決定
+正式採用30%，台股/美股共用同一個數字，不分市場）。既有用7%算出的歷史結果
+（含TW headline的control0+11.16%/+14.44%→L2+32.73%/+38.17%、美股的8季
+模擬）都要用30%重新驗證才能正式引用，見對應的`_cap30`重跑腳本。
 """
 from __future__ import annotations
 
 C2_CAP = 0.08          # 設計文件 §2 C2：單一股票上限（法規/業界對照後的既有政策，
-                       # 全投組通用，不是 W2c 專屬——下面 Coverage Tilt 的護欄
-                       # 也是套用同一條政策，只是常數名稱歷史上先給了 W2c）
-W2C_TARGET_CAP = 0.07  # 實際套用的目標值（留 1pp 緩衝，見上方③）；Coverage Tilt
-                       # 的 `apply_coverage_tilt()` 也沿用同一個目標值，見下方
+                       # 全投組通用，不是 W2c 專屬——這是C2風控層本身的政策上限，
+                       # 跟下面W2c觸發時實際套用的目標上限是兩件事，2026-10-13
+                       # 使用者的30%決策只動W2C_TARGET_CAP，不動這個）
+W2C_TARGET_CAP = 0.30  # 2026-10-13使用者拍板：由7%改為30%（見上方docstring）。
+                       # Coverage Tilt的`apply_coverage_tilt()`也沿用這個常數，
+                       # 跟著變成30%——Coverage Tilt本身尚未採用，此處只是共用
+                       # 程式碼的連帶影響，不是對Coverage Tilt另外做了新決策
 
 
 def tilt_weights(w0: dict[str, float], mcap_row, alpha: float) -> dict[str, float]:
@@ -62,8 +72,10 @@ def cap_and_redistribute(weights: dict[str, float], cap: float = W2C_TARGET_CAP,
     """反覆把超過 `cap` 的持股砍到 `cap`，多出來的權重按比例分給還沒被砍過的
     持股，直到沒有人超過上限為止（標準的 iterative capping 演算法，MSCI
     25/50 上限型指數同一套邏輯，避免一次性重分配又把別的股票推過上限）。
-    D50 驗證：`cap=0.07`（預設，留緩衝）＋ proportional 重分配是最終定案版本；
-    敏感度測試過 equal-split 重分配，結論量級相近（見開發追蹤 D50 ④）。"""
+    D50 驗證：proportional 重分配是最終定案版本（敏感度測試過 equal-split
+    重分配，結論量級相近，見開發追蹤 D50 ④）；`cap` 預設值 2026-10-13起由
+    7%改為30%（使用者拍板，見本檔開頭docstring），重分配規則本身的定案
+    結論不受這次改動影響。"""
     w = dict(weights)
     for _ in range(max_iter):
         over = {s: v for s, v in w.items() if v > cap}
@@ -85,6 +97,108 @@ def apply_w2c(w0: dict[str, float], mcap_row) -> dict[str, float]:
     """W2c 觸發時的完整權重計算：α=0 市值加權 ＋ cap-and-redistribute。
     未觸發時應直接用 `tilt_weights(w0, mcap_row, 1.0)`（不傾斜），不呼叫這支函式。"""
     raw = tilt_weights(w0, mcap_row, 0.0)
+    return cap_and_redistribute(raw, cap=W2C_TARGET_CAP)
+
+
+# ============================================================ W2c-basket（2026-10-14新增，
+# 🔴 2026-10-14使用者正式拍板：台美股改用各自適合的W2c變體，不再共用單一
+# 設定（見下方`apply_w2c_for_market()`，是`simulate.py`實際呼叫的介面）。
+#
+# 背景與離線驗證（`app/_check_w2c_basket_offline.py`／`_check_w2c_basket_tw_
+# offline.py`／`_check_w2c_forced_full_period_offline.py`，皆用真實歷史報酬、
+# 不呼叫LLM）：
+#   - 美股window4真實8季LLM模擬（30%上限）：W2c單檔市值傾斜在真實套用的4季
+#     （2025Q1~Q4，注意跟agent「決策」當季有一季延遲，決策季本身還沿用上季
+#     設定）拖累表現——control0 +39.50% vs 單檔W2c **-1.45%**；查實際持股發現
+#     傾斜對象常是「手上市值最大但不保證是當季領漲」的股票（曾是RPAY這種
+#     跟AI行情無關的中小型支付公司，也曾是真正的AAPL/AVGO/TSLA），因為美股
+#     AI行情由Nvidia/蘋果/博通/特斯拉等多檔輪動領漲，沒有單一持續主導者。
+#   - 台股同一組真實觸發季（2025Q1~Q4）：單檔W2c control0 +14.44% vs
+#     **+44.18%**，因為傾斜對象幾乎永遠是台積電，而台積電恰好也是這段期間
+#     最強的持續贏家——「押注手上最大市值那一檔」在台股等於「押注真正的
+#     贏家」。
+#   - 籃子版本（K=3，往市值最大的3檔分散傾斜）：美股修好了（-1.45%→+39.62%，
+#     幾乎追平control0，不再拖累），但**台股的獲利也幾乎被稀釋光**
+#     （+44.18%→+14.76%，幾乎打回control0原點）——因為台股的獲利來源正是
+#     「集中」這件事本身，分散掉集中度＝分散掉獲利來源。
+#   ⇒ 籃子版本不是「兩邊都更好」的改良，是用犧牲台股獲利去換美股不再虧，
+#     是集中vs分散的取捨，不是免費午餐。兩個市場的最佳設定本來就不同，
+#     不應該共用一套參數。
+#
+# 🔴 這個市場專屬設定**只做過離線（不呼叫LLM）的歷史報酬驗證**，尚未跑過
+# 正式8季LLM模擬確認agent在面對美股basket版本時的決策行為是否一致——
+# 正式LLM驗證留給使用者決定何時執行（會花額度）。
+
+W2C_BASKET_K = 3  # 籃子預設大小，離線測試顯示K=3跟K=5效果幾乎相同，取較小值
+
+#: 2026-10-14使用者拍板：台美股各用適合自己的W2c變體，不共用單一設定。
+#: "single"＝現行`apply_w2c()`（市值最大單檔傾斜）；"basket"＝
+#: `apply_w2c_basket()`（市值最大K檔分散傾斜）。XM尚未定義（應用層目前
+#: 也不支援XM，見`monitor.fetch_mcap_wide()`的exchange對照表只有TW/US）。
+W2C_VARIANT_BY_MARKET = {"TW": "single", "US": "basket"}
+
+
+def apply_w2c_for_market(w0: dict[str, float], mcap_row, market: str) -> dict[str, float]:
+    """W2c觸發時的完整權重計算，依`W2C_VARIANT_BY_MARKET`自動選市場適合的
+    變體——`simulate.py`的`resolve_portfolio_weights()`應該呼叫這支，不要
+    直接呼叫`apply_w2c()`/`apply_w2c_basket()`，否則會漏掉市場專屬設定。"""
+    variant = W2C_VARIANT_BY_MARKET.get(market)
+    if variant is None:
+        raise ValueError(f"W2c尚未替市場「{market}」定義變體，見W2C_VARIANT_BY_MARKET")
+    if variant == "single":
+        return apply_w2c(w0, mcap_row)
+    if variant == "basket":
+        return apply_w2c_basket(w0, mcap_row, basket_k=W2C_BASKET_K)
+    raise ValueError(f"未知的W2c變體「{variant}」（市場「{market}」）")
+
+
+def tilt_weights_basket(w0: dict[str, float], mcap_row, alpha: float,
+                        basket_k: int = W2C_BASKET_K) -> dict[str, float]:
+    """`tilt_weights()`的多股籃子變體：先依市值排序找出目前持股裡最大的
+    `basket_k`檔組成籃子，籃子內部套用跟`tilt_weights()`同樣的
+    `w(s) ∝ w0(s)^alpha × mktcap(s)^(1-alpha)`公式重新分配**籃子內部**的
+    權重（籃子整體拿到的權重比例＝籃子內所有股票原始w0權重之和，不變），
+    籃子外的股票維持原始w0權重不變。alpha=0時，籃子內部變成純市值加權
+    （籃子內最大市值的仍拿最多，但不會像`tilt_weights`一樣讓單一一檔
+    吃下幾乎全部的傾斜權重）。
+
+    跟`tilt_weights`相同的立場：缺市值/非正權重的股票直接排除。`basket_k`
+    大於實際有效候選股數時，等同對全部有效候選股做`tilt_weights`（籃子
+    涵蓋全部，退化回原版）。
+    """
+    valid = {s: w for s, w in w0.items()
+            if w > 0 and mcap_row.get(s) is not None
+            and mcap_row.get(s) == mcap_row.get(s) and mcap_row.get(s) > 0}
+    if not valid:
+        return {}
+    if alpha >= 0.999:
+        total = sum(valid.values())
+        return {s: w / total for s, w in valid.items()} if total else {}
+
+    ranked = sorted(valid.items(), key=lambda kv: -mcap_row[kv[0]])
+    basket = dict(ranked[:basket_k])
+    rest = {s: w for s, w in valid.items() if s not in basket}
+
+    basket_raw = {s: (w ** alpha) * (mcap_row[s] ** (1 - alpha)) for s, w in basket.items()}
+    basket_raw_total = sum(basket_raw.values())
+    basket_w0_total = sum(basket.values())
+    if basket_raw_total > 0:
+        basket_scaled = {s: (v / basket_raw_total) * basket_w0_total
+                         for s, v in basket_raw.items()}
+    else:
+        basket_scaled = basket
+
+    merged = {**rest, **basket_scaled}
+    total = sum(merged.values())
+    return {s: v / total for s, v in merged.items()} if total else {}
+
+
+def apply_w2c_basket(w0: dict[str, float], mcap_row,
+                     basket_k: int = W2C_BASKET_K) -> dict[str, float]:
+    """W2c-basket變體的完整權重計算：α=0籃子市值加權＋沿用既有的
+    `cap_and_redistribute()`護欄（跟`apply_w2c()`同一個單股上限）。
+    🔴 實驗性，見本區塊開頭說明，不可當成已驗證的production機制引用。"""
+    raw = tilt_weights_basket(w0, mcap_row, 0.0, basket_k=basket_k)
     return cap_and_redistribute(raw, cap=W2C_TARGET_CAP)
 
 
@@ -157,7 +271,7 @@ def apply_coverage_tilt(md, idx, uids: list[str], as_of: str, hot_segment: list[
     （例如30個裡只有2個），這幾個策略的持股會被過度放大，可能讓單一股票權重
     衝到不合理的高點，等同繞過了C2（單一股票上限）這條全投組通用的政策。跟
     `apply_w2c()`共用同一個`cap_and_redistribute()`機制與同一個目標上限
-    （`W2C_TARGET_CAP`，7%，留1pp緩衝）——這是既有、已驗證過的護欄機制
+    （`W2C_TARGET_CAP`，2026-10-13起為30%）——這是既有、已驗證過的護欄機制
     （MSCI 25/50上限型指數同一套邏輯），不是重新發明一個新的。"""
     holdings, covers = resolve_holdings_and_coverage_frac(md, idx, uids, as_of, hot_segment)
     raw = coverage_tilt_weights(holdings, covers, uids, beta)

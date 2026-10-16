@@ -94,9 +94,23 @@ def run_quarterly_series(mcap_wide: pd.DataFrame, cond: M1DCondition,
 # 門檻用 2015-2023 歷史分布算出（見 `_analysis_outputs_applayer/hot_segment_coverage_test*.csv`，
 # `coverage_count`／N=市場已校準值／X=10%／calib_2015_2023 這個切面），XM 尚未校準，
 # 沿用時直接報錯，不可假設落在 TW/US 中間（跟 `monitor.hot_segment_layer()` 同一個立場）。
+#
+# 🔴🔴 2026-10-14重新校準TW：window2／window4兩次真實LLM模擬都發現現行門檻
+# 對我們實際用的exclude_v1名單形同虛設（coverage_count從未跌破），往回查
+# 才發現舊門檻是用`walkforward_members.parquet`的**baseline（含V1）**名單
+# 校準的，不是我們實際production用的exclude_v1名單——exclude_v1本身就會
+# 把覆蓋率推高（見4.2.3：40.1%→53.6%），用baseline校準出來的門檻，對
+# coverage天生較高的exclude_v1名單當然形同虛設。改用exclude_v1名單重新
+# 校準（`_recalibrate_hot_segment_exclude_v1.py`，2015-2023共36個季底，
+# N=3/X=10%不變，只換代表名單）：P25由0.3363→0.5743、P10由0.3080→0.5085。
+# 反查2024-2025：新門檻下8季裡有6季低於P25、3季低於P10（舊門檻下0季）——
+# 這代表不需要跳到window2，window4本身就能真正測到Hot Segment觸發。
+# US尚未做同一輪重新校準（exclude_v1對美股coverage的提升幅度不同，需要
+# 美股自己的`hot_segment_coverage_test_US.csv`等效重算，這次沒有做，US
+# 這裡維持舊值，之後若要用美股測Coverage Tilt/RepSwap要先做這一步）。
 
-HOT_SEGMENT_P25 = {"TW": 0.3363, "US": 0.3039}  # 觀察門檻：低於此值 → OBSERVING
-HOT_SEGMENT_P10 = {"TW": 0.3080, "US": 0.2595}  # 異常門檻：低於此值 → TRIGGERED
+HOT_SEGMENT_P25 = {"TW": 0.5743, "US": 0.3039}  # 觀察門檻：低於此值 → OBSERVING
+HOT_SEGMENT_P10 = {"TW": 0.5085, "US": 0.2595}  # 異常門檻：低於此值 → TRIGGERED
 
 
 @dataclasses.dataclass
@@ -231,5 +245,100 @@ def evaluate_drawdown_quarter(cond: DrawdownCondition, dd_history, as_of: str,
     action = {"NONE": "A0", "OBSERVING": "A4", "TRIGGERED": "A5"}[new_state]
     return {
         "current_dd": current_dd, "percentile": pct, "p75": cond.p75, "p90": cond.p90,
+        "prev_state": prev_state, "state": new_state, "action": action,
+    }
+
+
+# ============================================================ M2：策略群集中度
+# （2026-10-14新增，跟 M1-D／Hot Segment／回撤觸發平行、獨立判定）
+#
+# 背景：2026-09-17`開發待辦追蹤.md`曾把這個判準（當時稱M2）判定「結構性
+# 測不到」——理由是即時系統用的輕量持股解析管線，當時拿不到HRP分群指派
+# 資料。2026-10-08做RepSwap時，已經把`cluster_assign.parquet`的分群指派
+# 正式接進即時管線（`weights.load_cluster_membership()`），這個阻礙已經
+# 不存在，但沒有人回頭把M2接起來——2026-10-14查證美股exclude_v1的代表
+# 策略名單時，意外發現這份名單本身（還沒有任何RepSwap活動介入）就已經
+# 集中56%在單一HRP群（4群，理想值25%），直接證實這個監控有實際意義，
+# 不是空想。
+#
+# 🔴🔴 誠實標註：下面的p75/p90門檻**不是從真實歷史分布校準出來的**（跟
+# M1-D/Hot Segment不同）——建立這種校準需要在許多歷史窗口上重跑整套
+# build_silhouette_picks()流程去累積max_cluster_share的實證分布，是一個
+# 獨立的校準專案，這次沒有做。這裡暫時用「相對理論均勻值（1/k）的倍數」
+# 當一個**說得出道理但未經驗證**的暫定門檻（1.5倍→觀察，2倍→異常），
+# 跟目前已查到的台股1.5倍（不觸發）／美股2.24倍（觸發）剛好一致，但這個
+# 一致性是觀察到的巧合，不是校準出來的保證，寫論文時這條限制要誠實揭露，
+# 不可宣稱已完成校準。
+M2_P75_MULTIPLE = 1.5
+M2_P90_MULTIPLE = 2.0
+
+
+@dataclasses.dataclass
+class M2Condition:
+    """跟`M1DCondition`平行，但這裡登記的是「理想均勻值」（1/k，k=HRP群數），
+    不是某個時間點的水準——群集中度的比較基準本來就是結構性的（跨幾個群
+    平均分配），不是時間序列上的某個登記點。"""
+    k: int
+    ideal_share: float
+    p75_multiple: float = M2_P75_MULTIPLE
+    p90_multiple: float = M2_P90_MULTIPLE
+
+
+def register_m2(k: int, p75_multiple: float = M2_P75_MULTIPLE,
+               p90_multiple: float = M2_P90_MULTIPLE) -> M2Condition:
+    """階段 1：登記這棵樹的群數 k，算出理論均勻值 1/k 當比較基準。"""
+    if k <= 0:
+        raise ValueError(f"k 必須是正整數，收到 {k}")
+    return M2Condition(k=k, ideal_share=1.0 / k, p75_multiple=p75_multiple,
+                       p90_multiple=p90_multiple)
+
+
+def max_cluster_share(cluster_of: dict, member_uids) -> float:
+    """目前持股（代表策略清單）裡，跨HRP群分布的最大單群佔比——用策略檔數
+    計（適用`allocation="equal"`，每檔策略權重相同時，檔數佔比＝權重佔比；
+    `allocation="proportional"`時這個簡化不精確，是已知限制，之後若要支援
+    proportional需要改成吃權重字典而非純檔數）。缺分群指派的策略直接排除
+    （跟`tilt_weights`等既有函式「量不到就不裝作有」同一個立場）。"""
+    from collections import Counter
+    labeled = [cluster_of[u] for u in member_uids if u in cluster_of and cluster_of[u] is not None]
+    if not labeled:
+        return float("nan")
+    counts = Counter(labeled)
+    return max(counts.values()) / len(labeled)
+
+
+def evaluate_m2_quarter(cond: M2Condition, cluster_of: dict, member_uids,
+                        prev_state: str) -> dict:
+    """階段 2：每季比對。跟M1-D/Hot Segment同一套雙門檻遲滯設計：
+    超過p90倍數→TRIGGERED；介於p75~p90倍數之間→維持或升級為OBSERVING；
+    低於p75倍數→解除回NONE。
+
+    🔴🔴 這裡的回傳值只能驅動A0／A4／A5（不改投組）——群集中度本身是
+    「代表策略清單的結構屬性」，不是「市場端的即時訊號」，目前沒有對應的
+    投組變更動作設計（跟drawdown同一個定位，見設計文件原表「M2策略群集中度
+    過高→A2」雖然列了A2，但A2（切換equal/proportional配置）不解決群集中度
+    本身的問題，只是換一種配權方式，兩者關係尚未釐清，這次先只接A0/A4/A5
+    這個保守版本，A2要不要真的接上留給之後決定）。
+    """
+    share = max_cluster_share(cluster_of, member_uids)
+    if share != share:  # NaN
+        action = {"NONE": "A0", "OBSERVING": "A4", "TRIGGERED": "A5"}[prev_state]
+        return {"max_cluster_share": share, "ideal_share": cond.ideal_share,
+               "ratio_to_ideal": float("nan"), "k": cond.k,
+               "prev_state": prev_state, "state": prev_state, "action": action,
+               "note": "代表策略清單缺分群指派資料，本季不判定、維持上一季狀態不變"}
+
+    ratio = share / cond.ideal_share
+    if ratio > cond.p90_multiple:
+        new_state = "TRIGGERED"
+    elif ratio > cond.p75_multiple:
+        new_state = "TRIGGERED" if prev_state == "TRIGGERED" else "OBSERVING"
+    else:
+        new_state = "NONE"
+
+    action = {"NONE": "A0", "OBSERVING": "A4", "TRIGGERED": "A5"}[new_state]
+    return {
+        "max_cluster_share": round(share, 4), "ideal_share": round(cond.ideal_share, 4),
+        "ratio_to_ideal": round(ratio, 2), "k": cond.k,
         "prev_state": prev_state, "state": new_state, "action": action,
     }

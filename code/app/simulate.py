@@ -112,6 +112,10 @@ class QuarterInputs:
     m1d_cond: object          # triggers.M1DCondition
     model: str
     api_key: str
+    market: str = "TW"  # 2026-10-14新增：W2c現在依市場選變體（見`weights.
+                        # W2C_VARIANT_BY_MARKET`），`resolve_portfolio_weights()`
+                        # 需要知道目前是哪個市場才能呼叫`apply_w2c_for_market()`。
+                        # 預設"TW"只是為了不破壞舊呼叫端，正式呼叫一律要明確傳。
     cap_weight_series: object = None  # taiex_tr 序列，給 outcome_layer 算
                                       # excess_vs_cap_weight 用（code review
                                       # 抓到之前沒接，這欄一直是空的）
@@ -166,7 +170,9 @@ def resolve_portfolio_weights(inputs: QuarterInputs, config: ActiveConfig,
     算純等權（Hot Segment清單用`as_of`自己當下重算，不沿用季末算好的清單——
     跟`resolve_weights()`本身「持股隨as_of/end各自變動」是同一個時序精神）；
     再若 `apply_w2c` 為真，在這個 w0 之上疊加 W2c 的股票層級市值傾斜
-    （§7.5，D50/D51）。W2c 跟（Coverage Tilt／RepSwap 兩者之一）可以同時觸發
+    （§7.5，D50/D51；2026-10-14起依`inputs.market`透過`weights.
+    apply_w2c_for_market()`選市場適合的變體——台股維持原版單檔傾斜、美股改用
+    籃子版，見該函式docstring的離線驗證數字）。W2c 跟（Coverage Tilt／RepSwap 兩者之一）可以同時觸發
     （各自獨立判定，見 triggers.py：M1-D 跟 Hot Segment 平行），套用順序是先
     策略層再股票層；但 Coverage Tilt／RepSwap 兩者本身互斥——`apply_coverage_
     tilt`／`apply_rep_swap` 不會同時為真（由 `config.last_decision_was_*` 決定，
@@ -208,7 +214,7 @@ def resolve_portfolio_weights(inputs: QuarterInputs, config: ActiveConfig,
     if not apply_w2c:
         return w0
     mcap_row = monitor.asof_row(inputs.mcap_wide, as_of)
-    return weights_mod.apply_w2c(w0, mcap_row)
+    return weights_mod.apply_w2c_for_market(w0, mcap_row, inputs.market)
 
 
 def run_quarter(inputs: QuarterInputs, *, arm: str, as_of: str, end: str,
@@ -462,7 +468,7 @@ def run_simulation(run_id: str, *, model: str, api_key: str, dry_run: bool = Tru
         cluster_assign_path, tree_id="TW_normal")
     inputs = QuarterInputs(md=md, md_map=md_map, idx=idx, mcap_wide=mcap_wide,
                            uids_by_allocation=uids_by_allocation, m1d_cond=cond,
-                           model=model, api_key=api_key,
+                           model=model, api_key=api_key, market="TW",
                            cap_weight_series=cap_weight_series,
                            ball_returns=ball_returns,
                            hot_segment_cond=hot_segment_cond,

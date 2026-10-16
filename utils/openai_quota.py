@@ -45,6 +45,7 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import json
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -72,8 +73,14 @@ REQUEST_TIMEOUT = 15   # 秒。查用量是輕量的 metadata 讀取，不是模
 #    （代表「不在免費名單」），**不做寬鬆猜測**——猜錯的代價是靜默燒錢，
 #    而漏判的代價只是多問一句，兩者不對稱。
 
+# 🔴 2026-10-13：使用者明確同意「今天的W2c上限30%重跑可以花錢，不要被煞車擋下」
+# （台股headline+美股兩組都要重跑，單日免費額度不夠）。加一個**環境變數驅動、
+# 當次執行階段性**的override，不直接改這兩個數字本身——改這兩個數字等於永久
+# 關掉煞車，會波及明天之後所有跑，不是使用者的意圖（使用者只同意「今天」付費）。
+# 只有顯式設定 `OPENAI_PAID_OVERRIDE=1` 的那次執行才會解除煞車，預設行為完全不變。
+_PAID_OVERRIDE = os.environ.get("OPENAI_PAID_OVERRIDE") == "1"
 FREE_TIER_LIMITS = {
-    "standard": 1_000_000,
+    "standard": 1_000_000_000 if _PAID_OVERRIDE else 1_000_000,
     "mini": 10_000_000,
 }
 

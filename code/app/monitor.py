@@ -33,14 +33,29 @@ TOPN = 10
 # ============================================================ 資料載入（共用）
 
 def fetch_mcap_wide(conn, market: str = MARKET, start: str = "2007-01-01") -> pd.DataFrame:
-    """全市場逐日市值，寬表（index=date, columns=symbol）。"""
+    """全市場逐日市值，寬表（index=date, columns=symbol）。
+
+    🔴 2026-10-13：`stock.market_capital`（美股）自2022-03-31起斷流，已回報
+    collector。2026-10-13查證collector尚未修好這個欄位本身（US `market_capital`
+    仍停在2022-03-31，跟修復前一樣），但**新填了`stock.outstanding_shares`**
+    （原本是永久空的，現在一路有資料到2026-08-19，2024-2025每月約40~45%個股
+    有值，且用`close×outstanding_shares`對2025-12-31重算驗證過，前15大剛好
+    對應NVDA/AAPL/GOOG/MSFT等真實市值排名，數字合理可信）。因此改用
+    `COALESCE(market_capital, close*outstanding_shares)`：`market_capital`
+    有值就用真值（2022-03以前、以及台股全期間都走這條），沒有值才落回用
+    `close×outstanding_shares`自算的市值代理（美股2022-04起走這條）。
+    """
     exch = {"TW": "('TWSE')", "US": "('NASDAQ','NYSE','AMEX')"}[market]
-    q = (f"SELECT s.date, c.company_symbol, s.market_capital FROM stock s "
-        f"JOIN company c ON s.company_id=c.id WHERE c.exchange_name IN {exch} "
-        f"AND s.market_capital IS NOT NULL AND s.date >= '{start}' ORDER BY s.date")
+    q = (f"SELECT s.date, c.company_symbol, "
+        f"COALESCE(s.market_capital, s.close * s.outstanding_shares) AS mcap "
+        f"FROM stock s JOIN company c ON s.company_id=c.id "
+        f"WHERE c.exchange_name IN {exch} "
+        f"AND (s.market_capital IS NOT NULL "
+        f"     OR (s.close IS NOT NULL AND s.outstanding_shares IS NOT NULL)) "
+        f"AND s.date >= '{start}' ORDER BY s.date")
     d = pd.read_sql(q, conn)
     d["date"] = pd.to_datetime(d["date"])
-    return d.pivot_table(index="date", columns="company_symbol", values="market_capital", aggfunc="last")
+    return d.pivot_table(index="date", columns="company_symbol", values="mcap", aggfunc="last")
 
 
 def asof_row(wide: pd.DataFrame, as_of: str) -> pd.Series:

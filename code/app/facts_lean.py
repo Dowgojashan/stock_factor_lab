@@ -87,15 +87,30 @@ def three_tier_state_csv(env: dict, proc: dict) -> str:
 
 def m1d_state_csv(m1d: dict) -> str:
     """M1-D（triggers.py 的 evaluate_quarter 輸出）——這是預測區**唯一**可以
-    驅動動作的判準（§7.4「M1 的三個角色」）。"""
+    驅動動作的判準（§7.4「M1 的三個角色」）。
+
+    🔴 2026-10-14新增`dist_to_p75`/`dist_to_p90`：window2真實跑測出一個D2
+    洩漏掃描的誤判案例——`agents.py`的3b schema原本要求LLM自己算「距門檻
+    還有多遠」（`value - p75`這類減法），但D2掃描是逐字比對、不接受LLM自己
+    算出來的衍生數字，兩邊互相矛盾，LLM照schema說明做了減法反而被自己的
+    系統擋下。修法：距離直接在這裡算好、當成一般數字提供，LLM只需要照抄，
+    不要再自己做任何加減——這跟`cumulative_deviation`本來就是程式算好這件事
+    是同一個原則，不應該讓LLM重算一部分、程式算另一部分。"""
+    dist_to_p75 = round(m1d["p75"] - m1d["cumulative_deviation"], 4)
+    dist_to_p90 = round(m1d["p90"] - m1d["cumulative_deviation"], 4)
     rows = [{
         "metric": "q1_weight", "value": round(m1d["q1_weight"], 4),
         "registration": round(m1d["registration_q1_weight"], 4),
         "deviation": round(m1d["cumulative_deviation"], 4),
         "p75": m1d["p75"], "p90": m1d["p90"],
+        "dist_to_p75": dist_to_p75, "dist_to_p90": dist_to_p90,
         "state": m1d["state"], "action": m1d["action"],
     }]
-    return _to_csv(rows, columns=["metric", "value", "registration", "deviation", "p75", "p90", "state"])
+    # 🔴 2026-10-14：加了dist_to_p75/p90後總共9個候選欄位，超過§12.3的8欄上限
+    # ——"metric"永遠是常數"q1_weight"（這張表本來就只量M1-D這一個指標，欄名
+    # 已經講了），資訊量最低，拿掉它換兩個真正新增的距離數字進來最划算。
+    return _to_csv(rows, columns=["value", "registration", "deviation",
+                                  "p75", "p90", "dist_to_p75", "dist_to_p90", "state"])
     # 注意：action 欄位刻意不放進 CSV——那是程式已經決定好的動作，不該讓 agent
     # 誤以為那是「建議」而照抄；action 用另一個管道單獨提供給流程控制邏輯。
 
@@ -104,14 +119,19 @@ def hot_segment_state_csv(hot_segment: dict) -> str:
     """Hot Segment（triggers.py 的 evaluate_hot_segment_quarter 輸出）——跟 M1-D
     平行、獨立的第二個可以驅動動作的判準（設計文件§7.4b③，2026-09-29接線）。
     跟 `m1d_state_csv()` 同樣的規則：action 欄位不放進 CSV，避免 agent 誤把程式
-    決定的基準動作當成「建議」照抄。"""
+    決定的基準動作當成「建議」照抄。`dist_to_p25`/`dist_to_p10`：2026-10-14
+    新增，理由跟`m1d_state_csv()`同一個（見該函式docstring）。"""
+    value = hot_segment["coverage_count"]
+    has_value = value == value  # NaN 檢查
     rows = [{
-        "metric": "coverage_count", "value": round(hot_segment["coverage_count"], 4)
-                 if hot_segment["coverage_count"] == hot_segment["coverage_count"] else None,
+        "metric": "coverage_count", "value": round(value, 4) if has_value else None,
         "p25": hot_segment["p25"], "p10": hot_segment["p10"],
+        "dist_to_p25": round(value - hot_segment["p25"], 4) if has_value else None,
+        "dist_to_p10": round(value - hot_segment["p10"], 4) if has_value else None,
         "state": hot_segment["state"],
     }]
-    return _to_csv(rows, columns=["metric", "value", "p25", "p10", "state"])
+    return _to_csv(rows, columns=["metric", "value", "p25", "p10",
+                                  "dist_to_p25", "dist_to_p10", "state"])
 
 
 def available_actions_csv(actions: list[dict]) -> str:

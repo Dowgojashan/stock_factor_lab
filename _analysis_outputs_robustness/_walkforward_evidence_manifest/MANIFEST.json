@@ -1,7 +1,7 @@
 {
   "stage": "walkforward_evidence",
-  "produced_at": "2026-09-06T11:28:28",
-  "git_sha": "fc40f3a",
+  "produced_at": "2026-10-14T16:32:16",
+  "git_sha": "490bc5c",
   "params": {
     "alpha": 0.05,
     "quantiles": [
@@ -16,36 +16,36 @@
   "inputs": [
     {
       "path": "_analysis_outputs_robustness\\walkforward_matrix_detail.csv",
-      "sha256": "719af3e4824af37cbb15f45f9d344906b21144abd0548ab932b73d831bc126cd",
-      "bytes": 2222625
+      "sha256": "b6fe48bff7c464e38ea7d323fddda7c398c94ca1fb53b644090828a1ef8b047a",
+      "bytes": 2209007
     },
     {
       "path": "_analysis_outputs_robustness\\walkforward_members.parquet",
-      "sha256": "4703c885f514628dfccae52e189e5615f0c356d9660353524bdf3cf042f22ef6",
-      "bytes": 3932801,
+      "sha256": "b373552608f50fbdd71f42bd3919681760a3ce5f58a6adca8612b7cf698435e7",
+      "bytes": 89728529,
       "rows": 8100
     },
     {
       "path": "_analysis_outputs_robustness\\walkforward_significance.csv",
-      "sha256": "fa311e012e21f4dc19e3c2a481fa6cc0850211c33da8663fae0c9b95b3eda3f8",
-      "bytes": 23149
+      "sha256": "4f482c362a78b29d8b530c4d1a6eada0b5ce604e16e09f637b4af20563e1e7e6",
+      "bytes": 22774
     }
   ],
   "outputs": [
     {
       "path": "_analysis_outputs_robustness\\wf_effect_distribution.csv",
-      "sha256": "062fa19a995cf7e931dd37df4b70368e71bb28c7913620312ce84e3c18cfea59",
-      "bytes": 6108
+      "sha256": "81be6d4692f12141799cbb140e5a3f10243f7e7ee273057fb0f75336d35e8774",
+      "bytes": 6176
     },
     {
       "path": "_analysis_outputs_robustness\\wf_multiplicity.csv",
-      "sha256": "f18ad768a6292cef64d749693b643a2af66c8e7c026f75d8ae189d831fa23f26",
-      "bytes": 776
+      "sha256": "68288895af43c9d446e9afa349970c8ed290eb82836e24ae2fdc2f1bd8da5acb",
+      "bytes": 804
     },
     {
       "path": "_analysis_outputs_robustness\\wf_window_overlap.csv",
-      "sha256": "65a09d032a64087eb5fceba90982205fc922938016248e987bf360bd6cbbcaa6",
-      "bytes": 289750
+      "sha256": "6726c1e719cbcc1490c940c79d7844b154cbcac636f7bd8f223a95ca6ba2071e",
+      "bytes": 296384
     }
   ],
   "notes": "M-10：效果量分布、多重比較校正（BH + Bonferroni）、相鄰窗次選股重疊。重疊分析不修正任何既有 p 值，只把「窗次獨立」的假設量化揭露。"
