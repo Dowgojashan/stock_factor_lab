@@ -2,11 +2,23 @@
 """2026-10-16：補算台美股8季真實LLM生產模擬（window4，2024-2025）的MDD，
 給老師報告用。只讀既有checkpoint，不重跑、不呼叫LLM。
 
-MDD算法：checkpoint['drawdown']['current_dd']已經是「相對截至當季為止歷史
-高點的回撤」（nav_after/nav_peak_after - 1），取8季裡最小值（最負）即為
-這段視窗內的已實現MDD。
+🔴 2026-10-17修正（外部審閱抓到的頻率不一致問題）：策略MDD是用checkpoint的
+季報酬複利重建nav（只有9個點：期初+8季末），大盤原本卻是用taiex_tr/sp500_tr
+的**日頻**資料算MDD——季頻會漏掉季內的回撤（例如2025年4月的關稅暴跌就發生
+在季內），日頻大盤數字因此系統性大於季頻策略數字，兩者不是同一個量尺，
+不能直接比較「策略MDD遠小於大盤」。
 
-同時算TAIEX／S&P500 TR同一段視窗（2023-12-31→2025-12-31）的MDD當對照基準。
+修正後本腳本同時輸出兩種大盤MDD：
+①`_series_mdd()`：日頻，保留當對照／上下文參考，但明確標註不可跟策略MDD
+  直接比較
+②`_series_mdd_at_dates()`：**只在策略checkpoint的同一組9個日期（期初+8季末）
+  取樣**算MDD，這才是跟策略MDD頻率一致、可以公平比較的版本——代價是這個
+  版本本身也會低估大盤的「真實」日頻MDD（因為一樣漏掉季內波動），但至少
+  策略跟大盤用的是同一把尺。
+
+MDD算法（策略端）：從outcome.portfolio_realized_return逐季複利重建nav序列
+（不依賴checkpoint裡的drawdown欄位——2026-10-08前跑的舊版checkpoint沒有
+這個欄位，用drawdown.current_dd會對這些run直接KeyError）。
 
 用法：cd code; PYTHONIOENCODING=utf-8 python -m app._compute_mdd_production_runs
 """
@@ -55,8 +67,26 @@ def _mdd_and_cum(cps: list[dict]) -> tuple[float, float, int]:
 
 
 def _series_mdd(dates: pd.Series, closes: pd.Series, start: str, end: str) -> float:
+    """日頻MDD——保留當背景參考，不可直接跟策略的季頻MDD比較，見檔頭說明。"""
     s = closes[(dates >= pd.Timestamp(start)) & (dates <= pd.Timestamp(end))]
     nav = s / s.iloc[0]
+    peak = nav.cummax()
+    return float((nav / peak - 1).min())
+
+
+def _series_mdd_at_dates(dates: pd.Series, closes: pd.Series, sample_dates: list[str]) -> float:
+    """🆕 2026-10-17新增：只在sample_dates（期初+8季末，共9點）取樣算MDD，
+    跟策略端checkpoint的季頻nav序列用同一把尺，才是可以公平比較的版本。
+    每個sample date取「當天或之前最近一個交易日」的收盤價（asof語意）。"""
+    s = pd.Series(closes.values, index=pd.DatetimeIndex(dates)).sort_index()
+    sampled = []
+    for d in sample_dates:
+        ts = pd.Timestamp(d)
+        prior = s[s.index <= ts]
+        if len(prior) == 0:
+            raise ValueError(f"{d} 之前查無任何交易日資料")
+        sampled.append(prior.iloc[-1])
+    nav = pd.Series(sampled) / sampled[0]
     peak = nav.cummax()
     return float((nav / peak - 1).min())
 
@@ -111,21 +141,26 @@ def main():
         print(f"\n⚠️ 以下組合checkpoint數不是8，數字可能不完整：\n{missing}")
 
     # --- 大盤對照：TAIEX / S&P500 TR 同期MDD ---
-    print("\n=== 大盤對照（同一段視窗 2023-12-31 -> 2025-12-31）===")
+    sample_dates = [REGISTRATION_DATE] + list(QUARTER_ENDS)
+    print(f"\n=== 大盤對照（同一段視窗 {REGISTRATION_DATE} -> {QUARTER_ENDS[-1]}）===")
     db = Database("TW")
     conn = db.create_connection()
     tx = pd.read_sql("SELECT date, close FROM taiex_tr ORDER BY date", conn)
     tx["date"] = pd.to_datetime(tx["date"])
-    taiex_mdd = _series_mdd(tx["date"], tx["close"].astype(float),
-                            REGISTRATION_DATE, QUARTER_ENDS[-1])
-    print(f"TAIEX TR MDD：{taiex_mdd:+.2%}")
+    taiex_mdd_daily = _series_mdd(tx["date"], tx["close"].astype(float),
+                                  REGISTRATION_DATE, QUARTER_ENDS[-1])
+    taiex_mdd_q = _series_mdd_at_dates(tx["date"], tx["close"].astype(float), sample_dates)
+    print(f"TAIEX TR MDD（日頻，僅供參考，不可跟策略MDD直接比較）：{taiex_mdd_daily:+.2%}")
+    print(f"TAIEX TR MDD（季頻，跟策略同一組9個日期取樣，可公平比較）：{taiex_mdd_q:+.2%}")
 
     try:
         sp = pd.read_sql("SELECT date, close FROM sp500_tr ORDER BY date", conn)
         sp["date"] = pd.to_datetime(sp["date"])
-        sp500_mdd = _series_mdd(sp["date"], sp["close"].astype(float),
-                                REGISTRATION_DATE, QUARTER_ENDS[-1])
-        print(f"S&P500 TR MDD：{sp500_mdd:+.2%}")
+        sp500_mdd_daily = _series_mdd(sp["date"], sp["close"].astype(float),
+                                      REGISTRATION_DATE, QUARTER_ENDS[-1])
+        sp500_mdd_q = _series_mdd_at_dates(sp["date"], sp["close"].astype(float), sample_dates)
+        print(f"S&P500 TR MDD（日頻，僅供參考）：{sp500_mdd_daily:+.2%}")
+        print(f"S&P500 TR MDD（季頻，可公平比較）：{sp500_mdd_q:+.2%}")
     except Exception as e:
         print(f"S&P500 TR 查詢失敗：{e}")
 
