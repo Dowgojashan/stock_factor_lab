@@ -153,6 +153,7 @@ def main():
     print(f"TAIEX TR MDD（日頻，僅供參考，不可跟策略MDD直接比較）：{taiex_mdd_daily:+.2%}")
     print(f"TAIEX TR MDD（季頻，跟策略同一組9個日期取樣，可公平比較）：{taiex_mdd_q:+.2%}")
 
+    sp500_mdd_daily = sp500_mdd_q = float("nan")
     try:
         sp = pd.read_sql("SELECT date, close FROM sp500_tr ORDER BY date", conn)
         sp["date"] = pd.to_datetime(sp["date"])
@@ -168,6 +169,22 @@ def main():
                / "production_runs_mdd_window4.csv")
     df.to_csv(out_path, index=False, encoding="utf-8-sig")
     print(f"\n寫入 {out_path}")
+
+    # 🆕 2026-10-17：大盤MDD之前只印不存，外部審閱指出無法追溯，這裡補存成獨立CSV
+    bench_path = (Path(__file__).resolve().parent.parent.parent / "_analysis_outputs_applayer"
+                 / "production_runs_mdd_benchmark.csv")
+    bench_df = pd.DataFrame([
+        dict(index="TAIEX_TR", market="TW", freq="daily", mdd_pct=taiex_mdd_daily * 100,
+            note="日頻，不可跟策略季頻MDD直接比較"),
+        dict(index="TAIEX_TR", market="TW", freq="quarterly_matched", mdd_pct=taiex_mdd_q * 100,
+            note=f"跟策略同一組{len(sample_dates)}個日期取樣，可公平比較"),
+        dict(index="SP500_TR", market="US", freq="daily", mdd_pct=sp500_mdd_daily * 100,
+            note="日頻，不可跟策略季頻MDD直接比較"),
+        dict(index="SP500_TR", market="US", freq="quarterly_matched", mdd_pct=sp500_mdd_q * 100,
+            note=f"跟策略同一組{len(sample_dates)}個日期取樣，可公平比較"),
+    ])
+    bench_df.to_csv(bench_path, index=False, encoding="utf-8-sig")
+    print(f"寫入 {bench_path}")
 
 
 if __name__ == "__main__":

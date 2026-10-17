@@ -1,0 +1,5 @@
+﻿index,market,freq,mdd_pct,note
+TAIEX_TR,TW,daily,-27.718983097883765,日頻，不可跟策略季頻MDD直接比較
+TAIEX_TR,TW,quarterly_matched,-9.89407345707145,跟策略同一組9個日期取樣，可公平比較
+SP500_TR,US,daily,-18.747178078947158,日頻，不可跟策略季頻MDD直接比較
+SP500_TR,US,quarterly_matched,-4.272061215322398,跟策略同一組9個日期取樣，可公平比較
