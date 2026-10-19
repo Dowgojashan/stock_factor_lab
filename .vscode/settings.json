@@ -2,5 +2,35 @@
     "[python]": {
         "editor.defaultFormatter": "ms-python.black-formatter"
     },
-    "python.formatting.provider": "none"
+    "python.formatting.provider": "none",
+
+    // ---- LaTeX Workshop（論文/）：用 MiKTeX 的 XeLaTeX + biber（這台機器沒有 Perl，不能用預設的 latexmk）----
+    // 用完整路徑呼叫，不依賴 VS Code 啟動時的 PATH。
+    "latex-workshop.latex.tools": [
+        {
+            "name": "xelatex",
+            "command": "${env:LOCALAPPDATA}/Programs/MiKTeX/miktex/bin/x64/xelatex.exe",
+            "args": ["-synctex=1", "-interaction=nonstopmode", "-file-line-error", "%DOC%"]
+        },
+        {
+            "name": "biber",
+            "command": "${env:LOCALAPPDATA}/Programs/MiKTeX/miktex/bin/x64/biber.exe",
+            "args": ["%DOCFILE%"]
+        }
+    ],
+    "latex-workshop.latex.recipes": [
+        {
+            "name": "XeLaTeX → biber → XeLaTeX ×2（論文）",
+            "tools": ["xelatex", "biber", "xelatex", "xelatex"]
+        },
+        {
+            "name": "XeLaTeX（快速，不跑參考文獻）",
+            "tools": ["xelatex"]
+        }
+    ],
+    "latex-workshop.latex.recipe.default": "first",
+    "latex-workshop.latex.autoBuild.run": "onSave",
+    "latex-workshop.view.pdf.viewer": "tab",
+    "latex-workshop.latex.autoClean.run": "never",
+    "latex-workshop.message.latexlog.exclude": ["Underfull .hbox", "Overfull .hbox"]
 }

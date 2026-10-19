@@ -64,7 +64,8 @@ _MCAP_WIDE_START = "2007-01-01"
 def build_rolling_inputs(model: str, api_key: str, *, picks_path: Path = DEFAULT_PICKS_PATH,
                          tree_key: str = "TW", scheme: str = "rolling_6_2",
                          window_no: int = 6, registration_date: str | None = None,
-                         with_hot_segment: bool = False) -> simulate.QuarterInputs:
+                         with_hot_segment: bool = False,
+                         hot_segment_pool: str | None = None) -> simulate.QuarterInputs:
     """複製`simulate.run_simulation()`的setup邏輯（見該檔291~328行），只把
     `uids_by_allocation`的來源從anchored的`walkforward_members.parquet`
     （scheme="E"/window_no=4）換成呼叫端指定的picks parquet
@@ -89,6 +90,13 @@ def build_rolling_inputs(model: str, api_key: str, *, picks_path: Path = DEFAULT
         cluster_assign.parquet`的`{tree_key}_normal`——這是全時間窗建的樹，
         不隨window_no變化（跟HRP分群本身的設計一致：樹只建一次，walk-forward
         窗口只是從同一棵樹的IS段選代表、OOS段驗證，不是每個窗口各建一棵樹）。
+      - `hot_segment_pool`：🔴🔴 2026-10-19新增，`with_hot_segment=True`時
+        **必填**（沒有預設值）——Hot Segment門檻現在依`(market, pool)`兩層
+        校準（見`triggers.HOT_SEGMENT_P25`），`picks_path`指到baseline還是
+        exclude_v1候選池，`hot_segment_pool`就要對應傳"baseline"／
+        "exclude_v1"，兩者不保證一致，不接受省略去悄悄猜（之前就是因為
+        TW只留了exclude_v1那組門檻、baseline校準完沒地方放，才會有「門檻
+        用錯候選池」的風險，見`triggers.py`該段說明）。
     """
     import fcv_core  # noqa: F401  sys.path bootstrap
     from database import Database
@@ -121,18 +129,32 @@ def build_rolling_inputs(model: str, api_key: str, *, picks_path: Path = DEFAULT
 
     # M1-D只看指數端集中度（mcap_wide），跟候選池anchored/rolling無關，
     # 直接沿用跟production同一套register_m1d，見本檔docstring說明
+    # 🔴 2026-10-18：market=tree_key明確傳入——門檻已改成按市場分開校準
+    # （triggers.X_P90/X_P75），TW/US兩個市場的門檻不一樣，不能漏傳悄悄
+    # 退回預設"TW"（美股若漏傳會用錯台股的門檻，跟之前Hot Segment
+    # 漏傳market=tree_key同一類bug，見`build_rolling_inputs()`docstring
+    # 2026-10-13的教訓）。
     reg_date = registration_date or simulate.REGISTRATION_DATE
-    cond = triggers.register_m1d(mcap_wide, reg_date)
+    cond = triggers.register_m1d(mcap_wide, reg_date, market=tree_key)
 
     extra = {}
     if with_hot_segment:
-        extra["hot_segment_cond"] = triggers.register_hot_segment(tree_key)
+        if hot_segment_pool is None:
+            raise ValueError("with_hot_segment=True 但未指定 hot_segment_pool"
+                             "（\"baseline\" 或 \"exclude_v1\"）——不接受省略，"
+                             "見本函式 docstring 2026-10-19 說明")
+        extra["hot_segment_cond"] = triggers.register_hot_segment(tree_key, hot_segment_pool)
         cluster_assign_path = (Path(__file__).resolve().parent.parent.parent
                                / "_frozen" / "stage3" / "cluster_assign.parquet")
         cluster_of, members_by_cluster = weights_mod.load_cluster_membership(
             cluster_assign_path, tree_id=f"{tree_key}_normal")
         extra["cluster_of"] = cluster_of
         extra["members_by_cluster"] = members_by_cluster
+        # M2（策略群集中度，2026-10-17接線）：跟simulate.run_simulation()
+        # 同一個k來源（stage3_hrp.L1_TARGET），依tree_key取對應市場的群數，
+        # 不可寫死TW的6——這支函式TW/US都會呼叫。
+        from research.stage3_hrp import L1_TARGET
+        extra["m2_cond"] = triggers.register_m2(k=L1_TARGET[tree_key])
 
     return simulate.QuarterInputs(md=md, md_map=md_map, idx=idx, mcap_wide=mcap_wide,
                                   uids_by_allocation=uids_by_allocation, m1d_cond=cond,
@@ -146,7 +168,8 @@ def run_rolling_simulation(*, run_id_prefix: str, model: str, api_key: str, dry_
                            tree_key: str = "TW", scheme: str = "rolling_6_2",
                            window_no: int = 6, quarter_ends: list[str] | None = None,
                            registration_date: str | None = None,
-                           with_hot_segment: bool = False) -> None:
+                           with_hot_segment: bool = False,
+                           hot_segment_pool: str | None = None) -> None:
     """跟`simulate.run_simulation()`同一套主迴圈骨架（見該檔271~389行），
     只換掉QuarterInputs的建構方式；`run_quarter()`本身完全重用、未修改。
 
@@ -174,7 +197,8 @@ def run_rolling_simulation(*, run_id_prefix: str, model: str, api_key: str, dry_
     inputs = build_rolling_inputs(model, api_key, picks_path=picks_path, tree_key=tree_key,
                                   scheme=scheme, window_no=window_no,
                                   registration_date=registration_date,
-                                  with_hot_segment=with_hot_segment)
+                                  with_hot_segment=with_hot_segment,
+                                  hot_segment_pool=hot_segment_pool)
     reg_date = registration_date or simulate.REGISTRATION_DATE
     all_quarters = quarter_ends or simulate.QUARTER_ENDS
     quarters = all_quarters[:max_quarters] if max_quarters else all_quarters
@@ -184,6 +208,7 @@ def run_rolling_simulation(*, run_id_prefix: str, model: str, api_key: str, dry_
         state = "NONE"
         hot_state = "NONE"
         dd_state = "NONE"
+        m2_state = "NONE"
         nav, nav_peak = 1.0, 1.0
         dd_history = pd.Series(dtype=float)
         prev_weights = None
@@ -197,6 +222,8 @@ def run_rolling_simulation(*, run_id_prefix: str, model: str, api_key: str, dry_
             state = last["m1d"]["state"]
             if last.get("hot_segment"):
                 hot_state = last["hot_segment"]["state"]
+            if last.get("m2"):
+                m2_state = last["m2"]["state"]
             if last.get("drawdown"):
                 dd_state = last["drawdown"]["state"]
                 nav = last["drawdown"]["nav_after"]
@@ -225,9 +252,10 @@ def run_rolling_simulation(*, run_id_prefix: str, model: str, api_key: str, dry_
                                           excess_history=excess_history, dry_run=dry_run,
                                           prev_hot_state=hot_state, prev_nav=nav,
                                           nav_peak=nav_peak, dd_history=dd_history,
-                                          prev_dd_state=dd_state)
+                                          prev_dd_state=dd_state, prev_m2_state=m2_state)
             state = result["m1d"]["state"]
             hot_state = result["hot_segment"]["state"] if result["hot_segment"] else "NONE"
+            m2_state = result["m2"]["state"] if result["m2"] else "NONE"
             dd_state = result["drawdown"]["state"]
             nav, nav_peak = result["drawdown"]["nav_after"], result["drawdown"]["nav_peak_after"]
             dd_history[pd.Timestamp(end)] = result["drawdown"]["current_dd"]

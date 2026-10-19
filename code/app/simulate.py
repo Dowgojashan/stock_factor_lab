@@ -131,6 +131,11 @@ class QuarterInputs:
                                      # 回傳值，RepSwap 專用，2026-10-08 新增，選填
     members_by_cluster: dict = None  # weights.load_cluster_membership() 第二個
                                      # 回傳值，RepSwap 專用，2026-10-08 新增，選填
+    m2_cond: object = None          # triggers.M2Condition，2026-10-17新增，選填
+                                     # 保持向後相容——未提供時 M2（策略群集中度）
+                                     # 整段跳過，跟 hot_segment_cond 同一個慣例。
+                                     # 跟 RepSwap 共用同一份 cluster_of（2026-10-08
+                                     # 已載入），不需要額外的資料來源
 
 
 @dataclasses.dataclass
@@ -222,7 +227,8 @@ def run_quarter(inputs: QuarterInputs, *, arm: str, as_of: str, end: str,
                 config: ActiveConfig, memory: dict, excess_history: list[float],
                 dry_run: bool = True, prev_hot_state: str = "NONE",
                 prev_nav: float = 1.0, nav_peak: float = 1.0,
-                dd_history=None, prev_dd_state: str = "NONE") -> dict:
+                dd_history=None, prev_dd_state: str = "NONE",
+                prev_m2_state: str = "NONE") -> dict:
     """跑完一季的完整流程（§10 階段 2~7，不含階段 6 人機對話——那是 L3 專屬，
     另外設計）。回傳這一季的完整結果，供落盤 checkpoint 與下一季串接用。
 
@@ -242,7 +248,10 @@ def run_quarter(inputs: QuarterInputs, *, arm: str, as_of: str, end: str,
     新增）。`prev_nav` 是上一季結束時的累積淨值（從1.0開始複利），`nav_peak` 是
     目前為止見過的最高淨值，`dd_history` 是歷史回撤序列（index=日期）供
     expanding window百分位比對，`prev_dd_state` 是回撤觸發的上一季狀態。全部
-    預設值對應「模擬剛開始、沒有任何歷史」，保持向後相容。"""
+    預設值對應「模擬剛開始、沒有任何歷史」，保持向後相容。
+
+    `prev_m2_state`：M2（策略群集中度）的上一季狀態，2026-10-17接線，跟
+    `prev_hot_state`／`prev_dd_state`同一個「呼叫端算好才傳進來」慣例。"""
     apply_w2c = config.last_decision_was_w2c and prev_state == "TRIGGERED"
     apply_coverage_tilt = (inputs.hot_segment_cond is not None
                            and config.last_decision_was_coverage_tilt
@@ -308,6 +317,16 @@ def run_quarter(inputs: QuarterInputs, *, arm: str, as_of: str, end: str,
             inputs.hot_segment_cond, hs_layer["coverage_count"], prev_hot_state)
         hot_seg["hot_segment_list"] = hs_layer["hot_segment"]  # 供 checkpoint 留痕/除錯，不進facts
 
+    # M2：策略群集中度，跟 M1-D／Hot Segment／回撤觸發平行、獨立判定
+    # （2026-10-17接線，triggers.py 的 evaluate_m2_quarter() 早就實作好但一直
+    # 沒接進production管線）。用 RepSwap 已經載入的 `inputs.cluster_of`，不需要
+    # 額外資料來源。`inputs.m2_cond` 為 None 時整段跳過，跟 hot_segment_cond
+    # 同一個向後相容慣例。
+    m2 = None
+    if inputs.m2_cond is not None and inputs.cluster_of is not None:
+        m2 = triggers.evaluate_m2_quarter(inputs.m2_cond, inputs.cluster_of,
+                                          member_uids, prev_m2_state)
+
     # code review 抓到：這裡要用 excess_vs_ball（M4 定義「相對 B_all 超額」的
     # 正確語意），不是 excess_vs_equal_weight。🔴 2026-09-22（§8待辦item10）：
     # 原本兩者數字剛好一樣是巧合正確不是設計正確（A9：B_all 只是等權大盤的
@@ -323,6 +342,7 @@ def run_quarter(inputs: QuarterInputs, *, arm: str, as_of: str, end: str,
     _real_ball = outcome.get("ball_benchmark_return") if outcome.get("ball_return_is_real") else None
     diag = diagnose.run_diagnosis(n_unique_stocks=proc["n_unique_stocks"],
                                   excess_vs_ball_history=new_excess_history,
+                                  market=inputs.market,
                                   weights=weights_end,
                                   ball_benchmark_return=_real_ball,
                                   equal_weight_benchmark_return=outcome.get("equal_weight_benchmark_return"))
@@ -332,6 +352,7 @@ def run_quarter(inputs: QuarterInputs, *, arm: str, as_of: str, end: str,
         "env": env, "proc": proc, "outcome": outcome, "m1d": m1d, "diagnosis": diag,
         "hot_segment": hot_seg,
         "drawdown": drawdown,
+        "m2": m2,
         "weights_end": weights_end,
         "rep_swap_log": rep_swap_log,
         "config_used": {"allocation": config.allocation, "w2c_applied": apply_w2c,
@@ -374,7 +395,7 @@ def run_quarter(inputs: QuarterInputs, *, arm: str, as_of: str, end: str,
         hot_segment=hot_seg,
         coverage_tilt_reference=actions.coverage_tilt_reference() if hot_seg is not None else None,
         rep_swap_reference=actions.rep_swap_reference() if hot_seg is not None else None,
-        drawdown=drawdown)
+        drawdown=drawdown, m2=m2)
     result_decision = agents.call_agent_a_decision(
         decision_facts, model=inputs.model, api_key=inputs.api_key, dry_run=dry_run)
 
@@ -457,8 +478,11 @@ def run_simulation(run_id: str, *, model: str, api_key: str, dry_run: bool = Tru
             sub = sub[sub[k] == v]
         uids_by_allocation[alloc] = list(sub.iloc[0]["members"])
 
-    cond = triggers.register_m1d(mcap_wide, REGISTRATION_DATE)
-    hot_segment_cond = triggers.register_hot_segment("TW")
+    cond = triggers.register_m1d(mcap_wide, REGISTRATION_DATE, market="TW")
+    # 🔴 2026-10-19：pool="baseline"——本函式的uids_by_allocation讀的是
+    # walkforward_members.parquet（含V1的baseline名單，見上面D51那段），
+    # 不是exclude_v1，門檻要對應baseline那組校準值（見triggers.py說明）。
+    hot_segment_cond = triggers.register_hot_segment("TW", "baseline")
     # RepSwap（2026-10-08新增）需要 HRP 分群指派，跟 mcap_wide／m 同一個「一次性
     # 載入、整個模擬迴圈共用」慣例——`load_cluster_membership()` 只讀一次，不在
     # 每季的 `run_quarter()` 裡重讀 parquet。
@@ -466,13 +490,18 @@ def run_simulation(run_id: str, *, model: str, api_key: str, dry_run: bool = Tru
                            / "_frozen" / "stage3" / "cluster_assign.parquet")
     cluster_of, members_by_cluster = weights_mod.load_cluster_membership(
         cluster_assign_path, tree_id="TW_normal")
+    # M2（策略群集中度，2026-10-17接線）：k 用 stage3_hrp.L1_TARGET["TW"]，
+    # 跟建樹用的群數同一個來源，不可另外猜一個數字。
+    from research.stage3_hrp import L1_TARGET
+    m2_cond = triggers.register_m2(k=L1_TARGET["TW"])
     inputs = QuarterInputs(md=md, md_map=md_map, idx=idx, mcap_wide=mcap_wide,
                            uids_by_allocation=uids_by_allocation, m1d_cond=cond,
                            model=model, api_key=api_key, market="TW",
                            cap_weight_series=cap_weight_series,
                            ball_returns=ball_returns,
                            hot_segment_cond=hot_segment_cond,
-                           cluster_of=cluster_of, members_by_cluster=members_by_cluster)
+                           cluster_of=cluster_of, members_by_cluster=members_by_cluster,
+                           m2_cond=m2_cond)
 
     quarters = QUARTER_ENDS[:max_quarters] if max_quarters else QUARTER_ENDS
 
@@ -482,6 +511,7 @@ def run_simulation(run_id: str, *, model: str, api_key: str, dry_run: bool = Tru
         state = "NONE"
         hot_state = "NONE"  # Hot Segment 平行狀態，2026-09-29新增
         dd_state = "NONE"   # 回撤觸發平行狀態，2026-10-08新增
+        m2_state = "NONE"   # M2 策略群集中度平行狀態，2026-10-17新增
         nav, nav_peak = 1.0, 1.0
         dd_history = pd.Series(dtype=float)
         prev_weights = None
@@ -498,6 +528,8 @@ def run_simulation(run_id: str, *, model: str, api_key: str, dry_run: bool = Tru
             state = last["m1d"]["state"]
             if last.get("hot_segment"):  # 舊checkpoint（接線前跑的）沒有這欄，退回"NONE"
                 hot_state = last["hot_segment"]["state"]
+            if last.get("m2"):  # 舊checkpoint（接線前跑的）沒有這欄，退回"NONE"
+                m2_state = last["m2"]["state"]
             if last.get("drawdown"):  # 舊checkpoint（接線前跑的）沒有這欄，退回初始值
                 dd_state = last["drawdown"]["state"]
                 nav = last["drawdown"]["nav_after"]
@@ -532,9 +564,10 @@ def run_simulation(run_id: str, *, model: str, api_key: str, dry_run: bool = Tru
                                  excess_history=excess_history, dry_run=dry_run,
                                  prev_hot_state=hot_state, prev_nav=nav,
                                  nav_peak=nav_peak, dd_history=dd_history,
-                                 prev_dd_state=dd_state)
+                                 prev_dd_state=dd_state, prev_m2_state=m2_state)
             state = result["m1d"]["state"]
             hot_state = result["hot_segment"]["state"] if result["hot_segment"] else "NONE"
+            m2_state = result["m2"]["state"] if result["m2"] else "NONE"
             dd_state = result["drawdown"]["state"]
             nav, nav_peak = result["drawdown"]["nav_after"], result["drawdown"]["nav_peak_after"]
             dd_history[pd.Timestamp(end)] = result["drawdown"]["current_dd"]

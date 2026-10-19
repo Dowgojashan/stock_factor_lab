@@ -4,6 +4,12 @@
 
 用新的run_id_prefix（加`_cap30`後綴），避免跟mcapfix那一輪（7%上限，
 control0+105.61%/L2+57.57%）撞checkpoint。舊的checkpoint保留不刪。
+
+🔴🔴 2026-10-19補：原版沒接`with_hot_segment`，這次補上，`hot_segment_pool=
+"exclude_v1"`對應這支讀的exclude_v1 picks；美股Hot Segment門檻目前
+baseline/exclude_v1兩個pool暫時共用同一組舊值（尚未個別校準，見
+`triggers.HOT_SEGMENT_P25`註解）。RUN_ID_PREFIX加`_hotseg`後綴避免撞
+已存在的舊checkpoint。
 """
 from __future__ import annotations
 
@@ -16,7 +22,7 @@ from app import simulate  # noqa: E402
 from app._check_rolling_production_simulation import run_rolling_simulation  # noqa: E402
 from utils.config import Config  # noqa: E402
 
-RUN_ID_PREFIX = "anchored_w4_openSec_balanced_exclude_v1_cap30"
+RUN_ID_PREFIX = "anchored_w4_openSec_balanced_exclude_v1_cap30_hotseg"
 PICKS_PATH = (Path(__file__).resolve().parent.parent.parent / "_analysis_outputs_applayer"
              / "anchored_w4_openSec_balanced_exclude_v1.parquet")
 
@@ -30,7 +36,8 @@ def main():
 
     run_rolling_simulation(run_id_prefix=RUN_ID_PREFIX, model=model, api_key=api_key,
                            dry_run=False, picks_path=PICKS_PATH,
-                           tree_key="US", scheme="E", window_no=4)
+                           tree_key="US", scheme="E", window_no=4,
+                           with_hot_segment=True, hot_segment_pool="exclude_v1")
 
     print("\n--- 完成，逐季狀態/決策總覽 ---")
     for arm in simulate.ARMS:

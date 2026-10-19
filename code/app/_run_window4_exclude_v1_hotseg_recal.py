@@ -36,7 +36,7 @@ def main():
     run_rolling_simulation(run_id_prefix=RUN_ID_PREFIX, model=model, api_key=api_key,
                            dry_run=False, picks_path=PICKS_PATH,
                            tree_key="TW", scheme="E", window_no=4,
-                           with_hot_segment=True)
+                           with_hot_segment=True, hot_segment_pool="exclude_v1")
 
     print("\n--- 完成，逐季狀態/決策總覽 ---")
     for arm in simulate.ARMS:

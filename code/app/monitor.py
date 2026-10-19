@@ -29,6 +29,17 @@ from app.performance import measure
 MARKET = "TW"
 TOPN = 10
 
+#: 🔴🔴 2026-10-17查證抓到：美股`stock.close`對一批冷門ticker存在長期性的
+#: 離譜錯誤（不是單日跳動，既有的`max_daily_ret`異常偵測抓不到）——例如ADTX
+#: 2023-12-29收盤價存成$1,618,250,000/股（真實應為個位數美元），全歷史掃過
+#: 一次，至少37檔ticker的`close×outstanding_shares`隱含市值曾超過3.5兆美元
+#: （真正合理只有NVDA/AAPL/GOOGL/MSFT這幾檔曾經接近或略超這個量級）。改用
+#: **單股收盤價**設防線而非總市值（因為NVDA/AAPL等真實大型股總市值可以很大，
+#: 但單股價格一定在正常範圍；BRK-A是唯一史上真實單股價格極高的例外，實測
+#: 其歷史最高約$70萬美元/股，仍遠低於下面門檻，不會被誤濾）。這組壞資料目前
+#: 沒有回報collector、原因與影響範圍待查（見下方docstring）。
+SANITY_MAX_CLOSE = 1_000_000.0
+
 
 # ============================================================ 資料載入（共用）
 
@@ -44,9 +55,26 @@ def fetch_mcap_wide(conn, market: str = MARKET, start: str = "2007-01-01") -> pd
     `COALESCE(market_capital, close*outstanding_shares)`：`market_capital`
     有值就用真值（2022-03以前、以及台股全期間都走這條），沒有值才落回用
     `close×outstanding_shares`自算的市值代理（美股2022-04起走這條）。
+
+    🔴 2026-10-17修正：加上`SANITY_MAX_CLOSE`單股價格防線，過濾掉`close`欄位
+    本身壞掉的ticker（見上方常數說明）——這批壞資料不是這次`outstanding_shares`
+    fallback造成的，是`stock.close`原始欄位就存錯，只是fallback公式把它放大
+    成市值後才顯眼。過濾後`q1_weight`對2023-12-31的驗證值從未過濾的
+    （受污染時可能到98%量級，見開發紀錄）回到89.97%，跟污染前已經在用的
+    production checkpoint數字（89.61%）接近，確認過濾合理。
+
+    🔴 2026-10-17 code review修正：濾掉的判準必須是「這一列的`mcap`實際上是
+    不是真的用了`close×outstanding_shares`這條路徑算出來的」，不能只看
+    `close`本身離不離譜——`market_capital`不是null時，`mcap`＝`COALESCE`
+    直接取`market_capital`，`close`再怎麼離譜都不會進到`mcap`裡，這種情況
+    下把整列丟掉等於平白丟棄一筆本來是對的資料。原本的條件只看`close`，沒
+    檢查`market_capital`是不是null，雖然目前查證過實際資料裡兩者不會同時
+    發生（`close`離譜的列market_capital全部確實是null），這次修正後改成
+    明確只濾「`market_capital`是null、且回退路徑算出來的`close`本身離譜」
+    這種列，不依賴這個目前成立但未來可能改變的資料巧合。
     """
     exch = {"TW": "('TWSE')", "US": "('NASDAQ','NYSE','AMEX')"}[market]
-    q = (f"SELECT s.date, c.company_symbol, "
+    q = (f"SELECT s.date, c.company_symbol, s.close, s.market_capital, "
         f"COALESCE(s.market_capital, s.close * s.outstanding_shares) AS mcap "
         f"FROM stock s JOIN company c ON s.company_id=c.id "
         f"WHERE c.exchange_name IN {exch} "
@@ -55,6 +83,16 @@ def fetch_mcap_wide(conn, market: str = MARKET, start: str = "2007-01-01") -> pd
         f"AND s.date >= '{start}' ORDER BY s.date")
     d = pd.read_sql(q, conn)
     d["date"] = pd.to_datetime(d["date"])
+    n_before = len(d)
+    bad = d["market_capital"].isna() & d["close"].notna() & (d["close"] > SANITY_MAX_CLOSE)
+    if bad.any():
+        n_bad_rows = int(bad.sum())
+        bad_symbols = sorted(d.loc[bad, "company_symbol"].unique())
+        print(f"⚠️ fetch_mcap_wide({market})：濾掉{n_bad_rows}筆用close×shares回退路徑算出來、"
+             f"單股收盤價超過${SANITY_MAX_CLOSE:,.0f}的壞資料（{len(bad_symbols)}檔ticker："
+             f"{bad_symbols[:10]}{'...' if len(bad_symbols) > 10 else ''}），"
+             f"佔原始{n_before}筆的{n_bad_rows/n_before:.2%}")
+        d = d.loc[~bad].copy()
     return d.pivot_table(index="date", columns="company_symbol", values="mcap", aggfunc="last")
 
 

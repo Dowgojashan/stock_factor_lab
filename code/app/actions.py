@@ -20,6 +20,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from app import weights as weights_mod
+
 DEFAULT_MATRIX_PATH = (
     Path(__file__).resolve().parent.parent.parent
     / "_analysis_outputs_robustness" / "walkforward_matrix_detail.csv"
@@ -110,20 +112,58 @@ def w2c_reference() -> dict:
     忘記回頭修正。正式重跑時 agent 在連續 5 個觸發季度全部選了保守的 A5、
     一次都沒選 W2c——很可能就是因為看到這句話，以為選 W2c 等於沒選。已拿掉
     這條過期 caveat，不是為了引導 agent 選 W2c，是修正一個真的過期的事實
-    描述（選 W2c 現在真的會透過 `simulate.ActiveConfig` 改變下一季的持股）。"""
+    描述（選 W2c 現在真的會透過 `simulate.ActiveConfig` 改變下一季的持股）。
+
+    🔴🔴 2026-10-19（論文session核對機制盤點表時連帶抓到）：下面
+    `calibration_net_improvement_pp=23.48`／`forward_net_improvement_pp=21.98`
+    兩個數字是 D50（2026-09-18）當時用**7%目標上限**算出來的，`weights.py`
+    開頭docstring已經明文警告「2026-10-13使用者正式拍板改成30%後，既有用7%
+    算出的歷史結果都要用30%重新驗證才能正式引用」——但這支函式當時忘記
+    回頭同步，一直原封不動回傳這兩個舊數字，agent若在30%上限生效後的正式
+    重跑裡引用它們，等於拿「舊政策下的結果」當「現行政策的證據」。D50的
+    校準期（2024-Q1~2025-Q4）也早於2026-10-05的TW openSec_boost候選池
+    重建，候選池版本同樣不保證一致。在30%上限下的新前瞻驗證數字補齊之前，
+    這兩個數字**只能當歷史參考，不能當現行系統的證據**，已加進下面
+    `caveats` 明確揭露；方法論本身（四輪查證、含真實交易成本）不受影響，
+    只是這組具體數字的適用範圍需要重新確認。"""
     return {
-        "mechanism": "W2c：M1-D 觸發時啟動市值傾斜（α=0）＋ 7% 目標上限、"
-                     "超過部分按比例重分配（cap-and-redistribute）",
-        "calibration_period": "2024-Q1~2025-Q4（8季，用於校準傾斜強度與上限）",
+        "mechanism": "W2c：M1-D 觸發時啟動市值傾斜（α=0）＋ 目標上限、"
+                     "超過部分按比例重分配（cap-and-redistribute）；目標上限"
+                     f"現為 {weights_mod.W2C_TARGET_CAP:.0%}（2026-10-13使用者拍板，"
+                     "原為7%，見下方caveats）",
+        "calibration_period": "2024-Q1~2025-Q4（8季，用於校準傾斜強度與上限；"
+                              "🔴這組窗次早於2026-10-05的TW候選池重建）",
         "calibration_net_improvement_pp": 23.48,
         "forward_validation_period": "2026-Q1~2026-Q2（真前瞻，未參與任何校準）",
         "forward_net_improvement_pp": 21.98,
         "net_of_real_transaction_cost": True,
+        "numbers_measured_under_cap": 0.07,
         "caveats": [
             "校準期與前瞻期本質上是同一個規模集中事件的不同階段，不是兩個獨立事件樣本",
             "前瞻驗證只有 2 季，統計證據仍薄弱",
             "季度制重新平衡無法 100% 保證任何時刻都不超過 8% 硬上限——"
             "7% 目標上限下仍有 1/6 觸發季度季底微幅超過（8.68%）",
+            "🔴🔴 2026-10-19新增：上面calibration_net_improvement_pp/"
+            "forward_net_improvement_pp兩個數字是在**7%舊上限**下算出來的，"
+            "現行目標上限已改成30%（見mechanism欄位），且校準期可能早於"
+            "目前的候選池版本——這兩個數字只能當歷史參考／方法論證據，"
+            "不可當成30%上限下的現行預期效果，30%上限下的新前瞻驗證結果"
+            "出來之前，選W2c的理由不可宣稱這組pp數字在現行設定下同樣成立",
+            "🔴 2026-10-19補充（避免上一條單獨看顯得「上限沒驗證過」而過度"
+            "保守）：**上限參數本身**（不是這組pp數字）另外做過獨立的敏感度"
+            "掃描（`文件/研究進度報告_2026-10-05.md`§3.3/§3.3d，TW exclude_v1"
+            "候選池、window4真實觸發窗口）——結論是①在維持現行gating（只有"
+            "真的觸發才啟動）前提下，cap從7%調到30%/40%/不設上限，報酬與MDD"
+            "都是平滑單調變化，沒有斷崖式風險跳升；②對從未觸發M1-D的歷史"
+            "窗口（window1-3），cap設多寬完全不影響結果（W2c根本沒被啟動）。"
+            "這代表「cap上限從7%放寬到30%」這個參數調整本身，在既有證據下"
+            "風險是溫和、可預期的，跟「這組+23.48/+21.98pp的改善數字在30%下"
+            "是否同樣成立」是兩個不同層次的問題——前者有壓力測試過的證據"
+            "支持，後者才是上一條caveat講的、尚待30%上限下重新驗證的部分。"
+            "⚠️ 這個敏感度測試用的是TW exclude_v1候選池，跟本次呼叫若為TW"
+            "baseline池不保證逐檔持股一致，但cap_and_redistribute()本身的"
+            "數學行為（cap越寬、被砍的股票越少）不隨候選池組成改變，定性"
+            "結論合理適用。",
         ],
     }
 

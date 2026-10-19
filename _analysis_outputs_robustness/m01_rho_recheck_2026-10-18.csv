@@ -1,0 +1,3 @@
+﻿rho_label,market_rho_used,tree_id,n_strategies,n_months,enb_observed,enb_observed_frozen_h09,enb_null_mean,enb_null_std,ratio_observed_over_null,n_draws,random_seed,script
+old_pool_2026-09-29,0.551189,XM_normal,47926,228,6.178684188441156,6.1787,7.170701265497097,0.5961183362555191,0.8616568951450843,200,42,research._check_m01_rho_recheck
+new_pool_2026-10-18,0.5542274249331358,XM_normal,47926,228,6.178684188441156,6.1787,7.160065790784325,0.5965465574926011,0.8629367898258282,200,42,research._check_m01_rho_recheck

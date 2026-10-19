@@ -24,8 +24,20 @@ import pandas as pd
 
 from app import monitor
 
-X_P90 = 0.0186   # 已凍結，見 §7.4a／開發追蹤 D27
-X_P75 = 0.012    # ~+1.2pp，設計文件 §7.4a 表列為「依分布內插」的建議 A4 門檻
+#: 🔴🔴 2026-10-18改版：原本是單一全域常數（兩個市場共用），美股長期借用
+#: 台股的校準結果——不是因為美股集中度分布跟台股一樣，是因為美股在
+#: 2026-10-17之前完全沒有足夠歷史市值資料做自己的校準（`outstanding_shares`
+#: 2022年以前永遠是null，覆蓋率只有200~650家，不夠拿來算15年以上的歷史
+#: 分布）。collector完成`USSharesOutstandingBackfiller`回補（2009年起）後，
+#: 美股終於有條件做自己的校準（`_prelim_a1_index_concentration_us.py`，
+#: 2009-2023共15年，n=52）——美股自己的p90是8.61pp，是台股（1.86pp）的
+#: 4.6倍，反映美股市值集中度波動本來就比台股大得多，證實當初借用台股門檻
+#: 對美股而言是一個太敏感的門檻，不是同一把合適的尺。改成跟`HOT_SEGMENT_
+#: P25`/`P10`同一個「按市場分開」的字典慣例。
+X_P90 = {"TW": 0.0186, "US": 0.0861}   # TW已凍結，見§7.4a／開發追蹤D27；
+                                        # US見2026-10-18校準，`_prelim_a1_
+                                        # index_concentration_us.py`
+X_P75 = {"TW": 0.012, "US": 0.0142}    # 同上
 
 
 @dataclasses.dataclass
@@ -35,17 +47,26 @@ class M1DCondition:
     registration_q1_weight: float
     p75: float
     p90: float
+    market: str = "TW"
 
 
-def register_m1d(mcap_wide: pd.DataFrame, as_of: str,
-                 p75: float = X_P75, p90: float = X_P90) -> M1DCondition:
+def register_m1d(mcap_wide: pd.DataFrame, as_of: str, market: str = "TW",
+                 p75: float | None = None, p90: float | None = None) -> M1DCondition:
     """階段 1：期初登記。把登記時點的指數 Q1 集中度固定下來，
     之後每季比對「相對這個水準的累計變動」有沒有超過門檻。
-    🔴 p75/p90 是外部凍結好的門檻（§11.7 程序），這裡不重新計算，只是登記。
+    🔴 p75/p90 預設從`X_P75`/`X_P90`依`market`查表（§11.7程序凍結好的門檻，
+    這裡不重新計算，只是登記）；明確傳入p75/p90可覆蓋查表結果，供測試用
+    合成資料時指定任意門檻，不受限於目前已校準的市場清單。
     """
+    if p75 is None or p90 is None:
+        if market not in X_P90:
+            raise ValueError(f"M1-D尚未替{market}校準門檻（目前只有TW/US），"
+                             f"也可以明確傳入p75/p90覆蓋查表")
+        p75 = X_P75[market] if p75 is None else p75
+        p90 = X_P90[market] if p90 is None else p90
     env = monitor.environment_layer(mcap_wide, as_of)
     return M1DCondition(as_of=as_of, registration_q1_weight=env["q1_weight"],
-                        p75=p75, p90=p90)
+                        p75=p75, p90=p90, market=market)
 
 
 def evaluate_quarter(cond: M1DCondition, mcap_wide: pd.DataFrame, as_of: str,
@@ -108,9 +129,28 @@ def run_quarterly_series(mcap_wide: pd.DataFrame, cond: M1DCondition,
 # US尚未做同一輪重新校準（exclude_v1對美股coverage的提升幅度不同，需要
 # 美股自己的`hot_segment_coverage_test_US.csv`等效重算，這次沒有做，US
 # 這裡維持舊值，之後若要用美股測Coverage Tilt/RepSwap要先做這一步）。
+#
+# 🔴🔴 2026-10-19（論文session核對機制盤點表時連帶抓到的潛在bug，修在這裡）：
+# 上面這段只講了「TW換成exclude_v1名單重新校準」，但沒注意到**TW其實有
+# 兩個不同的候選池情境**——baseline（含V1）跟exclude_v1——兩者的coverage
+# 分布不一樣，需要各自的門檻，而這裡原本只保留了exclude_v1那一組數字
+# （0.5743/0.5085），baseline那組（`_recalibrate_hot_segment_baseline.py`
+# 算出的0.4269/0.4127）算完之後沒有地方可以存，若未來有人拿baseline名單
+# 跑Hot Segment，會悄悄套用exclude_v1的門檻——跟M1-D曾經「美股套用台股
+# 門檻」同一個bug類別（市場/情境沒有分流，共用了不該共用的校準值）。
+# 改成比照`X_P90`/`X_P75`的市場dict模式，再多一層pool（"baseline"／
+# "exclude_v1"）維度，強制呼叫端明確指定，不給預設值去悄悄猜。
+# US兩個pool目前共用同一組舊值（尚未個別校準，見上一段），誠實標註在
+# dict裡而不是假裝已經分流。
 
-HOT_SEGMENT_P25 = {"TW": 0.5743, "US": 0.3039}  # 觀察門檻：低於此值 → OBSERVING
-HOT_SEGMENT_P10 = {"TW": 0.5085, "US": 0.2595}  # 異常門檻：低於此值 → TRIGGERED
+HOT_SEGMENT_P25 = {  # 觀察門檻：低於此值 → OBSERVING
+    "TW": {"baseline": 0.4269, "exclude_v1": 0.5743},
+    "US": {"baseline": 0.3039, "exclude_v1": 0.3039},  # 🔴US尚未分pool校準，兩者暫共用舊值
+}
+HOT_SEGMENT_P10 = {  # 異常門檻：低於此值 → TRIGGERED
+    "TW": {"baseline": 0.4127, "exclude_v1": 0.5085},
+    "US": {"baseline": 0.2595, "exclude_v1": 0.2595},  # 🔴US尚未分pool校準，兩者暫共用舊值
+}
 
 
 @dataclasses.dataclass
@@ -120,16 +160,23 @@ class HotSegmentCondition:
     （M1-D 比的是「相對登記時的累計偏離」，Hot Segment 比的是「相對歷史分布的絕對水位」，
     兩者的判斷邏輯本來就不同，不要誤以為要對齊成同一種比較方式）。"""
     market: str
+    pool: str
     p25: float
     p10: float
 
 
-def register_hot_segment(market: str) -> HotSegmentCondition:
-    """階段 1：期初登記。門檻是市場已校準的歷史分位數（見上方常數），不需要
-    當下的覆蓋率數字，純粹是選對市場對應的門檻。"""
+def register_hot_segment(market: str, pool: str) -> HotSegmentCondition:
+    """階段 1：期初登記。門檻是市場＋候選池情境已校準的歷史分位數（見上方
+    常數），不需要當下的覆蓋率數字。`pool` 沒有預設值——2026-10-19起強制
+    呼叫端明確指定 "baseline" 或 "exclude_v1"，不接受省略，避免重演「悄悄
+    套用錯的候選池門檻」這類靜默錯誤（見上方常數區塊的說明）。"""
     if market not in HOT_SEGMENT_P25:
         raise ValueError(f"Hot Segment 尚未替 {market} 校準門檻（目前只有 TW/US）")
-    return HotSegmentCondition(market=market, p25=HOT_SEGMENT_P25[market], p10=HOT_SEGMENT_P10[market])
+    if pool not in HOT_SEGMENT_P25[market]:
+        raise ValueError(f"Hot Segment 的 {market} 門檻尚未替 pool={pool!r} 校準"
+                         f"（目前只有 {sorted(HOT_SEGMENT_P25[market])}）")
+    return HotSegmentCondition(market=market, pool=pool,
+                               p25=HOT_SEGMENT_P25[market][pool], p10=HOT_SEGMENT_P10[market][pool])
 
 
 def evaluate_hot_segment_quarter(cond: HotSegmentCondition, coverage_count: float,

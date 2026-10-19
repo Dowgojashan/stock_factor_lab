@@ -1,7 +1,7 @@
 {
   "stage": "walkforward_significance",
-  "produced_at": "2026-10-14T16:32:12",
-  "git_sha": "490bc5c",
+  "produced_at": "2026-10-17T23:53:30",
+  "git_sha": "973a0a1",
   "params": {
     "opponents": [
       "B_all",

@@ -315,6 +315,17 @@ def drawdown_baseline_action_csv(drawdown: dict) -> str:
     return _to_csv(rows, columns=["state", "baseline_action", "percentile"])
 
 
+def m2_baseline_action_csv(m2: dict) -> str:
+    """跟 `drawdown_baseline_action_csv()` 同一個模式——M2（策略群集中度）
+    也是**第三個獨立的基準參考**，不綁定任何特定投組變更動作（見
+    `triggers.evaluate_m2_quarter()` docstring：門檐是「相對理論均勻值的
+    倍數」這種說得出道理但未經真實歷史分布校準的暫定值，只能驅動A0/A4/A5，
+    不可用這個狀態去推算任何W類動作的預期效果）。"""
+    rows = [{"state": m2["state"], "baseline_action": m2["action"],
+            "ratio_to_ideal": m2.get("ratio_to_ideal")}]
+    return _to_csv(rows, columns=["state", "baseline_action", "ratio_to_ideal"])
+
+
 def m1d_baseline_action_csv(m1d: dict) -> str:
     """§10 階段 5：「程式：依 3b 提供對應動作」——triggers.py 的 state→action
     映射（NONE→A0／OBSERVING→A4／TRIGGERED→A5）當作**基準動作**，決策 agent
@@ -331,7 +342,7 @@ def build_decision_facts(m1d: dict, actions: list[dict], prospective_output: dic
                          hot_segment: dict | None = None,
                          coverage_tilt_reference: dict | None = None,
                          rep_swap_reference: dict | None = None,
-                         drawdown: dict | None = None) -> dict:
+                         drawdown: dict | None = None, m2: dict | None = None) -> dict:
     """階段 5 決策用的 facts：M1-D 基準動作 ＋ 可用動作的歷史條件分布
     （§7.7 過濾過，看不到 window 4）＋ W2c 的一次性驗證結果（D50，選填，
     給呼叫端傳 `actions.w2c_reference()`）＋ 3b 的完整輸出（決策理由只能
@@ -347,7 +358,9 @@ def build_decision_facts(m1d: dict, actions: list[dict], prospective_output: dic
     但**不綁定任何特定投組變更動作**——只提供`drawdown_baseline_action_csv`
     當第三個基準參考，`decision`的動作空間不會因為這個狀態而多任何新選項
     （跟`m1d`/`hot_segment`不同，那兩個各自對應到W2c/CoverageTilt+RepSwap；
-    drawdown沒有對應的W類動作，只能影響A4/A5這個層級的判斷），選填。"""
+    drawdown沒有對應的W類動作，只能影響A4/A5這個層級的判斷），選填。
+    `m2`：2026-10-17新增，跟`drawdown`同一類——第四組獨立判準，一樣不綁定
+    任何W類動作，只提供`m2_baseline_action_csv`當第四個基準參考，選填。"""
     facts = {
         "m1d_baseline_action_csv": m1d_baseline_action_csv(m1d),
         "available_actions_csv": available_actions_csv(actions),
@@ -365,6 +378,8 @@ def build_decision_facts(m1d: dict, actions: list[dict], prospective_output: dic
         facts["rep_swap_reference_json"] = _compact_json(rep_swap_reference)
     if drawdown is not None:
         facts["drawdown_baseline_action_csv"] = drawdown_baseline_action_csv(drawdown)
+    if m2 is not None:
+        facts["m2_baseline_action_csv"] = m2_baseline_action_csv(m2)
     _assert_no_flow_leakage(facts, context="build_decision_facts")
     return facts
 

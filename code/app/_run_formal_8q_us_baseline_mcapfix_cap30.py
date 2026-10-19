@@ -7,6 +7,14 @@ baseline_mcapfix.py`docstring。
 用新的run_id_prefix（加`_cap30`後綴），避免跟mcapfix那一輪（7%上限，
 control0+91.09%/L2+56.97%）撞checkpoint。舊的checkpoint保留不刪，當作
 7%/30%上限前後對照用。
+
+🔴🔴 2026-10-19補：原版沒接`with_hot_segment`——論文session核對機制盤點表
+時連帶發現，美股目前沒有任何一次正式/測試跑用過Hot Segment（跟TW不同，
+TW至少有window2/window4的exclude_v1測試過）。這次補上，`hot_segment_pool=
+"baseline"`對應這支讀的baseline picks；美股的Hot Segment門檻目前
+baseline/exclude_v1兩個pool暫時共用同一組舊值（尚未個別校準，見
+`triggers.HOT_SEGMENT_P25`註解），這個限制要誠實帶進論文。RUN_ID_PREFIX
+加`_hotseg`後綴避免撞已存在的舊checkpoint（原本沒有hot_segment/m2欄位）。
 """
 from __future__ import annotations
 
@@ -19,7 +27,7 @@ from app import simulate  # noqa: E402
 from app._check_rolling_production_simulation import run_rolling_simulation  # noqa: E402
 from utils.config import Config  # noqa: E402
 
-RUN_ID_PREFIX = "anchored_w4_openSec_balanced_baseline_cap30"
+RUN_ID_PREFIX = "anchored_w4_openSec_balanced_baseline_cap30_hotseg"
 PICKS_PATH = (Path(__file__).resolve().parent.parent.parent / "_analysis_outputs_applayer"
              / "anchored_w4_openSec_balanced_baseline.parquet")
 
@@ -33,7 +41,8 @@ def main():
 
     run_rolling_simulation(run_id_prefix=RUN_ID_PREFIX, model=model, api_key=api_key,
                            dry_run=False, picks_path=PICKS_PATH,
-                           tree_key="US", scheme="E", window_no=4)
+                           tree_key="US", scheme="E", window_no=4,
+                           with_hot_segment=True, hot_segment_pool="baseline")
 
     print("\n--- 完成，逐季狀態/決策總覽 ---")
     for arm in simulate.ARMS:

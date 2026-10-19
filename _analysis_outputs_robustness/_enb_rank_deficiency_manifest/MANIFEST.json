@@ -1,7 +1,7 @@
 {
   "stage": "enb_rank_deficiency",
-  "produced_at": "2026-09-07T11:02:31",
-  "git_sha": "83a6b2e",
+  "produced_at": "2026-10-18T03:54:49",
+  "git_sha": "973a0a1",
   "params": {
     "oos_lens": [
       24,
@@ -14,25 +14,25 @@
   "inputs": [
     {
       "path": "_analysis_outputs_robustness\\walkforward_matrix_detail.csv",
-      "sha256": "719af3e4824af37cbb15f45f9d344906b21144abd0548ab932b73d831bc126cd",
-      "bytes": 2222625
+      "sha256": "b6fe48bff7c464e38ea7d323fddda7c398c94ca1fb53b644090828a1ef8b047a",
+      "bytes": 2209007
     },
     {
       "path": "_analysis_outputs_robustness\\walkforward_partition.csv",
-      "sha256": "d0ec9b42cedfbc461f9d79eed54939ec9e481abef2c5fdf4d3de220e89729678",
-      "bytes": 632701
+      "sha256": "4bad06e6a6bad4e1a7bec990f6c05a09da0492b17bcbb9841bc137ee49c25db1",
+      "bytes": 636947
     },
     {
       "path": "_analysis_outputs_robustness\\walkforward_random.csv",
-      "sha256": "cc79da2473f3b2b76131e7a6424e07289b30e209c2112761cf5153e39cc3c048",
-      "bytes": 138999
+      "sha256": "4a441b95ec3cf290393d811f0c352f4fff6631c6ee58bdd13291f9ab6bce2419",
+      "bytes": 146848
     }
   ],
   "outputs": [
     {
       "path": "_analysis_outputs_robustness\\enb_rank_deficiency.csv",
-      "sha256": "05fcbcde414802663aeb1a97025aeade01a3c972043082ce949af3b0ebbac1ed",
-      "bytes": 6780
+      "sha256": "af6fea732dd1a7892f09c1f312191e4b10e0a4d9301d8dabe0a4ee53751e74fb",
+      "bytes": 3912
     }
   ],
   "notes": "M-14：ENB 勝率按實際 OOS 窗長分層。稽核清單的前提（反轉點 = N>T 分界）已被推翻——legacy 自己就有 37~47% 的格子是 N>T，且反轉在 24/36/48/60 四種窗長全部出現。"

@@ -87,7 +87,8 @@ def test_3_get_historical_distribution_all_mechanisms():
         assert dist["mechanism"] == mech
         assert dist["n"] > 0, f"情境3失敗（{mech} 歷史樣本數應該>0）"
         print(f"  {mech}: n={dist['n']}，" +
-             "，".join(f"{k}={v:.4f}" for k, v in dist.items() if k not in ("mechanism", "n")))
+             "，".join(f"{k}={v:.4f}" for k, v in dist.items()
+                      if k not in ("mechanism", "n", "market")))
     try:
         agent_tools.get_historical_distribution("M99")
         raise AssertionError("情境3失敗（不支援的機制代號應該要 raise ValueError）")

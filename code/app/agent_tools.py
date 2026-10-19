@@ -33,7 +33,13 @@ import pandas as pd
 from app import diagnose
 from app.actions import get_action_reference  # noqa: F401  re-export，四個工具統一從這裡 import
 
-_SIMILAR_QUARTERS_PATH = diagnose._M0_HISTORY_PATH  # windows1-3修正版，跟M0/M7同一份資料源
+# 🔴🔴 2026-10-19（review時發現，regression test抓到）：`diagnose._M0_HISTORY_PATH`
+# 等常數後來（2026-10-18）從單一Path改成{market: Path}的dict（M0/M3/M6/M7/M8
+# 分市場校準），但這支檔案當時沒有跟著同步改，造成`get_historical_distribution()`
+# 呼叫`hist_fn()`少傳market必填參數、`find_similar_quarters()`直接把dict當Path
+# 讀都會崩潰（`_test_agent_tools.py`的test_3/test_4抓到）。這兩個工具目前都還
+# 沒被接進真正的L2模擬流程（見檔案開頭docstring「這次只做步驟1」），不影響
+# 正式重跑，但修正一下避免留著壞掉的工具/測試。
 
 
 def get_attribution(outcome: dict) -> dict | None:
@@ -62,7 +68,7 @@ _HISTORY_FUNCS = {
 }
 
 
-def get_historical_distribution(mechanism: str) -> dict:
+def get_historical_distribution(mechanism: str, market: str = "TW") -> dict:
     """給定機制代號（M3/M0/M7/M8），回傳該機制**實際會用到**的歷史分位數
     （跟各自 `diagnose_mX()` 判準完全一致的門檻，不是另外算一組）。
 
@@ -70,19 +76,23 @@ def get_historical_distribution(mechanism: str) -> dict:
     沒有動態依 `as_of` 再篩選——設計文件原簽名帶 `as_of` 參數是為了未來
     有更多窗次時可以動態排除當期之後的資料，現階段資料源本身就已經是
     「window4之前」，這個限制留在這裡誠實記錄，不是漏做。
-    """
+
+    `market`：2026-10-19新增，預設"TW"保留舊呼叫端向後相容——
+    `diagnose._m3_history()`等底層函式已改成market必填，見上方模組
+    docstring說明。"""
     if mechanism not in _HISTORY_FUNCS:
         raise ValueError(f"不支援的機制代號 {mechanism!r}，只有 {sorted(_HISTORY_FUNCS)}")
     hist_fn, percentiles = _HISTORY_FUNCS[mechanism]
-    hist = hist_fn()
-    out = {"mechanism": mechanism, "n": int(len(hist))}
+    hist = hist_fn(market)
+    out = {"mechanism": mechanism, "market": market, "n": int(len(hist))}
     for p in percentiles:
         q = float(p[1:]) / 100.0
         out[p] = float(hist.quantile(q))
     return out
 
 
-def find_similar_quarters(current_excess_vs_ball: float, n: int = 3) -> list[dict]:
+def find_similar_quarters(current_excess_vs_ball: float, n: int = 3,
+                          market: str = "TW") -> list[dict]:
     """找歷史上（windows1-3，36季真實資料）`excess_vs_ball` 最接近查詢值的
     N 季，供 agent 找「以前遇過類似情況嗎」的精確前例。相似度定義＝
     `excess_vs_ball` 差的絕對值最小——這是本專案目前唯一有完整逐季歷史
@@ -90,8 +100,11 @@ def find_similar_quarters(current_excess_vs_ball: float, n: int = 3) -> list[dic
 
     回傳依相似度排序（最相似在前），每筆含 window_no/as_of/end/
     excess_vs_ball/abs_diff，讓 agent 自己判斷這些前例夠不夠像、要不要引用。
-    """
-    df = pd.read_csv(_SIMILAR_QUARTERS_PATH)
+
+    `market`：2026-10-19新增，預設"TW"保留舊呼叫端向後相容——資料源
+    `diagnose._M0_HISTORY_PATH` 已改成 {market: Path} 的 dict（見模組
+    開頭說明），這裡要明確索引對應市場的檔案。"""
+    df = pd.read_csv(diagnose._M0_HISTORY_PATH[market])
     df = df.dropna(subset=["excess_vs_ball"]).copy()
     df["abs_diff"] = (df["excess_vs_ball"] - current_excess_vs_ball).abs()
     top = df.sort_values("abs_diff").head(n)
