@@ -126,9 +126,9 @@ def run_quarterly_series(mcap_wide: pd.DataFrame, cond: M1DCondition,
 # N=3/X=10%不變，只換代表名單）：P25由0.3363→0.5743、P10由0.3080→0.5085。
 # 反查2024-2025：新門檻下8季裡有6季低於P25、3季低於P10（舊門檻下0季）——
 # 這代表不需要跳到window2，window4本身就能真正測到Hot Segment觸發。
-# US尚未做同一輪重新校準（exclude_v1對美股coverage的提升幅度不同，需要
-# 美股自己的`hot_segment_coverage_test_US.csv`等效重算，這次沒有做，US
-# 這裡維持舊值，之後若要用美股測Coverage Tilt/RepSwap要先做這一步）。
+# ⚠️ 2026-10-19當時US尚未做同一輪重新校準（這段文字原寫於此，US曾經
+# 維持舊值）——**2026-10-19稍後已補上**，見下方「✅ 2026-10-19：US已補上
+# 個別校準」區塊，這裡保留只是交代歷史脈絡，不代表US現在仍是舊值。
 #
 # 🔴🔴 2026-10-19（論文session核對機制盤點表時連帶抓到的潛在bug，修在這裡）：
 # 上面這段只講了「TW換成exclude_v1名單重新校準」，但沒注意到**TW其實有
@@ -142,14 +142,21 @@ def run_quarterly_series(mcap_wide: pd.DataFrame, cond: M1DCondition,
 # "exclude_v1"）維度，強制呼叫端明確指定，不給預設值去悄悄猜。
 # US兩個pool目前共用同一組舊值（尚未個別校準，見上一段），誠實標註在
 # dict裡而不是假裝已經分流。
+#
+# ✅ 2026-10-19：US已補上個別校準（`_recalibrate_hot_segment_baseline_us.py`／
+# `_recalibrate_hot_segment_exclude_v1_us.py`，N=6/X=10%、2015-2023共36個
+# 季底，代表名單分別來自`anchored_w4_openSec_balanced_baseline.parquet`／
+# `_exclude_v1.parquet`）：baseline P25=0.2574/P10=0.2384、exclude_v1
+# P25=0.3333/P10=0.3015——方向跟TW一致（exclude_v1 coverage天生比baseline
+# 高，門檻也跟著higher），是個合理的交叉驗證，不是巧合湊出來的數字。
 
 HOT_SEGMENT_P25 = {  # 觀察門檻：低於此值 → OBSERVING
     "TW": {"baseline": 0.4269, "exclude_v1": 0.5743},
-    "US": {"baseline": 0.3039, "exclude_v1": 0.3039},  # 🔴US尚未分pool校準，兩者暫共用舊值
+    "US": {"baseline": 0.2574, "exclude_v1": 0.3333},
 }
 HOT_SEGMENT_P10 = {  # 異常門檻：低於此值 → TRIGGERED
     "TW": {"baseline": 0.4127, "exclude_v1": 0.5085},
-    "US": {"baseline": 0.2595, "exclude_v1": 0.2595},  # 🔴US尚未分pool校準，兩者暫共用舊值
+    "US": {"baseline": 0.2384, "exclude_v1": 0.3015},
 }
 
 

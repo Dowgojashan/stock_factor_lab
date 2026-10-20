@@ -11,6 +11,11 @@ Hot Segment門檻後）雖然真的遇到過Hot Segment單獨觸發的乾淨機�
 用法：
     cd code
     python -m app._check_coveragetilt_repswap_forced_offline
+
+🔴🔴 2026-10-19補：`build_rolling_inputs()`的`with_hot_segment=True`現在
+強制要求同時傳`hot_segment_pool`（見`_check_rolling_production_simulation.py`
+該參數說明），這支腳本原本沒傳，會直接raise ValueError。這支讀的picks是
+exclude_v1名單，補上`hot_segment_pool="exclude_v1"`。
 """
 from __future__ import annotations
 
@@ -33,7 +38,8 @@ QUARTER_ENDS = simulate.QUARTER_ENDS
 def main():
     inputs = build_rolling_inputs(model="unused", api_key="unused",
                                   picks_path=PICKS_PATH, tree_key="TW",
-                                  scheme="E", window_no=4, with_hot_segment=True)
+                                  scheme="E", window_no=4, with_hot_segment=True,
+                                  hot_segment_pool="exclude_v1")
     uids = inputs.uids_by_allocation["equal"]
 
     print(f"{'quarter':>12} {'control0':>10} {'CoverageTilt強制':>16} "

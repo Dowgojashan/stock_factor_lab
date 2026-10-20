@@ -35,11 +35,14 @@ from app import simulate  # noqa: E402
 TW_WEIGHT = 0.5  # 查walkforward_members.parquet(XM/legacy/equal)實測是20:20=1:1
 US_WEIGHT = 0.5
 
+# 🔴 2026-10-20更新：改指向含M2+Hot Segment pool校準+完整5條W2c caveat的
+# `_hotseg`版本checkpoint（舊版`_cap30`不含M2，已過期，見`文件/實驗收尾
+# 追蹤.md`§一）。
 RUN_IDS = {
-    "control0": ("anchored_w4_openSec_boost_exclude_v1_cap30_control0",
-                "anchored_w4_openSec_balanced_exclude_v1_cap30_control0"),
-    "L2": ("anchored_w4_openSec_boost_exclude_v1_cap30_L2",
-          "anchored_w4_openSec_balanced_exclude_v1_cap30_L2"),
+    "control0": ("anchored_w4_openSec_boost_exclude_v1_cap30_hotseg_control0",
+                "anchored_w4_openSec_balanced_exclude_v1_cap30_hotseg_control0"),
+    "L2": ("anchored_w4_openSec_boost_exclude_v1_cap30_hotseg_L2",
+          "anchored_w4_openSec_balanced_exclude_v1_cap30_hotseg_L2"),
 }
 
 

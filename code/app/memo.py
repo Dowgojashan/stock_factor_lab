@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import os
 import re
 
 from .audit import diff_holdings, find_previous
@@ -35,7 +36,14 @@ from .config import GROUP_LABELS
 from .engine import Holdings, alt_group_win_rates
 from .risk import RiskReport, Violation
 
-RESERVE_RATIO = 0.2   # 跟 cluster_story 同一個保守係數，額度快用完先煞車
+# 🔴 2026-10-19：使用者明確同意「美股baseline這次重跑，不要被20%保留緩衝
+# 擋下，叩到真正的免費額度上限才停」——跟`utils/openai_quota.py`的
+# `OPENAI_PAID_OVERRIDE`同一個「環境變數驅動、當次執行階段性」模式，不直接
+# 改這個常數本身（改了會波及之後所有執行，不是使用者的意圖，使用者只同意
+# 「這次」）。只有顯式設定`OPENAI_RESERVE_OVERRIDE=1`的那次執行才會把保留
+# 比例降到0，預設行為（0.2）完全不變。
+RESERVE_RATIO = 0.0 if os.environ.get("OPENAI_RESERVE_OVERRIDE") == "1" else 0.2
+# 跟 cluster_story 同一個保守係數，額度快用完先煞車
 
 _SYSTEM_PROMPT = (
     "你是量化投資系統的分析結果轉譯器。你會拿到這一期選股結果的**客觀統計數字**，"
