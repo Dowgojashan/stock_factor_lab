@@ -417,3 +417,30 @@ def rep_swap_members(md, idx, uids: list[str], as_of: str, hot_segment: list[str
                 break
 
     return {"members": members, "swaps": swaps, "n_no_cluster": n_no_cluster}
+
+
+# ============================================================ Active Share（Cremers & Petajisto,
+# 2009）——2026-10-01首次臨時算過（`文件/完整操作流程.md`§3.2.2），當時是獨立
+# ad-hoc腳本、沒有固化成可重用函式；2026-10-27補成正式函式，同時補上美股版本。
+
+def active_share(w_fund: dict[str, float], w_bench: "pd.Series") -> float:
+    """Active Share = (1/2) × Σ|w_fund,i − w_benchmark,i|（對每一檔股票加總，
+    i跑遍基金+benchmark的聯集）。0%＝持股跟benchmark完全一樣，100%＝跟benchmark
+    完全沒有重疊的股票。不是本專案自創指標，業界常見分級：<20%「偽主動」
+    (closet indexing)、20-60%中度主動、>60%「真正主動」（Cremers & Petajisto,
+    2009；美股實測中位數：大型股基金約61%、小型股基金約93%）。
+
+    🔴 2026-10-01踩過的坑：`w_bench`用`report:mktcap`這類含NaN的市值資料算權重
+    時，不能用`dict.get(key, 0.0) or 0.0`這種寫法——key存在但值是NaN時，
+    `NaN or 0.0`還是NaN（NaN是truthy），這裡改用`pd.isna()`明確處理。"""
+    import pandas as pd
+    bench = w_bench.dropna()
+    all_syms = set(w_fund) | set(bench.index)
+    diff = 0.0
+    for s in all_syms:
+        wf = w_fund.get(s, 0.0)
+        wf = 0.0 if (wf is None or pd.isna(wf)) else wf
+        wb = bench.get(s, 0.0)
+        wb = 0.0 if (wb is None or pd.isna(wb)) else wb
+        diff += abs(wf - wb)
+    return diff / 2.0

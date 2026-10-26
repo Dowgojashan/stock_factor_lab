@@ -72,12 +72,24 @@ def fetch_mcap_wide(conn, market: str = MARKET, start: str = "2007-01-01") -> pd
     發生（`close`離譜的列market_capital全部確實是null），這次修正後改成
     明確只濾「`market_capital`是null、且回退路徑算出來的`close`本身離譜」
     這種列，不依賴這個目前成立但未來可能改變的資料巧合。
+
+    🔴 2026-10-21修正：原本沒套`database.py`的`_universe_clause()`，美股量的
+    其實是`company`表NASDAQ/NYSE/AMEX三個交易所**全部**symbol（11,187檔），
+    不是論文宇宙定義的Russell 3000（2,994檔）——`get_daily_stock()`/
+    `get_finance_report()`/`resolve_strategy_holdings.py`都有套這個clause，
+    這裡漏了，是CLAUDE.md明文警告過的那個雷。母體檔數因此逐季劇烈變動
+    （2009Q4=547~2021Q4=6,027，見`_analysis_outputs_applayer/
+    us_m1d_narrow_metric_2026-10-20.csv`），汙染了美股M1-D的校準序列跟
+    正式生產計算，使用者已確認採用Russell 3000為美股宇宙、裁示修正。
+    台股`_universe_clause()`回傳空字串，不受影響。
     """
     exch = {"TW": "('TWSE')", "US": "('NASDAQ','NYSE','AMEX')"}[market]
+    from database import Database
+    universe = Database(market)._universe_clause("c.company_symbol")
     q = (f"SELECT s.date, c.company_symbol, s.close, s.market_capital, "
         f"COALESCE(s.market_capital, s.close * s.outstanding_shares) AS mcap "
         f"FROM stock s JOIN company c ON s.company_id=c.id "
-        f"WHERE c.exchange_name IN {exch} "
+        f"WHERE c.exchange_name IN {exch}{universe} "
         f"AND (s.market_capital IS NOT NULL "
         f"     OR (s.close IS NOT NULL AND s.outstanding_shares IS NOT NULL)) "
         f"AND s.date >= '{start}' ORDER BY s.date")

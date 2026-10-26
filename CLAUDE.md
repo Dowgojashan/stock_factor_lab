@@ -179,21 +179,23 @@ Phase2 強制納入 ROE/EPS/ROIC/REV_G/MOM_3M 五個 regime-dependent 因子當 
 +70.56%）記錄在 memory `project_openSec_boost_w2c_early_activation_2026-10.md`，
 細節不在這裡重複。US（7,128→不動）/XM 本輪完全沒變，下面數字對 US/XM 仍然有效。
 
-- **候選策略池 15,810 個**（TW~~7,128~~ **→29,255（openSec_boost，僅TW）** + US 8,682），
-  原採用 openSec 變體，TW 已升級成 openSec_boost。
+- **候選策略池**（TW~~7,128~~ **→29,255（openSec_boost）**、US~~8,682~~
+  **→22,856（openSec_balanced，2026-10-08換的）**），原採用 openSec 變體，
+  TW 已升級成 openSec_boost、US 已升級成 openSec_balanced。
   ~~舊寫法「台股 7,162、美股 6,916」是錯的~~，正確數字來自 `_frozen/stage0/candidate_index.parquet`
   與 `_analysis_outputs_phase4/{TW,US}_L4_openSec_final_candidates.csv`
 - 自建宇宙基準 CAGR：台股 **8.4256%**、美股 **11.0556%**（`contracts.BENCHMARK_CAGR`；
   舊數字 8.67%/12.35% 是 2026-08-22 價格修復前的）
-- HRP L1 群數：TW ~~7~~ **→6**（2026-10-05 換成 openSec_boost 候選池後用
-  `cluster_count_selection.py` 重算出來的，不是沿用舊值；上一版 TW=7 是更早一輪
-  加成長因子後算出的中繼值，見本節最上方🔴🔴區塊）、US **7**、XM ~~3~~
-  **→6**（🔴 2026-10-06訂正：這裡原寫「3」已經過期超過一週——`stage3_hrp.py`
-  自己的change log記載，XM早在2026-09-30加成長因子那一輪就已經用
-  `cluster_count_selection.py`重算成6了，原因是舊的k=3解在新池組成下退化成
-  單一群佔比62.8%，換k=6才是非退化最佳點；這不是這次openSec_boost動的，是
-  更早一輪就該同步更新、但沒人回頭改這裡才一直傳成舊數字，見`code/research/
-  stage3_hrp.py`的`L1_TARGET`常數註解）
+- 🔴 2026-10-21訂正：HRP L1 群數——**TW 6、US 4、XM 7**（`code/research/
+  stage3_hrp.py`現行`L1_TARGET`常數，2026-10-13commit套用US openSec_balanced
+  換池後的`cluster_count_selection.py`重掃結果：US 7→4（k=4時silhouette=
+  0.0541，全域最高非退化解）、XM 6→7（k=7時silhouette=0.0632，全域最高的
+  k=4是退化解、最大群佔比55.1%，排除）、TW不受影響維持6）。此行上面兩版
+  「US 7、XM 6」的訂正都已經過期超過一週，是沒人在US換池後回頭同步這裡
+  造成的——**下次改任何市場的候選池，記得連這份CLAUDE.md的數字也要一起
+  查證更新，不是只改`stage3_hrp.py`常數跟下游管線就結束**。已實測確認
+  `_analysis_outputs_robustness/k_stability.csv`／`walkforward_matrix_
+  detail.csv`跟這組新值一致（2026-10-21查證）。
   （H-03 用輪廓係數決定，不是寫死的 8；L2 已移除）
 - 總經 clock_cell **已改用 5 年滾動窗**（H-18②），`stage4` 讀的是
   `_frozen/stage2/macro_rolling/`，不是 `_frozen/stage2/macro/`

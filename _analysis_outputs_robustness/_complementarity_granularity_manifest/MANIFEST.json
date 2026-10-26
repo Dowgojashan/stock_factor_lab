@@ -1,7 +1,7 @@
 {
   "stage": "complementarity_granularity",
-  "produced_at": "2026-10-17T23:53:55",
-  "git_sha": "973a0a1",
+  "produced_at": "2026-10-22T07:00:04",
+  "git_sha": "b07d3cf",
   "params": {
     "trees": [
       "TW_normal",

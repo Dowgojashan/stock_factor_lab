@@ -102,6 +102,10 @@ def main():
     # 🔴 2026-10-20更新：四組"30%"全部改指向含M2+Hot Segment pool校準+完整
     # 5條W2c caveat的最新checkpoint（舊版不含M2，已過期，見`文件/實驗收尾
     # 追蹤.md`§一）。"7%"歷史對照組保留不動。
+    # 🔴🔴 2026-10-22更新：US兩組再改指向`_m1dfix`版本——`_hotseg`checkpoint
+    # 建立在過期的「M1-D全程NONE」假設上（universe_clause bug＋2009-2012
+    # 市值資料本身有誤，兩輪修正後美股window4真實在2025Q3進入TRIGGERED）。
+    # TW不受這個bug影響，維持`_hotseg`版本不變。
 
     # --- TW baseline（native convention）---
     for cap, run_id in [("7%", "formal_8q_control0_L2_openSec_boost_v4"),
@@ -121,7 +125,7 @@ def main():
 
     # --- US baseline（rolling convention, mcapfix）---
     for cap, prefix in [("7%(mcapfix)", "anchored_w4_openSec_balanced_baseline_mcapfix"),
-                        ("30%", "anchored_w4_openSec_balanced_baseline_cap30_hotseg")]:
+                        ("30%", "anchored_w4_openSec_balanced_baseline_cap30_hotseg_m1dfix")]:
         for arm in simulate.ARMS:
             mdd, cum, n = mdd_from_checkpoints_rolling(prefix, arm)
             rows.append(dict(market="US", variant="baseline", cap=cap, arm=arm,
@@ -129,7 +133,7 @@ def main():
 
     # --- US exclude_v1（rolling convention, mcapfix）---
     for cap, prefix in [("7%(mcapfix)", "anchored_w4_openSec_balanced_exclude_v1_mcapfix"),
-                        ("30%", "anchored_w4_openSec_balanced_exclude_v1_cap30_hotseg")]:
+                        ("30%", "anchored_w4_openSec_balanced_exclude_v1_cap30_hotseg_m1dfix")]:
         for arm in simulate.ARMS:
             mdd, cum, n = mdd_from_checkpoints_rolling(prefix, arm)
             rows.append(dict(market="US", variant="exclude_v1", cap=cap, arm=arm,

@@ -15,6 +15,14 @@ TW至少有window2/window4的exclude_v1測試過）。這次補上，`hot_segmen
 baseline/exclude_v1兩個pool暫時共用同一組舊值（尚未個別校準，見
 `triggers.HOT_SEGMENT_P25`註解），這個限制要誠實帶進論文。RUN_ID_PREFIX
 加`_hotseg`後綴避免撞已存在的舊checkpoint（原本沒有hot_segment/m2欄位）。
+
+🔴🔴 2026-10-21第四輪：`_hotseg`checkpoint建立在已過期的「M1-D全程NONE」
+假設上（`monitor.fetch_mcap_wide('US')`當時沒套Russell 3000篩選、且
+2009-2012市值資料本身有誤，兩輪修正後美股window4真實在2025Q3進入
+TRIGGERED，見`文件/實驗收尾追蹤.md`§七/§八）。這次用修正後的`monitor.py`
+＋重新校準的`triggers.X_P90["US"]`/`X_P75["US"]`（0.0197/0.0139）重跑，
+RUN_ID_PREFIX加`_m1dfix`後綴避免撞`_hotseg`那批過期checkpoint——舊版保留
+不刪，當作「M1-D全程NONE假設下」的歷史對照。
 """
 from __future__ import annotations
 
@@ -27,7 +35,7 @@ from app import simulate  # noqa: E402
 from app._check_rolling_production_simulation import run_rolling_simulation  # noqa: E402
 from utils.config import Config  # noqa: E402
 
-RUN_ID_PREFIX = "anchored_w4_openSec_balanced_baseline_cap30_hotseg"
+RUN_ID_PREFIX = "anchored_w4_openSec_balanced_baseline_cap30_hotseg_m1dfix"
 PICKS_PATH = (Path(__file__).resolve().parent.parent.parent / "_analysis_outputs_applayer"
              / "anchored_w4_openSec_balanced_baseline.parquet")
 
