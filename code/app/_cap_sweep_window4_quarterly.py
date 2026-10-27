@@ -6,8 +6,12 @@ W2c市值加權，cap=[7/10/15/20/30/40]%，不呼叫LLM，exclude_v1候選池�
 `_make_report_charts_1027.py`同一套方法論）都存下來，並加入大盤（TAIEX／
 S&P500）同一組日期的逐季報酬＋drawdown軌跡做對照。
 
-計算方式跟`_cap_sweep_window4.py`完全相同（同一份picks、同一個tilt_weights+
-cap_and_redistribute呼叫），只是多存中間序列，不是重新設計方法論。
+計算方式跟`_cap_sweep_window4.py`完全相同（同一份picks、同一個市場分流
+tilt_weights/tilt_weights_basket+cap_and_redistribute呼叫），只是多存
+中間序列，不是重新設計方法論。
+
+🔴 **2026-10-27二次修正**：原本沒有依`W2C_VARIANT_BY_MARKET`分流，美股
+錯用了台股的單檔傾斜，已同步`_cap_sweep_window4.py`的修正改用籃子版（K=3）。
 
 用法（cwd必須是code/；PYTHONIOENCODING=utf-8）：
     PYTHONIOENCODING=utf-8 python -m app._cap_sweep_window4_quarterly
@@ -74,7 +78,11 @@ def sweep_market(tree_key: str, picks_path: Path, bench_table: str) -> list[dict
         for as_of, end in periods:
             w0 = simulate.resolve_weights(inputs.md, inputs.idx, uids, as_of)
             mcap_row = monitor.asof_row(inputs.mcap_wide, as_of)
-            raw = weights_mod.tilt_weights(w0, mcap_row, 0.0)
+            if weights_mod.W2C_VARIANT_BY_MARKET.get(tree_key) == "basket":
+                raw = weights_mod.tilt_weights_basket(w0, mcap_row, 0.0,
+                                                      basket_k=weights_mod.W2C_BASKET_K)
+            else:
+                raw = weights_mod.tilt_weights(w0, mcap_row, 0.0)
             w_capped = weights_mod.cap_and_redistribute(raw, cap=cap)
             r = monitor.outcome_layer(inputs.md_map, w_capped, as_of, end)["portfolio_realized_return"]
             rets.append(r)

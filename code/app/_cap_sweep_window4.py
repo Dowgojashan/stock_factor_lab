@@ -11,6 +11,13 @@ TW window4這個子集的數字在候選池/M2/Hot Segment都定案之後是否�
 ③MDD改用跟本次10/27報告其餘圖表一致的季頻取樣算法（9個季末點，不是日頻
 NAV），兩者量級不直接可比，差異已在輸出裡註明。
 
+🔴 **2026-10-27當天二次修正**：第一版不分市場，兩邊都直接呼叫
+`weights_mod.tilt_weights()`（台股單檔傾斜），美股沒有用`W2C_VARIANT_
+BY_MARKET`／`apply_w2c_for_market()`分流到籃子版（K=3）——production
+的`simulate.py`一直都是正確分流的，只有這支離線反事實腳本漏接，等於
+美股整組cap-sweep數字（含衍生的CSV/圖表/報告段落）都是用錯誤的變體
+算出來的，已改用`tilt_weights_basket()`重新計算。
+
 用法：cd code; PYTHONIOENCODING=utf-8 python -m app._cap_sweep_window4
 """
 from __future__ import annotations
@@ -62,7 +69,11 @@ def sweep_market(tree_key: str, picks_path: Path) -> pd.DataFrame:
         for as_of, end in periods:
             w0 = simulate.resolve_weights(inputs.md, inputs.idx, uids, as_of)
             mcap_row = monitor.asof_row(inputs.mcap_wide, as_of)
-            raw = weights_mod.tilt_weights(w0, mcap_row, 0.0)
+            if weights_mod.W2C_VARIANT_BY_MARKET.get(tree_key) == "basket":
+                raw = weights_mod.tilt_weights_basket(w0, mcap_row, 0.0,
+                                                      basket_k=weights_mod.W2C_BASKET_K)
+            else:
+                raw = weights_mod.tilt_weights(w0, mcap_row, 0.0)
             w_capped = weights_mod.cap_and_redistribute(raw, cap=cap)
             r = monitor.outcome_layer(inputs.md_map, w_capped, as_of, end)["portfolio_realized_return"]
             rets.append(r)
