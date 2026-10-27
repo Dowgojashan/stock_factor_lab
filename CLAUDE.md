@@ -7,6 +7,11 @@
 
 ## 0. 讀這份文件前，先看幾件事
 
+0-最新. **🔴 2026-10-27：最新的對話框交接在 `文件/交接_2026-10-27.md`**（實戰部10/27報告做到哪、
+   未完成事項、踩過的坑、使用者常用說法對照表）——接手第一件事讀它。其中最重要的新發現：
+   報告原本的MDD是**季頻取樣**，已補算日頻（TW exclude_v1的風險排序因此翻轉），
+   日頻結果只同步到研究進度報告§四，其餘文件尚未同步。
+
 0a. **🔴🔴 2026-10-01 踩過的坑，下次重跑研究部主鏈前必看：`k_stability.csv` 不會自動跟著候選池更新。**
    `research/walkforward_matrix.py` 的 `k_mode="silhouette_is"` 不是現場算 k，是讀
    `_analysis_outputs_robustness/k_stability.csv`（由獨立模組 `research.k_stability` 產生）
