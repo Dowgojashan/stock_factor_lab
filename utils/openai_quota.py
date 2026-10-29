@@ -47,6 +47,8 @@ import datetime as _dt
 import json
 import os
 import sys
+import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -180,9 +182,47 @@ def log_usage(model: str, purpose: str, usage: dict, *,
         "total_tokens": total,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "a", encoding="utf-8") as f:
-        f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    _locked_append(path, json.dumps(rec, ensure_ascii=False) + "\n")
     return rec
+
+
+def _locked_append(path: Path, line: str, timeout: float = 30.0) -> None:
+    """跨程序互斥地追加一行。
+
+    🔴 2026-10-29：4 個程序同時用 `open(path, "a")` 追加，帳本少了 1 筆（結果檔有、帳本沒有；
+    Windows 的 append 不是原子操作，兩個程序同時寫會互相覆蓋）。改成先取得旁邊 `.lock` 檔的
+    排他鎖再寫；拿不到鎖就重試，逾時才報錯（寧可停也不要少記）。
+    """
+    lock_path = path.with_suffix(path.suffix + ".lock")
+    t0 = time.time()
+    with open(lock_path, "a+b") as lf:
+        while True:
+            try:
+                if os.name == "nt":
+                    import msvcrt
+                    lf.seek(0)
+                    msvcrt.locking(lf.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    import fcntl
+                    fcntl.flock(lf.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError:
+                if time.time() - t0 > timeout:
+                    raise RuntimeError(f"等不到帳本鎖（{lock_path}），已等 {timeout:.0f} 秒")
+                time.sleep(0.05)
+        try:
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(line)
+                f.flush()
+                os.fsync(f.fileno())
+        finally:
+            if os.name == "nt":
+                import msvcrt
+                lf.seek(0)
+                msvcrt.locking(lf.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
 
 
 def read_ledger(path: Path | None = None) -> list[dict]:
@@ -212,10 +252,125 @@ def today_totals(*, now: _dt.datetime | None = None,
     return totals
 
 
+# ───────────── 2026-10-29：煞車改看「整個帳號」的用量 ─────────────
+# 事故：帳號跟實驗室同學共用，免費額度是整個 OpenAI 組織合計。10/28 同學的金鑰
+# 早上用了 509 萬，我們的帳本看不到，下午照「還剩 1,000 萬」跑到 804 萬才停，
+# 合計 1,313 萬，超出部分被扣 $3.60（用 Usage API 逐小時對帳確認；我們這支金鑰
+# 與帳本逐小時完全一致，帳本本身沒有少記）。
+# 作法：每 ORG_CACHE_TTL 秒最多查一次 `/organization/usage/completions`（管理端點，
+# 不呼叫模型、不花 tokens），**依金鑰分開**：他人用量＝組織總量扣掉我們這支金鑰，
+# 我們的用量＝自己的帳本（即時、不受延遲影響）；已用＝他人＋我們的帳本。
+# 查不到（admin_key 沒填、認不出我們的金鑰、網路／權限錯誤）就停下，不退回只看自己帳本。
+# 🔴 2026-10-29 code review 修正：原本「組織總量快照＋帳本在快照後的增量」，但 Usage API
+# 有延遲（實測約 56 萬 tokens 的落差），快照當下還沒出現的「我們自己的近期用量」永遠不會
+# 被算進來 ⇒ 低估。改成依金鑰拆開後，只剩「他人近期用量」看不到，靠 reserve_ratio 吸收。
+ORG_CACHE_TTL = 60
+_ORG_LOCK = threading.Lock()
+_ORG_CACHE: dict = {"t": 0.0, "day": None, "org": None}
+
+
+def _read_admin_key() -> str:
+    import configparser
+    cp = configparser.ConfigParser()
+    cp.read(Path(__file__).resolve().parent.parent / "config.ini", encoding="utf-8")
+    return cp["openai"].get("admin_key", "").strip() if cp.has_section("openai") else ""
+
+
+def _read_api_key() -> str:
+    import configparser
+    cp = configparser.ConfigParser()
+    cp.read(Path(__file__).resolve().parent.parent / "config.ini", encoding="utf-8")
+    return cp["openai"].get("api_key", "").strip() if cp.has_section("openai") else ""
+
+
+_OUR_KEY_ID: dict = {}
+
+
+def our_api_key_id(admin_key: str | None = None) -> str:
+    """我們這支 api_key 在 OpenAI 的金鑰 ID（`key_…`）。用管理端點列出各專案的金鑰，
+    以遮罩值（前 6 碼＋末 4 碼）比對 config.ini 的 api_key；完整金鑰不會出現在回應裡。
+    認不出來（或比對到不只一支）就報錯，不猜。"""
+    if "id" in _OUR_KEY_ID:
+        return _OUR_KEY_ID["id"]
+    ak, k = admin_key or _read_admin_key(), _read_api_key()
+    if not ak or not k:
+        raise RuntimeError("config.ini 的 [openai] admin_key 或 api_key 是空的，認不出我們的金鑰")
+    H = {"Authorization": f"Bearer {ak}"}
+    r = requests.get(f"{OPENAI_API_BASE}/organization/projects", headers=H, params={"limit": 100},
+                     timeout=REQUEST_TIMEOUT)
+    raise_for_openai_response(r)
+    hits = []
+    for proj in r.json().get("data", []):
+        rk = requests.get(f"{OPENAI_API_BASE}/organization/projects/{proj['id']}/api_keys", headers=H,
+                          params={"limit": 100}, timeout=REQUEST_TIMEOUT)
+        raise_for_openai_response(rk)
+        for x in rk.json().get("data", []):
+            red = x.get("redacted_value") or ""
+            if red[:6] == k[:6] and red[-4:] == k[-4:]:
+                hits.append(x["id"])
+    if len(hits) != 1:
+        raise RuntimeError(f"用遮罩值比對我們的金鑰，找到 {len(hits)} 支（應為 1 支）")
+    _OUR_KEY_ID["id"] = hits[0]
+    return hits[0]
+
+
+def org_today_totals(admin_key: str | None = None, exclude_key_id: str | None = None) -> dict[str, int]:
+    """整個 OpenAI 組織（所有金鑰、所有共用帳號的人）今日（UTC）各池已用 tokens。
+    `exclude_key_id`：扣掉這支金鑰的用量（用來算「他人」）。
+    以 input_tokens + output_tokens 計（2026-10-29 實測：我們這支金鑰的此數字與帳本
+    total_tokens 逐小時完全相同）。"""
+    key = admin_key or _read_admin_key()
+    if not key:
+        raise RuntimeError("config.ini 的 [openai] admin_key 是空的，無法查整個帳號的用量")
+    start = _dt.datetime.now(_dt.timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    params = {"start_time": int(start.timestamp()), "bucket_width": "1d", "limit": 2,
+              "group_by": ["model", "api_key_id"]}
+    totals = {"standard": 0, "mini": 0, "unclassified": 0}
+    while True:
+        r = requests.get(f"{OPENAI_API_BASE}/organization/usage/completions",
+                         headers={"Authorization": f"Bearer {key}"}, params=params, timeout=REQUEST_TIMEOUT)
+        raise_for_openai_response(r)
+        body = r.json()
+        for b in body.get("data", []):
+            for x in b.get("results", []):
+                if exclude_key_id and x.get("api_key_id") == exclude_key_id:
+                    continue
+                tier = classify_model(x.get("model") or "") or "unclassified"
+                totals[tier] += int(x.get("input_tokens", 0) or 0) + int(x.get("output_tokens", 0) or 0)
+        if not body.get("has_more"):
+            return totals
+        params = dict(params, page=body["next_page"])
+
+
+def org_others_today(admin_key: str | None = None) -> dict[str, int]:
+    """今日他人（同一帳號裡我們這支金鑰以外的所有金鑰）各池已用 tokens。"""
+    return org_today_totals(admin_key, exclude_key_id=our_api_key_id(admin_key))
+
+
+def _org_used(tier: str, ledger_now: dict[str, int], fetch=None) -> int:
+    """估計整個帳號今日在 `tier` 池已用量＝他人用量（快取 ORG_CACHE_TTL 秒，執行緒共用）＋我們的帳本。
+    `fetch` 回傳他人的各池用量（預設 `org_others_today`）。"""
+    fetch = fetch or org_others_today
+    day = _day_key()
+    with _ORG_LOCK:
+        c = _ORG_CACHE
+        if c["org"] is None or c["day"] != day or time.time() - c["t"] > ORG_CACHE_TTL:
+            try:
+                org = fetch()
+            except Exception as e:  # noqa: BLE001 —— 任何查詢失敗都要停，不可靜默放行
+                raise FreeTierExhaustedError(
+                    f"查不到整個帳號今日的用量（{type(e).__name__}: {e}）。帳號與他人共用，"
+                    f"只看自己的帳本可能超額，已暫停。→ 確認 admin_key／網路後重跑即可接續") from e
+            c.update(t=time.time(), day=day, org=org)
+        return int(c["org"].get(tier, 0)) + int(ledger_now.get(tier, 0))
+
+
 def check_free_tier_budget(model: str, *, estimated_tokens: int = 0,
                            now: _dt.datetime | None = None,
                            path: Path | None = None,
-                           reserve_ratio: float = 0.0) -> dict:
+                           reserve_ratio: float = 0.0,
+                           org_check: bool | None = None,
+                           _org_fetch=None) -> dict:
     """呼叫 LLM **之前**檢查今日免費額度還夠不夠。不夠就 raise FreeTierExhaustedError。
 
     `estimated_tokens`：本次預估會用掉多少（不知道就傳0，那就只擋「已經超額」的情況）。
@@ -236,15 +391,23 @@ def check_free_tier_budget(model: str, *, estimated_tokens: int = 0,
             f"→ 請改用名單內的模型，或明確確認要付費後再跑")
 
     limit = FREE_TIER_LIMITS[tier]
-    used = today_totals(now=now, path=path)[tier]
+    ledger_now = today_totals(now=now, path=path)
+    used_ledger = ledger_now[tier]
+    # 預設：用真實帳本、真實時間時一律查整個帳號（測試傳 path/now 時不查網路）
+    if org_check is None:
+        org_check = path is None and now is None
+    used_org = _org_used(tier, ledger_now, _org_fetch) if org_check else None
+    used = max(used_ledger, used_org or 0)
     budget = int(limit * (1.0 - reserve_ratio))
     projected = used + max(0, int(estimated_tokens))
     status = {"model": model, "tier": tier, "limit": limit, "used": used,
+              "used_ledger": used_ledger, "used_org": used_org,
               "projected": projected, "budget": budget,
               "remaining": max(0, budget - used)}
     if projected > budget:
         raise FreeTierExhaustedError(
-            f"今日「{tier}」池免費額度不足：已用 {used:,}／預估本次再用 "
+            f"今日「{tier}」池免費額度不足（整個帳號）：已用 {used:,}"
+            f"（我們帳本 {used_ledger:,}{f'＋他人 {used_org - used_ledger:,}' if used_org is not None else ''}）／預估本次再用 "
             f"{estimated_tokens:,} → 合計 {projected:,}，超過可用上限 {budget:,}"
             f"（總額度 {limit:,}"
             f"{f'，已預留 {reserve_ratio:.0%}' if reserve_ratio else ''}）。\n"
@@ -510,6 +673,42 @@ def selftest(log=print) -> None:
             raise AssertionError("reserve_ratio=0.5 應讓可用上限砍半而擋下")
         except FreeTierExhaustedError:
             pass
+        log("  ✓ 通過")
+
+        log("== T10 免費額度：看整個帳號（共用帳號的他人用量）==")
+        _ORG_CACHE.update(org=None)
+        # 帳本 150，他人已用 900,000 ⇒ 全帳號 900,150，再估 200,000 要擋下
+        fake = lambda: {"standard": 900_000, "mini": 0, "unclassified": 0}
+        try:
+            check_free_tier_budget("gpt-5", estimated_tokens=200_000, now=t0, path=p,
+                                   org_check=True, _org_fetch=fake)
+            raise AssertionError("他人已用 90 萬時應擋下")
+        except FreeTierExhaustedError:
+            pass
+        # 他人用量少時應放行，且回報兩個數字
+        _ORG_CACHE.update(org=None)
+        st = check_free_tier_budget("gpt-5", estimated_tokens=1000, now=t0, path=p, org_check=True,
+                                    _org_fetch=lambda: {"standard": 5_000, "mini": 0, "unclassified": 0})
+        assert st["used"] == 5_150 and st["used_ledger"] == 150, st   # 他人 5,000＋帳本 150
+        # 查詢失敗要停，不可退回只看帳本
+        _ORG_CACHE.update(org=None)
+        def boom():
+            raise RuntimeError("network")
+        try:
+            check_free_tier_budget("gpt-5", estimated_tokens=10, now=t0, path=p, org_check=True, _org_fetch=boom)
+            raise AssertionError("查不到全帳號用量時應停下")
+        except FreeTierExhaustedError:
+            pass
+        _ORG_CACHE.update(org=None)
+        log("  ✓ 通過")
+
+        log("== T11 帳本加鎖：多執行緒同時寫不可少記 ==")
+        import concurrent.futures as cf
+        lp = Path(td) / "lock_test.jsonl"
+        with cf.ThreadPoolExecutor(8) as ex:
+            list(ex.map(lambda i: _locked_append(lp, json.dumps({"i": i}) + "\n"), range(400)))
+        got = [json.loads(x)["i"] for x in lp.read_text(encoding="utf-8").splitlines()]
+        assert sorted(got) == list(range(400)), f"少記或重複：{len(got)} 筆"
         log("  ✓ 通過")
 
     log("\n全部合成資料測試通過。"

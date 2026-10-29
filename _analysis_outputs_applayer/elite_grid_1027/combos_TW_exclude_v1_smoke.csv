@@ -1,0 +1,16 @@
+﻿combo,score,n,scheme,sleeve
+S1_votes|N1|equal|sl30,S1_votes,1,equal,0.3
+S1_votes|N1|equal|sl100,S1_votes,1,equal,1.0
+S1_votes|N5|proportional|sl30,S1_votes,5,proportional,0.3
+S1_votes|N5|proportional|sl100,S1_votes,5,proportional,1.0
+S3_greedy_L3|N1|equal|sl30,S3_greedy_L3,1,equal,0.3
+S3_greedy_L3|N1|equal|sl100,S3_greedy_L3,1,equal,1.0
+S3_greedy_L3|N5|proportional|sl30,S3_greedy_L3,5,proportional,0.3
+S3_greedy_L3|N5|proportional|sl100,S3_greedy_L3,5,proportional,1.0
+S6_mcap|N1|equal|sl30,S6_mcap,1,equal,0.3
+S6_mcap|N1|equal|sl100,S6_mcap,1,equal,1.0
+S6_mcap|N5|proportional|sl30,S6_mcap,5,proportional,0.3
+S6_mcap|N5|proportional|sl100,S6_mcap,5,proportional,1.0
+REF_control0,REF_control0,0,,0.0
+REF_stock_equal,REF_stock_equal,0,,0.0
+REF_w2c_full,REF_w2c_full,0,,0.0

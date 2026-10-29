@@ -1,0 +1,7 @@
+>> 載入 Data(market='TW') ...
+   因子宇宙=1775｜回測宇宙=1775｜起點>=2000-01-01｜交易日=6561 (2000-01-04~2026-07-24)｜耗時 99s
+=== TW/exclude_v1（gpt-5）control0：未扣 +14.4%／扣成本 +11.5% ===
+kind plan    style  n gross_mean gross_min gross_max net_mean net_min net_max
+分工混合  A×C balanced  1     +19.9%    +19.9%    +19.9%   +16.7%  +16.7%  +16.7%
+  方案    A balanced  1     +16.3%    +16.3%    +16.3%   +13.3%  +13.3%  +13.3%
+  方案    C balanced  1     +31.9%    +31.9%    +31.9%   +28.6%  +28.6%  +28.6%

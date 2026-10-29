@@ -1,0 +1,156 @@
+[US_exclude_v1_liq] 組合數 1043（含3個對照）｜窗次 [1, 2, 3, 4]
+>> 載入 Data(market='US') ...
+   因子宇宙=2974｜回測宇宙=2972｜起點>=2000-01-01｜交易日=6697 (2000-01-03~2026-08-19)｜耗時 157s
+D:\git\stock_factor_lab\code\app\monitor.py:96: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  d = pd.read_sql(q, conn)
+⚠️ fetch_mcap_wide(US)：濾掉3270筆用close×shares回退路徑算出來、單股收盤價超過$1,000,000的壞資料（3檔ticker：['PALI', 'TENX', 'TNXP']），佔原始8412157筆的0.04%
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:159: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  b = pd.read_sql(f"SELECT date, close FROM {table} ORDER BY date", conn)
+
+== window1：15 個代表策略，12 季 2014-12-31→2017-12-31 ==
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2014-12-31→2015-03-31：持股313檔（解析失敗策略0）｜control0 +6.06%｜耗時262s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2015-03-31→2015-06-30：持股327檔（解析失敗策略0）｜control0 +1.18%｜耗時268s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2015-06-30→2015-09-30：持股277檔（解析失敗策略0）｜control0 -9.91%｜耗時273s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2015-09-30→2015-12-31：持股237檔（解析失敗策略0）｜control0 +5.85%｜耗時278s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2015-12-31→2016-03-31：持股266檔（解析失敗策略0）｜control0 +0.87%｜耗時284s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2016-03-31→2016-06-30：持股337檔（解析失敗策略0）｜control0 +6.46%｜耗時289s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2016-06-30→2016-09-30：持股371檔（解析失敗策略0）｜control0 +9.69%｜耗時295s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2016-09-30→2016-12-31：持股386檔（解析失敗策略0）｜control0 +9.10%｜耗時300s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2016-12-31→2017-03-31：持股386檔（解析失敗策略0）｜control0 +7.21%｜耗時306s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2017-03-31→2017-06-30：持股332檔（解析失敗策略0）｜control0 +4.52%｜耗時311s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2017-06-30→2017-09-30：持股321檔（解析失敗策略0）｜control0 +10.01%｜耗時317s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2017-09-30→2017-12-31：持股288檔（解析失敗策略0）｜control0 +3.00%｜耗時322s
+
+== window2：30 個代表策略，12 季 2017-12-31→2020-12-31 ==
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2017-12-31→2018-03-31：持股676檔（解析失敗策略0）｜control0 +6.64%｜耗時364s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2018-03-31→2018-06-30：持股700檔（解析失敗策略0）｜control0 +12.07%｜耗時373s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2018-06-30→2018-09-30：持股581檔（解析失敗策略0）｜control0 +7.40%｜耗時382s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2018-09-30→2018-12-31：持股615檔（解析失敗策略0）｜control0 -15.61%｜耗時392s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2018-12-31→2019-03-31：持股516檔（解析失敗策略0）｜control0 +16.71%｜耗時401s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2019-03-31→2019-06-30：持股541檔（解析失敗策略0）｜control0 +1.47%｜耗時410s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2019-06-30→2019-09-30：持股662檔（解析失敗策略0）｜control0 +0.27%｜耗時419s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2019-09-30→2019-12-31：持股691檔（解析失敗策略0）｜control0 +8.01%｜耗時429s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2019-12-31→2020-03-31：持股766檔（解析失敗策略0）｜control0 -24.26%｜耗時438s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2020-03-31→2020-06-30：持股504檔（解析失敗策略0）｜control0 +57.79%｜耗時447s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2020-06-30→2020-09-30：持股531檔（解析失敗策略0）｜control0 +12.96%｜耗時456s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2020-09-30→2020-12-31：持股506檔（解析失敗策略0）｜control0 +37.29%｜耗時465s
+
+== window3：25 個代表策略，12 季 2020-12-31→2023-12-31 ==
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2020-12-31→2021-03-31：持股723檔（解析失敗策略0）｜control0 +28.58%｜耗時482s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2021-03-31→2021-06-30：持股889檔（解析失敗策略0）｜control0 +9.07%｜耗時490s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2021-06-30→2021-09-30：持股925檔（解析失敗策略0）｜control0 -1.82%｜耗時499s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2021-09-30→2021-12-31：持股895檔（解析失敗策略0）｜control0 +2.38%｜耗時507s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2021-12-31→2022-03-31：持股726檔（解析失敗策略0）｜control0 +1.41%｜耗時516s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2022-03-31→2022-06-30：持股530檔（解析失敗策略0）｜control0 -14.86%｜耗時524s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2022-06-30→2022-09-30：持股432檔（解析失敗策略0）｜control0 +0.74%｜耗時531s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2022-09-30→2022-12-31：持股514檔（解析失敗策略0）｜control0 +5.51%｜耗時540s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2022-12-31→2023-03-31：持股507檔（解析失敗策略0）｜control0 +2.28%｜耗時547s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2023-03-31→2023-06-30：持股815檔（解析失敗策略0）｜control0 +9.83%｜耗時556s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2023-06-30→2023-09-30：持股918檔（解析失敗策略0）｜control0 -4.23%｜耗時565s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2023-09-30→2023-12-31：持股893檔（解析失敗策略0）｜control0 +20.74%｜耗時574s
+
+== window4：25 個代表策略，8 季 2023-12-31→2025-12-31 ==
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2023-12-31→2024-03-31：持股830檔（解析失敗策略0）｜control0 +12.85%｜耗時600s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2024-03-31→2024-06-30：持股927檔（解析失敗策略0）｜control0 -2.92%｜耗時609s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2024-06-30→2024-09-30：持股852檔（解析失敗策略0）｜control0 +16.66%｜耗時618s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2024-09-30→2024-12-31：持股893檔（解析失敗策略0）｜control0 +15.32%｜耗時627s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2024-12-31→2025-03-31：持股877檔（解析失敗策略0）｜control0 -10.89%｜耗時635s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2025-03-31→2025-06-30：持股686檔（解析失敗策略0）｜control0 +16.77%｜耗時643s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2025-06-30→2025-09-30：持股690檔（解析失敗策略0）｜control0 +20.08%｜耗時651s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:82: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return set(pd.read_sql(q, conn).iloc[:, 0].astype(str))
+   2025-09-30→2025-12-31：持股781檔（解析失敗策略0）｜control0 +11.65%｜耗時660s
+
+=== 各窗累積報酬（毛，季報酬複利）===
+window1：control0 +66.95%｜每檔等權 +66.19%｜市值傾斜全開 +64.47%｜大盤 +38.29%
+window2：control0 +157.48%｜每檔等權 +85.39%｜市值傾斜全開 +161.94%｜大盤 +48.85%
+window3：control0 +68.07%｜每檔等權 +58.75%｜市值傾斜全開 +69.59%｜大盤 +33.10%
+window4：control0 +105.61%｜每檔等權 +88.30%｜市值傾斜全開 +107.81%｜大盤 +47.37%
+
+完成，總耗時 661s，輸出在 D:\git\stock_factor_lab\_analysis_outputs_applayer\elite_grid_1027

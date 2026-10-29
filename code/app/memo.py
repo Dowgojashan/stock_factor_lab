@@ -42,7 +42,10 @@ from .risk import RiskReport, Violation
 # 改這個常數本身（改了會波及之後所有執行，不是使用者的意圖，使用者只同意
 # 「這次」）。只有顯式設定`OPENAI_RESERVE_OVERRIDE=1`的那次執行才會把保留
 # 比例降到0，預設行為（0.2）完全不變。
-RESERVE_RATIO = 0.0 if os.environ.get("OPENAI_RESERVE_OVERRIDE") == "1" else 0.2
+# 2026-10-29：使用者要求「跑到95%」⇒ 另加 `OPENAI_RESERVE_RATIO=0.05` 這種指定數值的當次覆寫（同樣只影響設定的那次執行）
+RESERVE_RATIO = (0.0 if os.environ.get("OPENAI_RESERVE_OVERRIDE") == "1"
+                 else float(os.environ.get("OPENAI_RESERVE_RATIO", "0.2")))
+assert 0.0 <= RESERVE_RATIO < 1.0, RESERVE_RATIO
 # 跟 cluster_story 同一個保守係數，額度快用完先煞車
 
 _SYSTEM_PROMPT = (

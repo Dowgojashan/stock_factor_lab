@@ -1,0 +1,64 @@
+>> 載入研究部輸入...
+
+########## window1：IS 2002-01~2014-12／OOS 2015-01~2017-12 ##########
+>> 建樹（fixed k_mode，取得可重切的linkage）IS 2002-01~2014-12...
+>> 只用這個IS窗的資料現場選k（k_stability.scan_window，不看未來）...
+  [US] IS 2002-01~2014-12｜linkage=ward｜IS選k=3 vs 寫死k=4  ⚠️不同｜輪廓 0.0467 vs 0.0146｜545s
+   IS選k=3（寫死版k=4，不同）
+   n_universe=21379｜k=3（silhouette選出）｜目標代表數=15
+   [baseline/equal] 選出 15 檔（目標15，backfill=0）
+   [baseline/proportional] 選出 15 檔（目標15，backfill=0）
+   驗證 w1/equal：官方15檔｜現場15檔｜交集15檔
+   驗證 w1/proportional：官方15檔｜現場15檔｜交集15檔
+   ✅ w1 baseline 跟官方凍結名單完全一致
+寫入 anchored_w1_openSec_balanced_baseline.parquet（{'k_is_selected': 3, 'k_fixed': 4, 'n_universe': 21379, 'n_eligible': 21379, 'target_total': 15, 'is_start': '2002-01', 'is_end': '2014-12', 'variant': 'baseline', 'quality_window_months': None}）
+>> 建樹（fixed k_mode，取得可重切的linkage）IS 2002-01~2014-12...
+>> 只用這個IS窗的資料現場選k（k_stability.scan_window，不看未來）...
+  [US] IS 2002-01~2014-12｜linkage=ward｜IS選k=3 vs 寫死k=4  ⚠️不同｜輪廓 0.0467 vs 0.0146｜544s
+   IS選k=3（寫死版k=4，不同）
+   n_universe=21379｜k=3（silhouette選出）｜目標代表數=15
+   [exclude_v1/equal] 選出 15 檔（目標15，backfill=0）
+   [exclude_v1/proportional] 選出 15 檔（目標15，backfill=0）
+寫入 anchored_w1_openSec_balanced_exclude_v1.parquet（{'k_is_selected': 3, 'k_fixed': 4, 'n_universe': 21379, 'n_eligible': 12087, 'target_total': 15, 'is_start': '2002-01', 'is_end': '2014-12', 'variant': 'exclude_v1', 'quality_window_months': None}）
+
+########## window2：IS 2002-01~2017-12／OOS 2018-01~2020-12 ##########
+>> 建樹（fixed k_mode，取得可重切的linkage）IS 2002-01~2017-12...
+>> 只用這個IS窗的資料現場選k（k_stability.scan_window，不看未來）...
+  [US] IS 2002-01~2017-12｜linkage=ward｜IS選k=6 vs 寫死k=4  ⚠️不同｜輪廓 0.0388 vs 0.0374｜548s
+   IS選k=6（寫死版k=4，不同）
+   n_universe=21379｜k=6（silhouette選出）｜目標代表數=30
+   [baseline/equal] 選出 30 檔（目標30，backfill=0）
+   [baseline/proportional] 選出 30 檔（目標30，backfill=0）
+   驗證 w2/equal：官方30檔｜現場30檔｜交集30檔
+   驗證 w2/proportional：官方30檔｜現場30檔｜交集30檔
+   ✅ w2 baseline 跟官方凍結名單完全一致
+寫入 anchored_w2_openSec_balanced_baseline.parquet（{'k_is_selected': 6, 'k_fixed': 4, 'n_universe': 21379, 'n_eligible': 21379, 'target_total': 30, 'is_start': '2002-01', 'is_end': '2017-12', 'variant': 'baseline', 'quality_window_months': None}）
+>> 建樹（fixed k_mode，取得可重切的linkage）IS 2002-01~2017-12...
+>> 只用這個IS窗的資料現場選k（k_stability.scan_window，不看未來）...
+  [US] IS 2002-01~2017-12｜linkage=ward｜IS選k=6 vs 寫死k=4  ⚠️不同｜輪廓 0.0388 vs 0.0374｜549s
+   IS選k=6（寫死版k=4，不同）
+   n_universe=21379｜k=6（silhouette選出）｜目標代表數=30
+   [exclude_v1/equal] 選出 30 檔（目標30，backfill=0）
+   [exclude_v1/proportional] 選出 30 檔（目標30，backfill=0）
+寫入 anchored_w2_openSec_balanced_exclude_v1.parquet（{'k_is_selected': 6, 'k_fixed': 4, 'n_universe': 21379, 'n_eligible': 12087, 'target_total': 30, 'is_start': '2002-01', 'is_end': '2017-12', 'variant': 'exclude_v1', 'quality_window_months': None}）
+
+########## window3：IS 2002-01~2020-12／OOS 2021-01~2023-12 ##########
+>> 建樹（fixed k_mode，取得可重切的linkage）IS 2002-01~2020-12...
+>> 只用這個IS窗的資料現場選k（k_stability.scan_window，不看未來）...
+  [US] IS 2002-01~2020-12｜linkage=ward｜IS選k=5 vs 寫死k=4  ⚠️不同｜輪廓 0.0457 vs 0.0431｜545s
+   IS選k=5（寫死版k=4，不同）
+   n_universe=21379｜k=5（silhouette選出）｜目標代表數=25
+   [baseline/equal] 選出 25 檔（目標25，backfill=0）
+   [baseline/proportional] 選出 25 檔（目標25，backfill=0）
+   驗證 w3/equal：官方25檔｜現場25檔｜交集25檔
+   驗證 w3/proportional：官方25檔｜現場25檔｜交集25檔
+   ✅ w3 baseline 跟官方凍結名單完全一致
+寫入 anchored_w3_openSec_balanced_baseline.parquet（{'k_is_selected': 5, 'k_fixed': 4, 'n_universe': 21379, 'n_eligible': 21379, 'target_total': 25, 'is_start': '2002-01', 'is_end': '2020-12', 'variant': 'baseline', 'quality_window_months': None}）
+>> 建樹（fixed k_mode，取得可重切的linkage）IS 2002-01~2020-12...
+>> 只用這個IS窗的資料現場選k（k_stability.scan_window，不看未來）...
+  [US] IS 2002-01~2020-12｜linkage=ward｜IS選k=5 vs 寫死k=4  ⚠️不同｜輪廓 0.0457 vs 0.0431｜554s
+   IS選k=5（寫死版k=4，不同）
+   n_universe=21379｜k=5（silhouette選出）｜目標代表數=25
+   [exclude_v1/equal] 選出 25 檔（目標25，backfill=2）
+   [exclude_v1/proportional] 選出 25 檔（目標25，backfill=0）
+寫入 anchored_w3_openSec_balanced_exclude_v1.parquet（{'k_is_selected': 5, 'k_fixed': 4, 'n_universe': 21379, 'n_eligible': 12087, 'target_total': 25, 'is_start': '2002-01', 'is_end': '2020-12', 'variant': 'exclude_v1', 'quality_window_months': None}）

@@ -1,0 +1,22 @@
+[TW_exclude_v1_smoke] 組合數 15（含3個對照）｜窗次 [4]
+>> 載入 Data(market='TW') ...
+   因子宇宙=1775｜回測宇宙=1775｜起點>=2000-01-01｜交易日=6561 (2000-01-04~2026-07-24)｜耗時 272s
+D:\git\stock_factor_lab\code\app\monitor.py:96: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  d = pd.read_sql(q, conn)
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:134: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  b = pd.read_sql(f"SELECT date, close FROM {table} ORDER BY date", conn)
+
+== window4：40 個代表策略，8 季 2023-12-31→2025-12-31 ==
+   2023-12-31→2024-03-31：持股842檔（解析失敗策略0）｜control0 +0.22%｜耗時585s
+   2024-03-31→2024-06-30：持股842檔（解析失敗策略0）｜control0 +13.80%｜耗時607s
+   2024-06-30→2024-09-30：持股794檔（解析失敗策略0）｜control0 +1.95%｜耗時626s
+   2024-09-30→2024-12-31：持股814檔（解析失敗策略0）｜control0 -4.35%｜耗時633s
+   2024-12-31→2025-03-31：持股783檔（解析失敗策略0）｜control0 -3.92%｜耗時639s
+   2025-03-31→2025-06-30：持股672檔（解析失敗策略0）｜control0 -1.44%｜耗時646s
+   2025-06-30→2025-09-30：持股596檔（解析失敗策略0）｜control0 +6.26%｜耗時652s
+   2025-09-30→2025-12-31：持股602檔（解析失敗策略0）｜control0 +2.25%｜耗時659s
+
+=== 各窗累積報酬（毛，季報酬複利）===
+window4：control0 +14.44%｜每檔等權 +11.16%｜市值傾斜全開 +64.07%｜大盤 +70.56%
+
+完成，總耗時 659s，輸出在 D:\git\stock_factor_lab\_analysis_outputs_applayer\elite_grid_1027

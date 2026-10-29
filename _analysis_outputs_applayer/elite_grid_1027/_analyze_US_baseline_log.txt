@@ -1,0 +1,29 @@
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:134: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  b = pd.read_sql(f"SELECT date, close FROM {table} ORDER BY date", conn)
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:134: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  b = pd.read_sql(f"SELECT date, close FROM {table} ORDER BY date", conn)
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:134: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  b = pd.read_sql(f"SELECT date, close FROM {table} ORDER BY date", conn)
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:134: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  b = pd.read_sql(f"SELECT date, close FROM {table} ORDER BY date", conn)
+# US_baseline 晉級結果（規則見腳本docstring，跑之前已寫死）
+網格 1040 組＋對照 3 組
+大盤 IS：Sharpe 0.705｜累積 +173.99%｜MDD -33.79%
+大盤 OOS：Sharpe 1.222｜累積 +47.37%｜MDD -18.75%
+D. Spearman ρ（IS扣成本Sharpe排名 vs OOS扣成本Sharpe排名，1040組）＝+0.767
+   參考：累積報酬排名的 ρ＝+0.710
+   各維度平均效果兩期同號比例＝79%（26/33）
+
+                             promote_reason  IS_net_sharpe  IS_net_cum  IS_net_mdd  OOS_net_sharpe  OOS_net_cum  OOS_gross_cum  OOS_net_mdd  turnover_OOS  max_weight_peak_OOS
+combo                                                                                                                                                                         
+S6_mcap|N1|equal|sl50            整體前3;S6最佳;       1.185975    8.568056   -0.327866        1.102841     0.490246       0.507078    -0.192101      0.701461             0.501576
+S6_mcap|N1|equal|sl30                 整體前3;       1.180965    6.807816   -0.336641        1.336759     0.653461       0.670984    -0.214064      0.658432             0.302206
+S6_mcap|N1|equal|sl20                 整體前3;       1.145061    5.979762   -0.348338        1.400434     0.734378       0.752161    -0.225083      0.637156             0.202521
+S1_votes|N3|top1x2|sl20               S1最佳;       1.065730    6.418545   -0.376561        1.420595     1.230359       1.253755    -0.280952      0.651780             0.113099
+S2_f1f2|N10|top2x2|sl10               S2最佳;       0.969276    4.171939   -0.378755        1.346939     0.820676       0.838493    -0.241763      0.608273             0.020893
+S3_greedy_L3|N3|top2x2|sl10           S3最佳;       1.045293    6.713057   -0.421916        1.481475     1.072148       1.092802    -0.230167      0.619483             0.050205
+S4_reversal_L1|N10|tier|sl10          S4最佳;       1.031919    5.587597   -0.367025        1.495198     1.037189       1.057586    -0.248982      0.622251             0.021668
+S5_mixed_L3|N3|top2x2|sl10            S5最佳;       1.074402    6.574225   -0.402837        1.389577     0.939538       0.958827    -0.240357      0.618114             0.030205
+REF_control0                                      0.997853    4.455750   -0.385023        1.440309     0.892908       0.911030    -0.247196      0.595140             0.019249
+REF_stock_equal                                   0.959602    3.917311   -0.386992        1.519014     0.975843       0.989903    -0.227080      0.442985             0.001859
+REF_w2c_full                                      0.997869    4.594818   -0.386063        1.453277     0.911300       0.929605    -0.248164      0.595377             0.019424

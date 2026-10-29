@@ -1,0 +1,20 @@
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:159: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  b = pd.read_sql(f"SELECT date, close FROM {table} ORDER BY date", conn)
+[TW/exclude_v1] 模型 gpt-5｜方案 ['A', 'C']｜風格 balanced｜重複 1｜已完成 0 次
+TW/exclude_v1 A/balanced/rep1 第1季 ✓ tokens 1701
+TW/exclude_v1 A/balanced/rep1 第2季 ✓ tokens 2320
+TW/exclude_v1 A/balanced/rep1 第3季 ✓ tokens 2157
+TW/exclude_v1 A/balanced/rep1 第4季 ✓ tokens 2262
+TW/exclude_v1 A/balanced/rep1 第5季 ✓ tokens 1697
+TW/exclude_v1 A/balanced/rep1 第6季 ✓ tokens 3102
+TW/exclude_v1 A/balanced/rep1 第7季 ✓ tokens 2150
+TW/exclude_v1 A/balanced/rep1 第8季 ✓ tokens 2097
+TW/exclude_v1 C/balanced/rep1 第1季 ✓ tokens 1574
+TW/exclude_v1 C/balanced/rep1 第2季 ✓ tokens 1605
+TW/exclude_v1 C/balanced/rep1 第3季 ✓ tokens 2133
+TW/exclude_v1 C/balanced/rep1 第4季 ✓ tokens 1723
+TW/exclude_v1 C/balanced/rep1 第5季 ✓ tokens 1948
+TW/exclude_v1 C/balanced/rep1 第6季 ✓ tokens 2348
+TW/exclude_v1 C/balanced/rep1 第7季 ✓ tokens 1904
+TW/exclude_v1 C/balanced/rep1 第8季 ✓ tokens 2033
+[TW/exclude_v1] 全部完成

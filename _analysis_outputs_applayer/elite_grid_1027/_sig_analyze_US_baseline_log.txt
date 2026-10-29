@@ -1,0 +1,19 @@
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:164: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  b = pd.read_sql(f"SELECT date, close FROM {table} ORDER BY date", conn)
+# US_baseline_liq_sig 晉級結果（規則見腳本docstring，跑之前已寫死）
+網格 160 組＋對照 3 組
+大盤 IS：Sharpe 0.705｜累積 +173.99%｜MDD -33.79%
+大盤 OOS：Sharpe 1.299｜累積 +47.37%｜MDD -18.75%
+D. Spearman ρ（IS扣成本Sharpe排名 vs OOS扣成本Sharpe排名，160組）＝+0.477
+   參考：累積報酬排名的 ρ＝+0.334
+   各維度平均效果兩期同號比例＝61%（11/18）
+
+                                 promote_reason  IS_net_sharpe  IS_net_cum  IS_net_mdd  OOS_net_sharpe  OOS_net_cum  OOS_gross_cum  OOS_net_mdd  turnover_OOS  max_weight_peak_OOS
+combo                                                                                                                                                                             
+S7_hot|N3|proportional|sl10          整體前3;S7最佳;       1.013114    5.339217   -0.388479        1.319243     0.821969       0.840699    -0.261000      0.638806             0.060017
+S7_hot|N3|top1x2|sl10                     整體前3;       1.012489    5.352899   -0.389827        1.329521     0.827444       0.846256    -0.256143      0.639688             0.056518
+S7_hot|N1|equal|sl10                      整體前3;       1.004269    5.743896   -0.397891        1.405165     0.963757       0.984371    -0.248202      0.652225             0.106518
+S8_breakout|N3|proportional|sl10          S8最佳;       0.940040    3.882239   -0.395701        1.512428     0.845805       0.864590    -0.236627      0.632445             0.019321
+REF_control0                                          0.997284    4.449715   -0.385023        1.530683     0.892304       0.911030    -0.247196      0.615065             0.019249
+REF_stock_equal                                       0.959230    3.913602   -0.386992        1.615255     0.975940       0.989903    -0.227080      0.439908             0.001859
+REF_w2c_full                                          0.997305    4.588567   -0.386063        1.546108     0.911857       0.930777    -0.248164      0.615099             0.019424

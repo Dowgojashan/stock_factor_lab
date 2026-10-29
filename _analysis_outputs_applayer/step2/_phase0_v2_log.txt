@@ -1,0 +1,272 @@
+>> 載入 Data(market='TW') ...
+   因子宇宙=1775｜回測宇宙=1775｜起點>=2000-01-01｜交易日=6561 (2000-01-04~2026-07-24)｜耗時 101s
+>> 載入 Data(market='TW') ...
+   因子宇宙=1775｜回測宇宙=1775｜起點>=2000-01-01｜交易日=6561 (2000-01-04~2026-07-24)｜耗時 97s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:164: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  b = pd.read_sql(f"SELECT date, close FROM {table} ORDER BY date", conn)
+D:\git\stock_factor_lab\code\app\monitor.py:96: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  d = pd.read_sql(q, conn)
+TW/exclude_v1/A：選單 9 個規則
+TW/exclude_v1/B：選單 129 個規則
+TW/exclude_v1/C：選單 10 個規則
+TW/exclude_v1/D：隨機評分 1000 次
+>> 載入 Data(market='TW') ...
+   因子宇宙=1775｜回測宇宙=1775｜起點>=2000-01-01｜交易日=6561 (2000-01-04~2026-07-24)｜耗時 99s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:164: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  b = pd.read_sql(f"SELECT date, close FROM {table} ORDER BY date", conn)
+D:\git\stock_factor_lab\code\app\monitor.py:96: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  d = pd.read_sql(q, conn)
+TW/baseline/A：選單 9 個規則
+TW/baseline/B：選單 129 個規則
+TW/baseline/C：選單 10 個規則
+TW/baseline/D：隨機評分 1000 次
+>> 載入 Data(market='US') ...
+   因子宇宙=2974｜回測宇宙=2972｜起點>=2000-01-01｜交易日=6697 (2000-01-03~2026-08-19)｜耗時 152s
+>> 載入 Data(market='US') ...
+   因子宇宙=2974｜回測宇宙=2972｜起點>=2000-01-01｜交易日=6697 (2000-01-03~2026-08-19)｜耗時 152s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:164: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  b = pd.read_sql(f"SELECT date, close FROM {table} ORDER BY date", conn)
+D:\git\stock_factor_lab\code\app\monitor.py:96: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  d = pd.read_sql(q, conn)
+US/exclude_v1/A：選單 9 個規則
+US/exclude_v1/B：選單 129 個規則
+US/exclude_v1/C：選單 10 個規則
+US/exclude_v1/D：隨機評分 1000 次
+>> 載入 Data(market='US') ...
+   因子宇宙=2974｜回測宇宙=2972｜起點>=2000-01-01｜交易日=6697 (2000-01-03~2026-08-19)｜耗時 151s
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:164: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  b = pd.read_sql(f"SELECT date, close FROM {table} ORDER BY date", conn)
+D:\git\stock_factor_lab\code\app\monitor.py:96: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  d = pd.read_sql(q, conn)
+US/baseline/A：選單 9 個規則
+US/baseline/B：選單 129 個規則
+US/baseline/C：選單 10 個規則
+US/baseline/D：隨機評分 1000 次
+
+=== TW/exclude_v1／選單A ===
+                               policy cum_gross cum_net   p05    p95
+                            訊號規則（三訊號）    +19.1%  +15.9%             
+                      固定：REF_control0    +14.4%  +11.5%             
+           固定：S1_votes|N10|equal|sl10    +13.5%  +10.4%             
+             固定：S2_f1f2|N3|equal|sl10     +8.5%   +5.6%             
+固定：S3_greedy_L6|N10|proportional|sl10    +17.5%  +14.4%             
+      固定：S4_reversal_L1|N1|equal|sl10    +12.4%   +9.3%             
+       固定：S5_mixed_L6|N10|top2x2|sl10    +18.0%  +14.9%             
+      固定：S6_mcap|N3|proportional|sl10    +25.2%  +22.1%             
+             固定：S7_hot|N3|top2x2|sl10    +14.1%  +11.0%             
+         固定：S8_breakout|N1|equal|sl10    +11.7%   +8.8%             
+                           上季最好續用（追強）    +13.7%  +10.7%             
+                           上季最差改用（逆勢）    +16.8%  +13.6%             
+                              警示觸發換市值    +19.1%  +16.1%             
+                             事後最佳（上限）    +35.3%  +31.7%             
+                      ε-greedy（ε=0.1）    +13.4%  +10.3% +9.6% +18.6%
+                    Thompson sampling    +14.6%  +11.5% +8.5% +21.1%
+                                  隨機挑    +14.9%  +11.8% +9.3% +20.8%
+
+=== TW/exclude_v1／選單B ===
+           policy cum_gross cum_net    p05    p95
+        訊號規則（三訊號）    +19.1%  +15.9%              
+  固定：REF_control0    +14.4%  +11.5%              
+       上季最好續用（追強）     +8.5%   +4.9%              
+       上季最差改用（逆勢）    +41.1%  +36.1%              
+          警示觸發換市值    +31.9%  +28.6%              
+         事後最佳（上限）   +701.7% +674.4%              
+  ε-greedy（ε=0.1）    +12.1%   +8.2% -21.3% +38.6%
+Thompson sampling    +15.3%  +11.3% -22.3% +70.1%
+              隨機挑    +21.6%  +17.8%  -1.3% +58.6%
+
+=== TW/exclude_v1／選單C ===
+                       policy cum_gross cum_net   p05    p95
+                    訊號規則（三訊號）    +19.1%  +15.9%             
+              固定：REF_control0    +14.4%  +11.5%             
+     固定：S6_mcap|N3|equal|sl10    +24.1%  +21.0%             
+     固定：S6_mcap|N3|equal|sl30    +45.0%  +41.4%             
+     固定：S6_mcap|N3|equal|sl50    +67.9%  +63.9%             
+      固定：S7_hot|N3|equal|sl10    +12.9%   +9.8%             
+      固定：S7_hot|N3|equal|sl30     +9.4%   +6.0%             
+      固定：S7_hot|N3|equal|sl50     +5.2%   +1.6%             
+固定：S8_breakout|N10|equal|sl10    +11.7%   +8.8%             
+固定：S8_breakout|N10|equal|sl30     +6.4%   +3.3%             
+固定：S8_breakout|N10|equal|sl50     +1.3%   -2.1%             
+                   上季最好續用（追強）    +46.2%  +41.7%             
+                   上季最差改用（逆勢）    +11.1%   +7.2%             
+                      警示觸發換市值    +31.9%  +28.6%             
+                     事後最佳（上限）   +105.1%  +99.0%             
+              ε-greedy（ε=0.1）     +7.4%   +3.7% -2.2% +18.5%
+            Thompson sampling     +9.7%   +6.1% -5.6% +28.7%
+                          隨機挑    +19.1%  +15.4% +0.1% +42.6%
+
+=== TW/exclude_v1／選單D ===
+policy cum_gross cum_net   p05    p95
+   隨機挑    +12.9%   +9.6% +7.0% +19.2%
+
+=== TW/baseline／選單A ===
+                          policy cum_gross cum_net   p05    p95
+                       訊號規則（三訊號）    +27.0%  +23.1%             
+                 固定：REF_control0    +11.2%   +7.7%             
+      固定：S1_votes|N10|equal|sl10    +10.3%   +6.8%             
+        固定：S2_f1|N10|top1x2|sl20    +13.3%   +9.8%             
+  固定：S3_greedy_L6|N10|equal|sl10    +14.0%  +10.4%             
+固定：S4_reversal_L6|N3|top2x2|sl10    +20.1%  +16.2%             
+  固定：S5_mixed_L6|N10|top1x2|sl10    +15.8%  +12.1%             
+ 固定：S6_mcap|N3|proportional|sl10    +16.5%  +12.9%             
+        固定：S7_hot|N3|top2x2|sl10     +8.1%   +4.6%             
+     固定：S8_breakout|N3|tier|sl10     +8.6%   +5.2%             
+                      上季最好續用（追強）    +14.2%  +10.6%             
+                      上季最差改用（逆勢）    +19.7%  +15.8%             
+                         警示觸發換市值    +15.7%  +12.3%             
+                        事後最佳（上限）    +41.7%  +37.3%             
+                 ε-greedy（ε=0.1）     +6.1%   +2.7% +3.3% +12.9%
+               Thompson sampling    +12.5%   +8.9% +6.0% +22.9%
+                             隨機挑    +13.3%   +9.7% +6.8% +25.1%
+
+=== TW/baseline／選單B ===
+           policy cum_gross cum_net    p05     p95
+        訊號規則（三訊號）    +27.0%  +23.1%               
+  固定：REF_control0    +11.2%   +7.7%               
+       上季最好續用（追強）     -7.8%  -11.3%               
+       上季最差改用（逆勢）    +43.9%  +38.4%               
+          警示觸發換市值    +27.6%  +23.9%               
+         事後最佳（上限）   +892.1% +856.1%               
+  ε-greedy（ε=0.1）     +8.0%   +4.0% -16.7%  +21.8%
+Thompson sampling    +34.4%  +29.4% -13.0% +106.9%
+              隨機挑    +23.4%  +19.1%  -2.0%  +73.2%
+
+=== TW/baseline／選單C ===
+                       policy cum_gross cum_net    p05    p95
+                    訊號規則（三訊號）    +27.0%  +23.1%              
+              固定：REF_control0    +11.2%   +7.7%              
+     固定：S6_mcap|N3|equal|sl10    +16.7%  +13.1%              
+     固定：S6_mcap|N3|equal|sl30    +27.8%  +24.1%              
+     固定：S6_mcap|N3|equal|sl50    +39.1%  +35.2%              
+      固定：S7_hot|N3|equal|sl10     +8.3%   +4.8%              
+      固定：S7_hot|N3|equal|sl30     +2.1%   -1.4%              
+      固定：S7_hot|N3|equal|sl50     -4.7%   -8.2%              
+固定：S8_breakout|N10|equal|sl10     +8.6%   +5.2%              
+固定：S8_breakout|N10|equal|sl30     +3.5%   +0.1%              
+固定：S8_breakout|N10|equal|sl50     -1.4%   -4.9%              
+                   上季最好續用（追強）    +26.1%  +21.6%              
+                   上季最差改用（逆勢）     +7.8%   +3.7%              
+                      警示觸發換市值    +27.6%  +23.9%              
+                     事後最佳（上限）    +84.4%  +78.3%              
+              ε-greedy（ε=0.1）     -1.8%   -5.5% -15.8%  +8.6%
+            Thompson sampling     +0.9%   -2.7% -16.0% +19.4%
+                          隨機挑    +11.0%   +7.2%  -6.9% +33.1%
+
+=== TW/baseline／選單D ===
+policy cum_gross cum_net   p05    p95
+   隨機挑     +8.1%   +4.4% +2.3% +14.3%
+
+=== US/exclude_v1／選單A ===
+                             policy cum_gross cum_net    p05     p95
+                          訊號規則（三訊號）    +99.9%  +98.1%               
+                    固定：REF_control0   +105.6% +103.8%               
+          固定：S1_votes|N1|equal|sl10    +97.6%  +95.8%               
+             固定：S2_f1|N5|equal|sl10    +98.4%  +96.6%               
+      固定：S3_greedy_L3|N1|equal|sl10    +86.9%  +85.2%               
+    固定：S4_reversal_L1|N1|equal|sl10    +66.1%  +64.6%               
+       固定：S5_mixed_L3|N1|equal|sl10    +93.2%  +91.5%               
+          固定：S6_mcap|N3|top2x2|sl50   +109.2% +107.0%               
+           固定：S7_hot|N3|top2x2|sl10   +105.6% +103.8%               
+固定：S8_breakout|N5|proportional|sl10   +105.4% +103.5%               
+                         上季最好續用（追強）   +113.0% +111.0%               
+                         上季最差改用（逆勢）    +82.4%  +80.4%               
+                            警示觸發換市值    +99.7%  +97.9%               
+                           事後最佳（上限）   +220.7% +217.6%               
+                    ε-greedy（ε=0.1）    +88.5%  +86.8% +79.4% +103.4%
+                  Thompson sampling    +91.5%  +89.7% +68.6% +116.8%
+                                隨機挑    +97.1%  +95.2% +69.5% +129.7%
+
+=== US/exclude_v1／選單B ===
+           policy cum_gross cum_net    p05     p95
+        訊號規則（三訊號）    +99.9%  +98.1%               
+  固定：REF_control0   +105.6% +103.8%               
+       上季最好續用（追強）    +30.0%  +28.6%               
+       上季最差改用（逆勢）   +119.1% +116.5%               
+          警示觸發換市值   +101.6%  +99.8%               
+         事後最佳（上限）   +701.8% +692.8%               
+  ε-greedy（ε=0.1）    +20.8%  +19.3%  -6.6%  +67.8%
+Thompson sampling    +36.7%  +35.1% -20.1% +112.8%
+              隨機挑    +88.8%  +86.8% +34.6% +150.5%
+
+=== US/exclude_v1／選單C ===
+                       policy cum_gross cum_net    p05     p95
+                    訊號規則（三訊號）    +99.9%  +98.1%               
+              固定：REF_control0   +105.6% +103.8%               
+     固定：S6_mcap|N3|equal|sl10   +107.5% +105.6%               
+     固定：S6_mcap|N3|equal|sl30   +110.2% +108.1%               
+     固定：S6_mcap|N3|equal|sl50   +111.6% +109.3%               
+      固定：S7_hot|N3|equal|sl10   +106.4% +104.5%               
+      固定：S7_hot|N3|equal|sl30   +101.9%  +99.9%               
+      固定：S7_hot|N3|equal|sl50    +90.8%  +88.7%               
+固定：S8_breakout|N10|equal|sl10   +105.4% +103.5%               
+固定：S8_breakout|N10|equal|sl30   +104.6% +102.5%               
+固定：S8_breakout|N10|equal|sl50   +103.3% +100.9%               
+                   上季最好續用（追強）    +94.2%  +92.2%               
+                   上季最差改用（逆勢）   +180.6% +177.2%               
+                      警示觸發換市值   +101.6%  +99.8%               
+                     事後最佳（上限）   +297.4% +293.1%               
+              ε-greedy（ε=0.1）    +94.2%  +92.1% +43.4% +136.9%
+            Thompson sampling    +97.5%  +95.4% +42.5% +147.6%
+                          隨機挑   +106.9% +104.8% +59.1% +176.7%
+
+=== US/exclude_v1／選單D ===
+policy cum_gross cum_net    p05    p95
+   隨機挑    +75.2%  +73.4% +54.7% +97.8%
+
+=== US/baseline／選單A ===
+                             policy cum_gross cum_net    p05     p95
+                          訊號規則（三訊號）    +89.0%  +87.0%               
+                    固定：REF_control0    +91.1%  +89.2%               
+        固定：S1_votes|N10|top2x2|sl10    +83.3%  +81.4%               
+             固定：S2_f1|N10|tier|sl10    +82.5%  +80.7%               
+      固定：S3_greedy_L3|N1|equal|sl10   +101.6%  +99.5%               
+    固定：S4_reversal_L1|N1|equal|sl10    +83.4%  +81.5%               
+       固定：S5_mixed_L3|N1|equal|sl10    +90.9%  +88.9%               
+           固定：S6_mcap|N1|equal|sl50    +55.8%  +53.8%               
+     固定：S7_hot|N3|proportional|sl10    +84.1%  +82.2%               
+固定：S8_breakout|N3|proportional|sl10    +86.5%  +84.6%               
+                         上季最好續用（追強）    +75.0%  +73.0%               
+                         上季最差改用（逆勢）    +73.5%  +71.5%               
+                            警示觸發換市值    +87.6%  +85.7%               
+                           事後最佳（上限）   +172.0% +168.8%               
+                    ε-greedy（ε=0.1）   +100.5%  +98.4% +86.9% +113.9%
+                  Thompson sampling    +86.4%  +84.4% +56.5% +117.7%
+                                隨機挑    +85.2%  +83.2% +58.1% +111.8%
+
+=== US/baseline／選單B ===
+           policy cum_gross cum_net    p05     p95
+        訊號規則（三訊號）    +89.0%  +87.0%               
+  固定：REF_control0    +91.1%  +89.2%               
+       上季最好續用（追強）    +14.1%  +12.7%               
+       上季最差改用（逆勢）   +272.4% +267.6%               
+          警示觸發換市值    +88.3%  +86.5%               
+         事後最佳（上限）   +660.5% +650.7%               
+  ε-greedy（ε=0.1）   +126.2% +123.4% +73.2% +218.0%
+Thompson sampling   +108.1% +105.5% +21.1% +202.5%
+              隨機挑    +80.1%  +78.1% +37.0% +128.7%
+
+=== US/baseline／選單C ===
+                       policy cum_gross cum_net    p05    p95
+                    訊號規則（三訊號）    +89.0%  +87.0%              
+              固定：REF_control0    +91.1%  +89.2%              
+     固定：S6_mcap|N3|equal|sl10    +88.2%  +86.3%              
+     固定：S6_mcap|N3|equal|sl30    +82.1%  +80.1%              
+     固定：S6_mcap|N3|equal|sl50    +75.7%  +73.6%              
+      固定：S7_hot|N3|equal|sl10    +80.1%  +78.2%              
+      固定：S7_hot|N3|equal|sl30    +59.3%  +57.5%              
+      固定：S7_hot|N3|equal|sl50    +40.2%  +38.5%              
+固定：S8_breakout|N10|equal|sl10    +86.5%  +84.6%              
+固定：S8_breakout|N10|equal|sl30    +77.3%  +75.3%              
+固定：S8_breakout|N10|equal|sl50    +68.3%  +66.3%              
+                   上季最好續用（追強）    +49.9%  +48.3%              
+                   上季最差改用（逆勢）    +81.3%  +79.0%              
+                      警示觸發換市值    +88.3%  +86.5%              
+                     事後最佳（上限）   +118.7% +116.1%              
+              ε-greedy（ε=0.1）    +43.7%  +42.0% +36.5% +60.7%
+            Thompson sampling    +60.7%  +58.9% +39.9% +83.9%
+                          隨機挑    +74.6%  +72.6% +48.9% +97.1%
+
+=== US/baseline／選單D ===
+policy cum_gross cum_net    p05    p95
+   隨機挑    +74.2%  +72.2% +54.5% +93.5%

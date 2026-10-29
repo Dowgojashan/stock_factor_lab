@@ -1,0 +1,15 @@
+>> 載入 Data(market='TW') ...
+   因子宇宙=1775｜回測宇宙=1775｜起點>=2000-01-01｜交易日=6561 (2000-01-04~2026-07-24)｜耗時 99s
+D:\git\stock_factor_lab\code\app\monitor.py:96: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  d = pd.read_sql(q, conn)
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:159: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  b = pd.read_sql(f"SELECT date, close FROM {table} ORDER BY date", conn)
+第1季：候選10檔｜加碼3／減碼2｜本季 +0.80%（control0 +0.22%）｜漏評0｜tokens 3152｜市場集中度偏離+0.00、上季大盤+9.8%，集中度無警示，故以持平為主；僅對近期表現或基本面/動能出現明顯極端的個股調整。加碼：C5（近1
+第2季：候選11檔｜加碼2／減碼2｜本季 +13.34%（control0 +13.80%）｜漏評0｜tokens 3586｜市場集中度正常（+0.80），大盤上一季報酬+13.5%，因此偏向維持 control0，只對明顯強勢或弱勢個股做調整。加碼：C8（近1/3
+第3季：候選14檔｜加碼3／減碼3｜本季 -2.18%（control0 +1.95%）｜漏評0｜tokens 3477｜市場集中度為「正常」（集中度累計偏離 +1.12 個百分點），且大盤上一季 +14.1%，因此以預設持平為主，僅對在表內呈現明顯多重優勢或持
+第4季：候選12檔｜加碼2／減碼2｜本季 -5.12%（control0 -4.35%）｜漏評0｜tokens 3733｜市場集中度為正常（+0.98 個百分點），大盤上季 -2.0%，因此偏向維持不調整；僅對個別有明顯優勢或劣勢的標的小幅調整：加碼 C2（3m
+第5季：候選16檔｜加碼4／減碼4｜本季 -4.28%（control0 -3.92%）｜漏評0｜tokens 4659｜集中度觸發（+1.89）且大盤上一季 +3.8%，偏好市值較大且近期動能/報酬佳的標的；因此加碼市值排名靠前且近月/近季表現或動能好的 C1
+第6季：候選13檔｜加碼5／減碼4｜本季 -1.53%（control0 -1.44%）｜漏評0｜tokens 2758｜市場集中度已觸發（+1.46 個百分點），且上季大盤 -9.9%，採取偏向大型股的規則：將市值欄位排行前5（市值 1–5 的 C11、C2、
+第7季：候選15檔｜加碼6／減碼4｜本季 +6.45%（control0 +6.26%）｜漏評0｜tokens 2921｜集中度警示已觸發（集中度累計偏離 +2.59），且大盤上一季 +8.6%，顯示大型股相對領先；因此優先加碼市值排名前6（市值排名1–6）的股
+第8季：候選11檔｜加碼3／減碼5｜本季 +1.96%（control0 +2.25%）｜漏評0｜tokens 3512｜因為集中度警示已觸發（大型股相對領先累計偏離 +3.43 個百分點）且大盤上一季報酬 +17.8%，優先加碼市值排名靠前且動能/近期表現優異
+==> 方案D（balanced，gpt-5-mini）8季累積 未扣成本 +8.5%（control0 +14.4%）

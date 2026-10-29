@@ -1,0 +1,35 @@
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:159: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  b = pd.read_sql(f"SELECT date, close FROM {table} ORDER BY date", conn)
+# TW_baseline 晉級結果（規則見腳本docstring，跑之前已寫死）
+網格 1040 組＋對照 3 組
+大盤 IS：Sharpe 0.821｜累積 +172.65%｜MDD -28.55%
+大盤 OOS：Sharpe 1.335｜累積 +70.56%｜MDD -27.72%
+D. Spearman ρ（IS扣成本Sharpe排名 vs OOS扣成本Sharpe排名，1040組）＝+0.080
+   參考：累積報酬排名的 ρ＝+0.083
+   各維度平均效果兩期同號比例＝55%（18/33）
+
+                              promote_reason  IS_net_sharpe  IS_net_cum  IS_net_mdd  OOS_net_sharpe  OOS_net_cum  OOS_gross_cum  OOS_net_mdd  turnover_OOS  max_weight_peak_OOS
+combo                                                                                                                                                                          
+S2_f1|N10|top1x2|sl20             整體前3;S2最佳;       1.430680    4.684603   -0.273344        0.353080     0.098364       0.133365    -0.255897      0.668858             0.039571
+S2_f1|N1|equal|sl10                    整體前3;       1.429191    5.051419   -0.275478        0.214814     0.044573       0.079570    -0.286367      0.702588             0.103608
+S2_f1|N3|top1x2|sl10                   整體前3;       1.422990    4.654196   -0.272000        0.295717     0.075946       0.110881    -0.271314      0.681284             0.053608
+S1_votes|N10|equal|sl10                S1最佳;       1.374248    4.082862   -0.270870        0.274203     0.068309       0.103272    -0.269769      0.686559             0.034453
+S3_greedy_L6|N10|equal|sl10            S3最佳;       1.385310    4.976648   -0.286964        0.358906     0.104335       0.139933    -0.284644      0.676437             0.024753
+S4_reversal_L6|N3|top2x2|sl10          S4最佳;       1.386558    4.297478   -0.289552        0.493190     0.161547       0.200501    -0.267872      0.703251             0.044350
+S5_mixed_L6|N10|top1x2|sl10            S5最佳;       1.369474    4.383229   -0.281241        0.400617     0.121076       0.157515    -0.256671      0.681973             0.024453
+S6_mcap|N3|proportional|sl10           S6最佳;       1.364544    3.969023   -0.270820        0.422495     0.129646       0.164648    -0.263323      0.650653             0.097663
+REF_control0                                       1.377383    4.098259   -0.271932        0.297913     0.077168       0.111565    -0.262182      0.670181             0.027170
+REF_stock_equal                                    1.240665    3.071099   -0.288165        0.369118     0.103268       0.128421    -0.257108      0.480926             0.002198
+REF_w2c_full                                       0.885216    2.156525   -0.289869        0.723172     0.303631       0.331634    -0.311811      0.453413             0.300000
+       flag_exp_mean  flag_exp_max
+count      1041.0000     1041.0000
+mean          0.0017        0.0527
+std           0.0020        0.0623
+min           0.0000        0.0000
+25%           0.0005        0.0146
+50%           0.0011        0.0313
+75%           0.0021        0.0685
+max           0.0148        0.4000
+單季曝險最大值 > 1% 的組合數：875
+單季曝險最大值 > 5% 的組合數：353
+單季曝險最大值 > 10% 的組合數：162

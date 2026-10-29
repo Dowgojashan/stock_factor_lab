@@ -1,0 +1,2 @@
+DONE pilot exit=0
+DONE memory exit=0
