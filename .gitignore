@@ -367,3 +367,6 @@ TradingAgents MultiAgents LLM Financial Trading.pdf
 # 排除邏輯處理（使用者2026-10-08決定：選這個方案，不用git-lfs也不拆成
 # 台股/美股兩個檔案）。只排除這一個檔案，`_frozen/stage1/`其他檔案仍進版控。
 _frozen/stage1/returns_monthly.parquet
+
+# 論文寫作專案（使用者要求不上傳 git，2026-10-29）
+/論文/
