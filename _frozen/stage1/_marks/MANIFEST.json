@@ -1,7 +1,7 @@
 {
   "stage": "stage1_marks",
-  "produced_at": "2026-10-08T13:52:51",
-  "git_sha": "8f6a411",
+  "produced_at": "2026-11-01T17:43:05",
+  "git_sha": "fa8c771",
   "params": {
     "rotation_high_pct": 0.95,
     "effn_low_pct": 0.1,
@@ -13,7 +13,7 @@
     "price_jump_extreme": 3.0,
     "monthly_jump_extreme": 1.0,
     "alpha_gate_benchmark_cagr": {
-      "TW": 0.084256,
+      "TW": 0.090098,
       "US": 0.110556
     },
     "alpha_gate_window": "full-sample（非IS窗，H-11拍板前的過渡做法）"
@@ -21,29 +21,29 @@
   "inputs": [
     {
       "path": "_frozen\\stage0\\candidate_index.parquet",
-      "sha256": "34e14b4069c518d7e82c57e419787467c81d5e7bfb027f096ff4506b53006fab",
-      "bytes": 4836688,
-      "rows": 52111
+      "sha256": "04a53c666ecc77b6a7ad0d0c2ef0033fd87195e598d603e12ee54d41e6bff7ba",
+      "bytes": 4873241,
+      "rows": 52498
     },
     {
       "path": "_frozen\\stage1\\strategy_scan.parquet",
-      "sha256": "9509249988065457f5be7249885bd2f4528bd18a2ad16054184afc0116232c9e",
-      "bytes": 6974036,
-      "rows": 52111
+      "sha256": "24389d3e8bf65171fc0ce38db5dcdab2ddf1fa78cddf4c60503d1dbbf43cf7e8",
+      "bytes": 7021301,
+      "rows": 52498
     },
     {
       "path": "_frozen\\stage1\\returns_monthly.parquet",
-      "sha256": "4713dedffe8969263d19aed96166b25f3cb63c812a7a31c6b3700010396b1164",
-      "bytes": 114193546,
-      "rows": 14607899
+      "sha256": "1d2d08fa8cd47a5307ca428152088ca2292a7811e2b6dcf704cce126b60fe189",
+      "bytes": 115036535,
+      "rows": 14711937
     }
   ],
   "outputs": [
     {
       "path": "_frozen\\stage1\\strategy_marks.parquet",
-      "sha256": "d5ffb4a29aa775b2c681086fc7f4c0c2d63abfaf9606998947d36eb632d445db",
-      "bytes": 1891219,
-      "rows": 52111
+      "sha256": "3fb2c1f807ab84320342c7fabfbeb0e84be699f1a248bbbfe14d688baf8eff5d",
+      "bytes": 1976451,
+      "rows": 52498
     }
   ],
   "notes": "兩把刀方向：低effective_n+高rotation_score（不輪動）；empty_ratio過高。stability_grade 公式為本階段解讀，見 module docstring。W-08：data_glitch=單日跳動≥300%或單月報酬≥100%（OR合併，只標記不淘汰，門檻用diagnose_price_anomalies的CAGR_inflation_pp反推校準，見contracts.py）。H-01：passes_alpha_gate=CAGR>=自建宇宙基準（只標記不淘汰，不覆寫is_usable），見開發待辦追蹤.md H-01"

@@ -38,13 +38,17 @@ MARKETS = ("TW", "US")
 #:   刻意不同——TW用regime-specific經驗判斷、US用Phase1-native統計顯著性，
 #:   見對話紀錄與memory project_openSec_boost_w2c_early_activation_2026-10），
 #:   US 8,682→22,856。TW沿用openSec_boost不動。
-EXPECTED_ROWS = {"TW": 29255, "US": 22856}
-EXPECTED_ROWS_TOTAL = sum(EXPECTED_ROWS.values())          # 52,111
+#: 🆕 2026-11-01：台股股價資料修正後，Phase 3／4 回測與候選篩選在 `results_artifacts_twfix`／
+#:   `_analysis_outputs_phase4_twfix` 重跑（基準 9.0098%）：TW 29,255→29,642（相同 29,206、新增 436、
+#:   移除 49；獨立 F 組合仍 471）。舊值：TW 29,255。
+EXPECTED_ROWS = {"TW": 29642, "US": 22856}
+EXPECTED_ROWS_TOTAL = sum(EXPECTED_ROWS.values())          # 52,498
 
 #: v0/v1 拆分
 #: 🔄 台股（2026-10-03 openSec_boost 重跑後）：v0=18,779／v1=10,476。
 #: 🆕 美股（2026-10-08 openSec_balanced 重跑後）：v0=12,784／v1=10,072。
-EXPECTED_V_SPLIT = {"TW": {"v0": 18779, "v1": 10476},
+#: 🆕 台股（2026-11-01 股價資料修正後重跑）：v0 18,779→18,870／v1 10,476→10,772。
+EXPECTED_V_SPLIT = {"TW": {"v0": 18870, "v1": 10772},
                     "US": {"v0": 12784, "v1": 10072}}
 
 #: F2 空集合策略數（老師「F1+C 就好」的分流依據）。
@@ -60,7 +64,8 @@ EXPECTED_V_SPLIT = {"TW": {"v0": 18779, "v1": 10476},
 #: 🆕 2026-10-08：美股換openSec_balanced（primary 11個：Phase1過關8個+客觀顯著性
 #: 補位3個），786→2314（實際從重跑後candidate_index驗證得出，primary清單擴大、
 #: C因子池不變，更多F1+C單獨組合贏過基準而納入）。
-EXPECTED_F2_EMPTY = {"TW": 1381, "US": 2314}
+#: 🆕 2026-11-01 台股股價資料修正後重跑：TW 1,381→1,408（候選池 29,255→29,642；新舊名單各自實數）。
+EXPECTED_F2_EMPTY = {"TW": 1408, "US": 2314}
 
 #: 獨立 F 組合數（快篩「多樣性假象」的根源；也是 HRP L3 群數的錨點）
 #: 🔄 台股 2026-10-06：218→346，與 Phase2 晉升的 346 組 F 組合數一致（內部驗證通過）。
@@ -73,7 +78,9 @@ EXPECTED_F_COMBOS = {"TW": 471, "US": 303}
 #: 自建宇宙基準年化報酬（研究部 v9 更正版：同宇宙、同成本、含股利、等權）
 #: 🔄 2026-08-22 用修復後價格重算：TW 8.67%→8.43%、US 12.35%→11.06%
 #: （美股基準原本被污染股票灌水約 1.29pp，是候選池暴增的根本原因）。
-BENCHMARK_CAGR = {"TW": 0.084256, "US": 0.110556}
+#: 🔄 2026-11-01 台股股價資料修正（collector，見 文件/實戰收尾追蹤.md）後重算：TW 8.4256%→9.0098%
+#: （`results_artifacts_twfix/TW_UNIVERSE_M/stats.parquet`）；US 資料未改，不動。
+BENCHMARK_CAGR = {"TW": 0.090098, "US": 0.110556}
 
 #: HRP 每棵樹的共同窗（SDD DD-03 定案，落差3）
 #: 台股窗捨棄 2000–2006 是**排除已知不可信資料**（財報洞、90% 假 0），非損失資料。

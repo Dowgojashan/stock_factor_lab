@@ -21,6 +21,11 @@ for _p in (str(ROOT), str(CODE_DIR)):
 # ---- 輸入（階段 −1 產物，唯讀） ----
 PHASE4_DIR = ROOT / "_analysis_outputs_phase4"
 ARTIFACTS_DIR = CODE_DIR / "results_artifacts"
+# 🆕 2026-11-01：台股股價資料由 collector 修正（2024-01-02 還原基準不一致、2023-04~12 欄位錯置等，
+#   見 文件/實戰收尾追蹤.md）後，台股 Phase 3／4 回測與候選篩選在新目錄重跑
+#   （`research._rebacktest_tw_jobs`）；舊目錄完整保留。逐市場決定讀哪一份——美股資料沒改，照舊。
+ARTIFACTS_DIR_BY_MARKET = {"TW": CODE_DIR / "results_artifacts_twfix", "US": ARTIFACTS_DIR}
+PHASE4_DIR_BY_MARKET = {"TW": ROOT / "_analysis_outputs_phase4_twfix", "US": PHASE4_DIR}
 
 # ---- 輸出（研究部凍結產物） ----
 FROZEN = ROOT / "_frozen"
@@ -61,17 +66,17 @@ def job_label(market: str, v: str) -> str:
 
 def artifacts_path(market: str, strategy: str, v: str) -> Path:
     """單一策略的回測產物目錄（絕對路徑）。"""
-    return ARTIFACTS_DIR / job_label(market, v) / strategy
+    return ARTIFACTS_DIR_BY_MARKET[market] / job_label(market, v) / strategy
 
 
 def candidates_csv(market: str) -> Path:
     """階段 −1 的候選池 CSV。注意：UTF-8 with BOM，須 encoding='utf-8-sig'。"""
-    return PHASE4_DIR / f"{market}_L4_{VARIANT[market]}_final_candidates.csv"
+    return PHASE4_DIR_BY_MARKET[market] / f"{market}_L4_{VARIANT[market]}_final_candidates.csv"
 
 
 def stats_parquet(market: str, v: str) -> Path:
     """job 層級的 stats.parquet（sharpe_ann / daily_sharpe / avg_drawdown 的來源）。"""
-    return ARTIFACTS_DIR / job_label(market, v) / "stats.parquet"
+    return ARTIFACTS_DIR_BY_MARKET[market] / job_label(market, v) / "stats.parquet"
 
 
 def ensure_dirs() -> None:

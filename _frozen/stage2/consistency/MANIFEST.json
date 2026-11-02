@@ -1,7 +1,7 @@
 {
   "stage": "stage2c_consistency",
-  "produced_at": "2026-10-08T13:52:54",
-  "git_sha": "8f6a411",
+  "produced_at": "2026-11-01T17:43:08",
+  "git_sha": "fa8c771",
   "params": {
     "majority_threshold": 0.5,
     "expected_cells": {

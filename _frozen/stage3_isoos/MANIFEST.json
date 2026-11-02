@@ -1,7 +1,7 @@
 {
   "stage": "stage3_hrp_isoos",
-  "produced_at": "2026-10-13T13:58:23",
-  "git_sha": "490bc5c",
+  "produced_at": "2026-11-02T05:27:14",
+  "git_sha": "fa8c771",
   "params": {
     "is_windows": {
       "TW": [
@@ -35,58 +35,58 @@
   "inputs": [
     {
       "path": "_frozen\\stage1\\returns_monthly.parquet",
-      "sha256": "4713dedffe8969263d19aed96166b25f3cb63c812a7a31c6b3700010396b1164",
-      "bytes": 114193546,
-      "rows": 14607899
+      "sha256": "1d2d08fa8cd47a5307ca428152088ca2292a7811e2b6dcf704cce126b60fe189",
+      "bytes": 115036535,
+      "rows": 14711937
     },
     {
       "path": "_frozen\\stage1\\returns_meta.parquet",
-      "sha256": "728ca65670052d3f6938960e675a1388604817ce821bc56a4ca30d31bfe5af48",
-      "bytes": 560120,
-      "rows": 52111
+      "sha256": "309e2ffadf036e7ca44f87776b8845525fd9024c50b0a98fdbb6bd73613aad02",
+      "bytes": 564220,
+      "rows": 52498
     },
     {
       "path": "_frozen\\stage1\\strategy_marks.parquet",
-      "sha256": "d5ffb4a29aa775b2c681086fc7f4c0c2d63abfaf9606998947d36eb632d445db",
-      "bytes": 1891219,
-      "rows": 52111
+      "sha256": "3fb2c1f807ab84320342c7fabfbeb0e84be699f1a248bbbfe14d688baf8eff5d",
+      "bytes": 1976451,
+      "rows": 52498
     },
     {
       "path": "_frozen\\stage0\\candidate_index.parquet",
-      "sha256": "34e14b4069c518d7e82c57e419787467c81d5e7bfb027f096ff4506b53006fab",
-      "bytes": 4836688,
-      "rows": 52111
+      "sha256": "04a53c666ecc77b6a7ad0d0c2ef0033fd87195e598d603e12ee54d41e6bff7ba",
+      "bytes": 4873241,
+      "rows": 52498
     }
   ],
   "outputs": [
     {
       "path": "_frozen\\stage3_isoos\\cluster_assign_IS.parquet",
-      "sha256": "51794bbb29a5415d9ae5b61f96352f2d134ddefdec35e062e0904ef7305fe7c9",
-      "bytes": 1032145,
-      "rows": 95729
+      "sha256": "84c49596e942dd1342856fb319bf57a3feb0f1b51862cadc3046c594bb62abea",
+      "bytes": 1042022,
+      "rows": 96473
     },
     {
       "path": "_frozen\\stage3_isoos\\cluster_meta_IS.parquet",
-      "sha256": "49d370d8288b9777f713711e851a44201120fe5175327e9fc45880fdc8f58957",
-      "bytes": 33526,
-      "rows": 1565
+      "sha256": "c25713a5a944da567eb0266eaa48b69acf2896c055e2a5ac39c27d4648030d4f",
+      "bytes": 33551,
+      "rows": 1567
     },
     {
       "path": "_frozen\\stage3_isoos\\isoos_corr_comparison.parquet",
-      "sha256": "ee9ea671c0ea28e433a9fda62a8af0230f5d6c906b549d13eef25b2b17aecfaf",
-      "bytes": 8867,
-      "rows": 42
+      "sha256": "425acdc34f6d8aed2043315746134393d09aca11423cddd5f555b7f8234a58dc",
+      "bytes": 9175,
+      "rows": 55
     },
     {
       "path": "_frozen\\stage3_isoos\\cluster_corr_matrix_IS_TW_normal_IS.parquet",
-      "sha256": "104b2a7c04b4912c06eed7bde86862b3c9a1a9b5ae6039dd21d3e88a66f6c5e7",
-      "bytes": 5518,
-      "rows": 6
+      "sha256": "335577b2dcbd0ed32ec614b6237535e9408dad123a9cc3f251ac426bcb174aa4",
+      "bytes": 6235,
+      "rows": 7
     },
     {
       "path": "_frozen\\stage3_isoos\\linkage_IS_TW_normal_IS.npy",
-      "sha256": "eab926e4bb0845ee7da2d4e7d0f523ab8c41a5432e84732f4f306366dc5d6584",
-      "bytes": 845664
+      "sha256": "76edc75613d9848534e5f12f4d343957a67e26d485737accac069166f024a78c",
+      "bytes": 857568
     },
     {
       "path": "_frozen\\stage3_isoos\\cluster_corr_matrix_IS_US_normal_IS.parquet",
@@ -101,14 +101,14 @@
     },
     {
       "path": "_frozen\\stage3_isoos\\cluster_corr_matrix_IS_XM_normal_IS.parquet",
-      "sha256": "6f3388be2d65e8322e5992e1068a8f8791b858058bffe487303d0914cbafdb85",
-      "bytes": 6235,
-      "rows": 7
+      "sha256": "d573e058e077e2619e0a3b5ab1e0686a7d3305a3d8b8cab1d4f0d53c19a69b57",
+      "bytes": 6963,
+      "rows": 8
     },
     {
       "path": "_frozen\\stage3_isoos\\linkage_IS_XM_normal_IS.npy",
-      "sha256": "74fcb1edf7b11703f8a353e03e9f60f75b600fb2ae1c90ec2d5a8e5421ae2504",
-      "bytes": 1533728
+      "sha256": "afe4cb0b0531ad52edf4342821f00fe521ffa56ea25b2086771d81bc5199cbcd",
+      "bytes": 1545632
     }
   ],
   "notes": "H-11 v2：IS窗建樹凍結群定義，OOS窗只重算同一批群的相關係數（不重新分群）。完全獨立於_frozen/stage3/的主線六棵樹（全時間窗），不共用檔名/MANIFEST。"

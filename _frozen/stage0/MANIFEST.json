@@ -1,7 +1,7 @@
 {
   "stage": "stage0_index",
-  "produced_at": "2026-10-14T10:48:25",
-  "git_sha": "490bc5c",
+  "produced_at": "2026-11-01T17:12:34",
+  "git_sha": "fa8c771",
   "params": {
     "variant": {
       "TW": "openSec_boost",
@@ -16,9 +16,9 @@
   },
   "inputs": [
     {
-      "path": "_analysis_outputs_phase4\\TW_L4_openSec_boost_final_candidates.csv",
-      "sha256": "d4467d8b4da2292a6bc950f4aafb5888f89055c3a91145fb72bb4cb52dff8cf5",
-      "bytes": 5559620
+      "path": "_analysis_outputs_phase4_twfix\\TW_L4_openSec_boost_final_candidates.csv",
+      "sha256": "ae6a10b248ab461dfa92ac07f8e99638d93f89001b5b419751712525d405a7b1",
+      "bytes": 5631811
     },
     {
       "path": "_analysis_outputs_phase4\\US_L4_openSec_balanced_final_candidates.csv",
@@ -26,15 +26,15 @@
       "bytes": 4324900
     },
     {
-      "path": "code\\results_artifacts\\TW_L3_openSec_boost_M\\stats.parquet",
-      "sha256": "1767818ca66329dc94fcf5ffeffb7bc69a14c874ca02108d1c6536fbffa6e8e2",
-      "bytes": 1420083,
+      "path": "code\\results_artifacts_twfix\\TW_L3_openSec_boost_M\\stats.parquet",
+      "sha256": "b80c97459e25b6277310e81397f6e709040879e2c157c7468a6ae063a7cbf30b",
+      "bytes": 1419314,
       "rows": 20253
     },
     {
-      "path": "code\\results_artifacts\\TW_L4_openSec_boost_M\\stats.parquet",
-      "sha256": "526b63bc24155fbbe33f8182973af41ebdba552fa3b22d38e357cd6125aedf47",
-      "bytes": 1392213,
+      "path": "code\\results_artifacts_twfix\\TW_L4_openSec_boost_M\\stats.parquet",
+      "sha256": "c7d089252ec1aef05c0a5b357bf324c9539bb0ee7c683a08e3dceb63240ff698",
+      "bytes": 1390417,
       "rows": 20253
     },
     {
@@ -53,9 +53,9 @@
   "outputs": [
     {
       "path": "_frozen\\stage0\\candidate_index.parquet",
-      "sha256": "34e14b4069c518d7e82c57e419787467c81d5e7bfb027f096ff4506b53006fab",
-      "bytes": 4836688,
-      "rows": 52111
+      "sha256": "04a53c666ecc77b6a7ad0d0c2ef0033fd87195e598d603e12ee54d41e6bff7ba",
+      "bytes": 4873241,
+      "rows": 52498
     }
   ],
   "notes": "修掉落差1(join stats)/落差2(artifacts_dir 規則解析)/落差5(複合主鍵)"
