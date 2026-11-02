@@ -7,7 +7,8 @@
   圖2 2024–25 逐日累積淨值（同一組線）
   圖3 每個方案×風格 5 次重複的扣成本累積（點），對照 control0、隨機挑 95 百分位、不用 LLM 最佳
   圖4 版本2 減版本1（方案×風格的 5 次平均扣成本累積差，個百分點）
-  圖5 權重矩陣示例（時間×股票）：兩版都判有效的唯一一項「台股・排除V1 分工混合・追強型」第1次，對照 control0
+  圖5 權重矩陣示例（時間×股票）：事先固定為「台股・排除V1、方案A 規則選擇、平衡型、第1次」（不挑表現好的），
+       欄＝AI 權重相對 control0 改變最多的 15 檔，對照 control0
   表1 每種挑法的扣成本累積、日頻 Sharpe、日頻 MDD 與判定（CSV＋Markdown）
 全部扣成本後；大盤為總報酬指數、不扣成本。輸出 `_analysis_outputs_applayer/step2/figs_v{版本}/`。
 """
@@ -152,14 +153,14 @@ def fig4(fd):
 def fig5(v, fd):
     wt = pd.read_parquet(OUT / f"{pre(v)}_weights_TW_exclude_v1_{MODEL}.parquet")
     wt["chain"] = wt.chain.astype(str)
-    ai = wt[wt.chain == "分工混合|A×C|momentum|1"].pivot_table(index="symbol", columns="k", values="weight", fill_value=0)
+    ai = wt[wt.chain == "方案|A|balanced|1"].pivot_table(index="symbol", columns="k", values="weight", fill_value=0)
     c0 = wt[wt.chain == "不用LLM|A|固定：REF_control0|0"].pivot_table(index="symbol", columns="k", values="weight", fill_value=0)
     ai, c0 = ai.reindex(columns=range(1, 9), fill_value=0), c0.reindex(columns=range(1, 9), fill_value=0)
-    top = ai.max(axis=1).sort_values(ascending=False).index[:15]
+    top = (ai - c0.reindex(index=ai.index, columns=ai.columns, fill_value=0)).abs().max(axis=1).sort_values(ascending=False).index[:15]
     A = ai.loc[top] * 100; C = c0.reindex(top).fillna(0) * 100
     vmax = float(A.to_numpy().max())
     fig, axs = plt.subplots(1, 2, figsize=(12, 5.6), sharey=True)
-    for ax, M, t in ((axs[0], C, "control0（現行，不調整）"), (axs[1], A, "AI：分工混合・追強型（第1次）")):
+    for ax, M, t in ((axs[0], C, "control0（現行，不調整）"), (axs[1], A, "AI：方案A 規則選擇・平衡型（第1次）")):
         ax.imshow(M.to_numpy(), cmap="Blues", vmin=0, vmax=vmax, aspect="auto")
         for i in range(M.shape[0]):
             for j in range(M.shape[1]):
@@ -168,7 +169,7 @@ def fig5(v, fd):
                         color="white" if val > vmax * 0.6 else INK)
         ax.set_xticks(range(8), [f"第{k}季" for k in range(1, 9)], fontsize=8); ax.set_title(t, loc="left", color=INK)
     axs[0].set_yticks(range(len(top)), list(top), fontsize=8)
-    fig.suptitle("圖5　權重矩陣示例：台股・排除V1，AI 權重最高的 15 檔（數字＝權重 %）", color=INK)
+    fig.suptitle("圖5　權重矩陣示例（時間×股票）：台股・排除V1，AI 相對 control0 改變最多的 15 檔（數字＝權重 %）", color=INK)
     fig.tight_layout(); fig.savefig(fd / "fig5_weight_matrix_example.png", bbox_inches="tight"); plt.close(fig)
 
 

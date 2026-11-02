@@ -347,10 +347,20 @@ def org_others_today(admin_key: str | None = None) -> dict[str, int]:
     return org_today_totals(admin_key, exclude_key_id=our_api_key_id(admin_key))
 
 
+def org_split_today(admin_key: str | None = None) -> dict[str, dict[str, int]]:
+    """{"others": 他人各池用量, "ours": OpenAI 記錄的我們這支金鑰各池用量}。"""
+    allv = org_today_totals(admin_key)
+    others = org_others_today(admin_key)
+    return {"others": others, "ours": {k: allv[k] - others.get(k, 0) for k in allv}}
+
+
 def _org_used(tier: str, ledger_now: dict[str, int], fetch=None) -> int:
-    """估計整個帳號今日在 `tier` 池已用量＝他人用量（快取 ORG_CACHE_TTL 秒，執行緒共用）＋我們的帳本。
-    `fetch` 回傳他人的各池用量（預設 `org_others_today`）。"""
-    fetch = fetch or org_others_today
+    """估計整個帳號今日在 `tier` 池已用量＝他人用量＋max(我們的帳本, OpenAI 記錄的我們金鑰用量)。
+    他人與「OpenAI 記錄的我們」快取 ORG_CACHE_TTL 秒、執行緒共用。
+    🔴 2026-10-30 code review：只用「他人＋帳本」時，我們金鑰沒寫進帳本的用量（逾時後 OpenAI 仍跑完、
+    收到回應但解析失敗）永遠不會被算到；取 max 後，這類用量在 Usage API 反映後也會被計入。
+    `fetch` 回傳 {"others": {...}, "ours": {...}}（預設 `org_split_today`）；回傳單層 dict 時視為只有他人。"""
+    fetch = fetch or org_split_today
     day = _day_key()
     with _ORG_LOCK:
         c = _ORG_CACHE
@@ -362,7 +372,9 @@ def _org_used(tier: str, ledger_now: dict[str, int], fetch=None) -> int:
                     f"查不到整個帳號今日的用量（{type(e).__name__}: {e}）。帳號與他人共用，"
                     f"只看自己的帳本可能超額，已暫停。→ 確認 admin_key／網路後重跑即可接續") from e
             c.update(t=time.time(), day=day, org=org)
-        return int(c["org"].get(tier, 0)) + int(ledger_now.get(tier, 0))
+        org = c["org"]
+        others, ours = (org["others"], org.get("ours", {})) if "others" in org else (org, {})
+        return int(others.get(tier, 0)) + max(int(ledger_now.get(tier, 0)), int(ours.get(tier, 0)))
 
 
 def check_free_tier_budget(model: str, *, estimated_tokens: int = 0,
@@ -407,7 +419,7 @@ def check_free_tier_budget(model: str, *, estimated_tokens: int = 0,
     if projected > budget:
         raise FreeTierExhaustedError(
             f"今日「{tier}」池免費額度不足（整個帳號）：已用 {used:,}"
-            f"（我們帳本 {used_ledger:,}{f'＋他人 {used_org - used_ledger:,}' if used_org is not None else ''}）／預估本次再用 "
+            f"（我們帳本 {used_ledger:,}{f'；含他人的全帳號估計 {used_org:,}' if used_org is not None else ''}）／預估本次再用 "
             f"{estimated_tokens:,} → 合計 {projected:,}，超過可用上限 {budget:,}"
             f"（總額度 {limit:,}"
             f"{f'，已預留 {reserve_ratio:.0%}' if reserve_ratio else ''}）。\n"
@@ -690,6 +702,11 @@ def selftest(log=print) -> None:
         st = check_free_tier_budget("gpt-5", estimated_tokens=1000, now=t0, path=p, org_check=True,
                                     _org_fetch=lambda: {"standard": 5_000, "mini": 0, "unclassified": 0})
         assert st["used"] == 5_150 and st["used_ledger"] == 150, st   # 他人 5,000＋帳本 150
+        # 小模型池：OpenAI 記錄的我們金鑰（800,000）多於帳本（280，例如逾時沒記帳）⇒ 取大者：他人 300,000＋800,000
+        _ORG_CACHE.update(org=None)
+        st = check_free_tier_budget("gpt-5-mini", estimated_tokens=0, now=t0, path=p, org_check=True,
+                                    _org_fetch=lambda: {"others": {"mini": 300_000}, "ours": {"mini": 800_000}})
+        assert st["used"] == 1_100_000, st
         # 查詢失敗要停，不可退回只看帳本
         _ORG_CACHE.update(org=None)
         def boom():

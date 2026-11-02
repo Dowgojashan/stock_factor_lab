@@ -1,0 +1,19 @@
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:164: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  b = pd.read_sql(f"SELECT date, close FROM {table} ORDER BY date", conn)
+# TW_exclude_v1_sig 晉級結果（規則見腳本docstring，跑之前已寫死）
+網格 160 組＋對照 3 組
+大盤 IS：Sharpe 0.821｜累積 +172.65%｜MDD -28.55%
+大盤 OOS：Sharpe 1.335｜累積 +70.56%｜MDD -27.72%
+D. Spearman ρ（IS扣成本Sharpe排名 vs OOS扣成本Sharpe排名，160組）＝+0.643
+   參考：累積報酬排名的 ρ＝+0.137
+   各維度平均效果兩期同號比例＝67%（12/18）
+
+                            promote_reason  IS_net_sharpe  IS_net_cum  IS_net_mdd  OOS_net_sharpe  OOS_net_cum  OOS_gross_cum  OOS_net_mdd  turnover_OOS  max_weight_peak_OOS
+combo                                                                                                                                                                        
+S8_breakout|N1|equal|sl10       整體前3;S8最佳;       1.422176    4.508865   -0.290050        0.652147     0.202036       0.234965    -0.246824      0.576430             0.023206
+S8_breakout|N3|equal|sl10            整體前3;       1.422176    4.508865   -0.290050        0.652147     0.202036       0.234965    -0.246824      0.576430             0.023206
+S8_breakout|N10|top2x2|sl10          整體前3;       1.422176    4.508865   -0.290050        0.652147     0.202036       0.234965    -0.246824      0.576430             0.023206
+S7_hot|N3|top2x2|sl10                S7最佳;       1.416021    5.867010   -0.289133        0.452956     0.141356       0.173769    -0.283801      0.597233             0.046049
+REF_control0                                     1.423791    4.578173   -0.289646        0.702765     0.223270       0.255987    -0.241930      0.562931             0.016224
+REF_stock_equal                                  1.303121    3.461840   -0.287903        0.632615     0.201105       0.224738    -0.259434      0.415774             0.001927
+REF_w2c_full                                     0.986230    2.732826   -0.281571        1.515199     0.798394       0.826875    -0.252961      0.335313             0.300000

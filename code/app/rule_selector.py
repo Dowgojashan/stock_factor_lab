@@ -141,21 +141,14 @@ M1D_CACHE = ROOT / "_analysis_outputs_applayer" / "step2" / "m1d_series_{market}
 def m1d_series(market: str, pool: str) -> pd.DataFrame:
     """window4 每季季末的集中度警示（state、cumulative_deviation，index＝quarter_end）。
 
-    台股：市值資料未修改，直接取正式 checkpoint。
-    美股：2026-10-28 collector 修正 close 與 outstanding_shares 後，checkpoint 的偏離值已過期
-    （狀態相同、數值不同，例 2024Q2 0.817→1.318pp），改用修正後市值＋**凍結門檻**
-    （triggers.X_P90/X_P75，使用者裁示不重新校準）重算；警示只看市場，兩個池子共用。結果快取成 CSV。
+    台美都用修正後市值＋**凍結門檻**（triggers 的凍結值，使用者裁示不重新校準）現場重算；
+    警示只看市場，兩個池子共用。結果快取成 CSV（資料再修正時要手動刪快取）。
+    - 美股：2026-10-28 collector 修正 close 與 outstanding_shares 後，checkpoint 的偏離值過期
+      （狀態相同、數值不同，例 2024Q2 0.817→1.318pp）。
+    - 台股：原本直接取 10/27 正式 checkpoint；2026-10-30 collector 重算 2023-04～12 的 market_capital
+      （411 檔差 >2%）後改為現場重算。對照：8 季狀態完全相同，偏離值各高約 0.025pp（例 2024Q4 1.888→1.913）。
     """
     from app import simulate, triggers
-    if market == "TW":
-        rows = {}
-        for line in open(RUNS / CKPT[(market, pool)], encoding="utf-8"):
-            cp = json.loads(line)
-            if cp.get("arm") not in (None, "L2"):
-                continue
-            rows[cp["quarter_end"]] = {"state": cp["m1d"]["state"],
-                                       "cumulative_deviation": cp["m1d"]["cumulative_deviation"]}
-        return pd.DataFrame(rows).T.loc[list(simulate.QUARTER_ENDS)]
     path = Path(str(M1D_CACHE).format(market=market))
     if path.exists():
         return pd.read_csv(path, index_col=0)

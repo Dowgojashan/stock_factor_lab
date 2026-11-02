@@ -1,0 +1,16 @@
+17:12 stage0 exit=0
+17:21 stage1_mktcap exit=0
+17:21 已刪除台股舊掃描分片（備份在 _frozen/_舊版備份_20261101_台股價格修正前）
+17:43 stage1_scan exit=0
+17:43 stage1_marks exit=0
+17:43 stage2a exit=0
+17:43 stage2b exit=0
+17:43 stage2c exit=0
+22:34 stage3 exit=0
+22:37 cluster_count exit=0
+PART1_DONE
+=== PART2（L1_TARGET TW=7 US=4 XM=8，pass2）===
+11-02_03:15 stage3_pass2 exit=0
+11-02_03:16 cluster_count_pass2 exit=0
+11-02_05:27 stage3_isoos exit=0
+11-02_05:28 stage4 exit=0

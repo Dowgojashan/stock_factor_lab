@@ -1,0 +1,315 @@
+﻿part,check,date,value,detail,factor,year
+1_rows_and_prices,I1_daily_count_2024-07,2024-06-27,1744,"TW stock rows on this day (target 1,744)",,
+1_rows_and_prices,I1_daily_count_2024-07,2024-06-28,1744,"TW stock rows on this day (target 1,744)",,
+1_rows_and_prices,I1_daily_count_2024-07,2024-07-01,1744,"TW stock rows on this day (target 1,744)",,
+1_rows_and_prices,I1_daily_count_2024-07,2024-07-02,1744,"TW stock rows on this day (target 1,744)",,
+1_rows_and_prices,I1_daily_count_2024-07,2024-07-03,1744,"TW stock rows on this day (target 1,744)",,
+1_rows_and_prices,I1_daily_count_2024-07,2024-07-04,1744,"TW stock rows on this day (target 1,744)",,
+1_rows_and_prices,I1_daily_count_2024-07,2024-07-05,1744,"TW stock rows on this day (target 1,744)",,
+1_rows_and_prices,I1_daily_count_2024-07,2024-07-08,1744,"TW stock rows on this day (target 1,744)",,
+1_rows_and_prices,I1_daily_count_2024-07,2024-07-09,1744,"TW stock rows on this day (target 1,744)",,
+1_rows_and_prices,I1_daily_count_2024-07,2024-07-10,1744,"TW stock rows on this day (target 1,744)",,
+1_rows_and_prices,I1_daily_count_2024-07,2024-07-11,1744,"TW stock rows on this day (target 1,744)",,
+1_rows_and_prices,I1_daily_count_2024-07,2024-07-12,1744,"TW stock rows on this day (target 1,744)",,
+1_rows_and_prices,I1_daily_count_2024-07,2024-07-15,1744,"TW stock rows on this day (target 1,744)",,
+1_rows_and_prices,I1_daily_count_2024-07,2024-07-16,1744,"TW stock rows on this day (target 1,744)",,
+1_rows_and_prices,I1_daily_count_2024-07,2024-07-17,1744,"TW stock rows on this day (target 1,744)",,
+1_rows_and_prices,I1_daily_count_2024-07,2024-07-18,1744,"TW stock rows on this day (target 1,744)",,
+1_rows_and_prices,I1_daily_count_2024-07,2024-07-19,1744,"TW stock rows on this day (target 1,744)",,
+1_rows_and_prices,I1_daily_count_2024-07,2024-07-22,1744,"TW stock rows on this day (target 1,744)",,
+1_rows_and_prices,I1_daily_count_2024-07,2024-07-23,1744,"TW stock rows on this day (target 1,744)",,
+1_rows_and_prices,I1_daily_count_2024-07,2024-07-26,1744,"TW stock rows on this day (target 1,744)",,
+1_rows_and_prices,I1_daily_count_2024-07,2024-07-29,1744,"TW stock rows on this day (target 1,744)",,
+1_rows_and_prices,I1_daily_count_2024-07,2024-07-30,1744,"TW stock rows on this day (target 1,744)",,
+1_rows_and_prices,I1_daily_count_2024-07,2024-07-31,1744,"TW stock rows on this day (target 1,744)",,
+1_rows_and_prices,I1_daily_count_2024-07,2024-08-01,1744,"TW stock rows on this day (target 1,744)",,
+1_rows_and_prices,I2_duplicate_company_date,,0,"(company_id, date) duplicates among TW rows",,
+1_rows_and_prices,I4_ohlc_violations_inserted,,0,"high<max(O,C) or low>min(O,C) among the 15,818 inserted rows",,
+1_rows_and_prices,I0_row_count,,8561274,"TW stock rows: 8,545,456 before + 15,818 inserted (tw3); no row deleted; non-TW rows in any TW log: 0",,
+1_rows_and_prices,1_summary,,0,days with share>1%: 0; days with UNEXPLAINED share>1%: 0; max daily share 0.0031; total unexplained big moves 589 of 8559499 stock-days,,
+1_rows_and_prices,2_equal_weight_vs_taiex_tr,2022-07-29,0.086,equal-weight 0.898% vs taiex_tr 0.812% (gap in pct-points),,
+1_rows_and_prices,2_equal_weight_vs_taiex_tr,2023-01-03,-0.252,equal-weight 0.360% vs taiex_tr 0.611% (gap in pct-points),,
+1_rows_and_prices,2_equal_weight_vs_taiex_tr,2023-04-06,0.6,equal-weight 0.239% vs taiex_tr -0.361% (gap in pct-points),,
+1_rows_and_prices,2_equal_weight_vs_taiex_tr,2024-01-02,0.552,equal-weight 0.122% vs taiex_tr -0.430% (gap in pct-points),,
+1_rows_and_prices,2_equal_weight_vs_taiex_tr,2024-07-31,0.258,equal-weight 0.162% vs taiex_tr -0.096% (gap in pct-points),,
+1_rows_and_prices,3_ohlc_violations,,0,nan,,
+1_rows_and_prices,6_trading_days_vs_taiex_tr,,2024: stock=242 taiex_tr=242,in stock not taiex_tr: []; in taiex_tr not stock: [],,
+1_rows_and_prices,6_trading_days_vs_taiex_tr,,2025: stock=243 taiex_tr=243,in stock not taiex_tr: []; in taiex_tr not stock: [],,
+1_rows_and_prices,5_ex_dividend_day,2019-07-25,-0.484,"2412: adjusted ret -0.48% vs raw ret -4.46% (pre-ex close 112.0, ref 107.52, factor 0.960000); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2020-07-02,1.54,"2412: adjusted ret 1.54% vs raw ret -2.15% (pre-ex close 116.5, ref 112.27, factor 0.963691); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2021-08-25,-1.07,"2412: adjusted ret -1.07% vs raw ret -4.76% (pre-ex close 115.5, ref 111.19, factor 0.962684); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2022-06-30,-3.09,"2412: adjusted ret -3.09% vs raw ret -6.51% (pre-ex close 130.5, ref 125.89, factor 0.964674); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2023-06-29,0.608,"2412: adjusted ret 0.61% vs raw ret -3.29% (pre-ex close 121.5, ref 116.79, factor 0.961235); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2024-07-04,-1.855,"2412: adjusted ret -1.85% vs raw ret -5.58% (pre-ex close 125.5, ref 120.74, factor 0.962072); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2025-07-03,1.158,"2412: adjusted ret 1.16% vs raw ret -2.60% (pre-ex close 134.5, ref 129.5, factor 0.962825); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2026-07-09,-0.596,"2412: adjusted ret -0.60% vs raw ret -4.30% (pre-ex close 139.5, ref 134.3, factor 0.962724); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2019-08-12,-1.361,"2886: adjusted ret -1.36% vs raw ret -6.75% (pre-ex close 31.1, ref 29.4, factor 0.945338); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2020-08-13,-0.815,"2886: adjusted ret -0.82% vs raw ret -6.03% (pre-ex close 32.35, ref 30.65, factor 0.947450); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2021-08-12,-2.447,"2886: adjusted ret -2.45% vs raw ret -7.11% (pre-ex close 33.05, ref 31.47, factor 0.952194); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2022-08-11,2.52,"2886: adjusted ret 2.52% vs raw ret -3.76% (pre-ex close 37.2, ref 34.92, factor 0.938710); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2023-08-10,-0.781,"2886: adjusted ret -0.78% vs raw ret -4.63% (pre-ex close 39.95, ref 38.4, factor 0.961202); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2023-12-08,1.082,"2886: adjusted ret 1.08% vs raw ret 0.64% (pre-ex close 39.0, ref 38.83, factor 0.995641); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2024-08-08,-2.006,"2886: adjusted ret -2.01% vs raw ret -8.30% (pre-ex close 41.55, ref 38.88, factor 0.935740); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2025-08-07,-1.932,"2886: adjusted ret -1.93% vs raw ret -5.58% (pre-ex close 43.0, ref 41.4, factor 0.962791); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2019-07-15,0.242,"2891: adjusted ret 0.24% vs raw ret -4.40% (pre-ex close 21.6, ref 20.6, factor 0.953704); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2020-07-13,1.005,"2891: adjusted ret 1.00% vs raw ret -3.83% (pre-ex close 20.9, ref 19.9, factor 0.952153); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2021-08-16,-1.609,"2891: adjusted ret -1.61% vs raw ret -6.14% (pre-ex close 22.8, ref 21.75, factor 0.953947); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2022-07-14,0.225,"2891: adjusted ret 0.23% vs raw ret -5.12% (pre-ex close 23.45, ref 22.2, factor 0.946695); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2023-08-04,-2.148,"2891: adjusted ret -2.15% vs raw ret -5.93% (pre-ex close 26.15, ref 25.14, factor 0.961377); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2024-07-15,-1.927,"2891: adjusted ret -1.93% vs raw ret -6.34% (pre-ex close 40.2, ref 38.39, factor 0.954975); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2025-07-14,0.866,"2891: adjusted ret 0.87% vs raw ret -4.45% (pre-ex close 43.85, ref 41.54, factor 0.947320); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2026-07-13,-1.321,"2891: adjusted ret -1.32% vs raw ret -4.86% (pre-ex close 69.9, ref 67.39, factor 0.964092); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2019-07-01,2.892,"2882: adjusted ret 2.89% vs raw ret -0.70% (pre-ex close 43.0, ref 41.5, factor 0.965116); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2019-10-14,0.818,"2882: adjusted ret 0.82% vs raw ret 0.25% (pre-ex close 40.55, ref 40.32, factor 0.994328); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2020-07-01,1.255,"2882: adjusted ret 1.25% vs raw ret -3.58% (pre-ex close 41.85, ref 39.85, factor 0.952210); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2021-07-26,-2.768,"2882: adjusted ret -2.77% vs raw ret -6.80% (pre-ex close 60.3, ref 57.8, factor 0.958541); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2022-07-04,-1.515,"2882: adjusted ret -1.52% vs raw ret -8.45% (pre-ex close 49.7, ref 46.2, factor 0.929577); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2022-12-05,-0.718,"2882: adjusted ret -0.72% vs raw ret -2.61% (pre-ex close 44.0, ref 43.16, factor 0.980909); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2023-06-28,0.925,"2882: adjusted ret 0.92% vs raw ret -1.13% (pre-ex close 44.15, ref 43.25, factor 0.979615); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2024-07-01,1.93,"2882: adjusted ret 1.93% vs raw ret -1.53% (pre-ex close 59.0, ref 57.0, factor 0.966102); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2025-06-30,-2.484,"2882: adjusted ret -2.48% vs raw ret -7.51% (pre-ex close 67.9, ref 64.4, factor 0.948454); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2026-06-30,0.306,"2882: adjusted ret 0.31% vs raw ret -3.15% (pre-ex close 101.5, ref 98.0, factor 0.965517); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2019-08-13,-1.922,"1101: adjusted ret -1.92% vs raw ret nan% (pre-ex close 43.95, ref 37.98, factor 0.864164); dividend drop CHECK",,
+1_rows_and_prices,5_ex_dividend_day,2020-08-12,-2.148,"1101: adjusted ret -2.15% vs raw ret nan% (pre-ex close 46.5, ref 41.9, factor 0.901075); dividend drop CHECK",,
+1_rows_and_prices,5_ex_dividend_day,2021-08-12,-0.272,"1101: adjusted ret -0.27% vs raw ret nan% (pre-ex close 51.1, ref 47.73, factor 0.934051); dividend drop CHECK",,
+1_rows_and_prices,5_ex_dividend_day,2022-07-21,3.089,"1101: adjusted ret 3.09% vs raw ret -8.53% (pre-ex close 41.6, ref 36.91, factor 0.887260); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2023-07-11,0.55,"1101: adjusted ret 0.55% vs raw ret -0.81% (pre-ex close 36.85, ref 36.35, factor 0.986431); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2024-07-01,1.054,"1101: adjusted ret 1.05% vs raw ret -1.90% (pre-ex close 34.2, ref 33.2, factor 0.970760); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2025-07-02,0.398,"1101: adjusted ret 0.40% vs raw ret -3.44% (pre-ex close 26.15, ref 25.15, factor 0.961759); dividend drop REMOVED",,
+1_rows_and_prices,5_ex_dividend_day,2026-07-01,-1.075,"1101: adjusted ret -1.08% vs raw ret -4.37% (pre-ex close 24.05, ref 23.25, factor 0.966736); dividend drop REMOVED",,
+1_rows_and_prices,4_spot_check,2022-07-28,466.518,"2330: adj close 466.518 = official raw close 501.0 x cumulative official factor 0.931174 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret -0.20%",,
+1_rows_and_prices,4_spot_check,2022-07-29,473.967,"2330: adj close 473.967 = official raw close 509.0 x cumulative official factor 0.931173 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret 1.60%",,
+1_rows_and_prices,4_spot_check,2023-12-29,570.328,"2330: adj close 570.328 = official raw close 593.0 x cumulative official factor 0.961767 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret 0.00%",,
+1_rows_and_prices,4_spot_check,2024-01-02,570.328,"2330: adj close 570.328 = official raw close 593.0 x cumulative official factor 0.961767 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret 0.00%",,
+1_rows_and_prices,4_spot_check,2024-07-30,911.794,"2330: adj close 911.794 = official raw close 940.0 x cumulative official factor 0.969994 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret -0.42%",,
+1_rows_and_prices,4_spot_check,2024-07-31,905.974,"2330: adj close 905.974 = official raw close 934.0 x cumulative official factor 0.969994 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret -0.64%",,
+1_rows_and_prices,4_spot_check,2026-07-24,2350.0,"2330: adj close 2350.0 = official raw close 2350.0 x cumulative official factor 1.000000 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret -2.29%",,
+1_rows_and_prices,4_spot_check,2022-07-28,104.151,"2412: adj close 104.151 = official raw close 121.5 x cumulative official factor 0.857210 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret 0.00%",,
+1_rows_and_prices,4_spot_check,2022-07-29,104.151,"2412: adj close 104.151 = official raw close 121.5 x cumulative official factor 0.857210 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret 0.00%",,
+1_rows_and_prices,4_spot_check,2023-12-29,107.013,"2412: adj close 107.013 = official raw close 120.0 x cumulative official factor 0.891775 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret 0.00%",,
+1_rows_and_prices,4_spot_check,2024-01-02,107.459,"2412: adj close 107.459 = official raw close 120.5 x cumulative official factor 0.891776 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret 0.42%",,
+1_rows_and_prices,4_spot_check,2024-07-30,112.159,"2412: adj close 112.159 = official raw close 121.0 x cumulative official factor 0.926934 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret -0.41%",,
+1_rows_and_prices,4_spot_check,2024-07-31,112.623,"2412: adj close 112.623 = official raw close 121.5 x cumulative official factor 0.926938 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret 0.41%",,
+1_rows_and_prices,4_spot_check,2026-07-24,139.0,"2412: adj close 139.0 = official raw close 139.0 x cumulative official factor 1.000000 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret 0.72%",,
+1_rows_and_prices,4_spot_check,2022-07-28,21.4782,"3512: adj close 21.4782 = official raw close 30.15 x cumulative official factor 0.712378 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret 0.00%",,
+1_rows_and_prices,4_spot_check,2022-07-29,21.585,"3512: adj close 21.585 = official raw close 30.3 x cumulative official factor 0.712376 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret 0.50%",,
+1_rows_and_prices,4_spot_check,2023-12-29,25.9495,"3512: adj close 25.9495 = official raw close 33.1 x cumulative official factor 0.783973 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret 0.00%",,
+1_rows_and_prices,4_spot_check,2024-01-02,25.9887,"3512: adj close 25.9887 = official raw close 33.15 x cumulative official factor 0.783973 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret 0.15%",,
+1_rows_and_prices,4_spot_check,2024-07-30,30.6325,"3512: adj close 30.6325 = official raw close 36.2 x cumulative official factor 0.846202 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret 1.83%",,
+1_rows_and_prices,4_spot_check,2024-07-31,30.5056,"3512: adj close 30.5056 = official raw close 36.05 x cumulative official factor 0.846202 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret -0.41%",,
+1_rows_and_prices,4_spot_check,2026-07-24,19.65,"3512: adj close 19.65 = official raw close 19.65 x cumulative official factor 1.000000 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret 0.26%",,
+1_rows_and_prices,4_spot_check,2022-07-28,71.6614,"1580: adj close 71.6614 = official raw close 91.2 x cumulative official factor 0.785761 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret 0.00%",,
+1_rows_and_prices,4_spot_check,2022-07-29,71.9757,"1580: adj close 71.9757 = official raw close 91.6 x cumulative official factor 0.785761 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret 0.44%",,
+1_rows_and_prices,4_spot_check,2023-12-29,126.134,"1580: adj close 126.134 = official raw close 153.0 x cumulative official factor 0.824405 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret 4.08%",,
+1_rows_and_prices,4_spot_check,2024-01-02,122.836,"1580: adj close 122.836 = official raw close 149.0 x cumulative official factor 0.824403 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret -2.61%",,
+1_rows_and_prices,4_spot_check,2024-07-30,125.79,"1580: adj close 125.79 = official raw close 144.0 x cumulative official factor 0.873542 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret 0.70%",,
+1_rows_and_prices,4_spot_check,2024-07-31,128.411,"1580: adj close 128.411 = official raw close 147.0 x cumulative official factor 0.873544 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret 2.08%",,
+1_rows_and_prices,4_spot_check,2026-07-24,112.5,"1580: adj close 112.5 = official raw close 112.5 x cumulative official factor 1.000000 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret -1.32%",,
+1_rows_and_prices,4_spot_check,2022-07-28,48.8753,"6111: adj close 48.8753 = official raw close 81.0 x cumulative official factor 0.603399 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret -3.11%",,
+1_rows_and_prices,4_spot_check,2022-07-29,49.7201,"6111: adj close 49.7201 = official raw close 82.4 x cumulative official factor 0.603399 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret 1.73%",,
+1_rows_and_prices,4_spot_check,2023-12-29,76.4812,"6111: adj close 76.4812 = official raw close 77.0 x cumulative official factor 0.993262 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret 1.45%",,
+1_rows_and_prices,4_spot_check,2024-01-02,78.2691,"6111: adj close 78.2691 = official raw close 78.8 x cumulative official factor 0.993263 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret 2.34%",,
+1_rows_and_prices,4_spot_check,2024-07-30,65.2,"6111: adj close 65.2 = official raw close 65.2 x cumulative official factor 1.000000 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret 0.31%",,
+1_rows_and_prices,4_spot_check,2024-07-31,64.8,"6111: adj close 64.8 = official raw close 64.8 x cumulative official factor 1.000000 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret -0.61%",,
+1_rows_and_prices,4_spot_check,2026-07-24,40.95,"6111: adj close 40.95 = official raw close 40.95 x cumulative official factor 1.000000 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret 2.89%",,
+1_rows_and_prices,4_spot_check,2022-07-28,9.21,"8277: adj close 9.21 = official raw close 9.21 x cumulative official factor 1.000000 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret -0.75%",,
+1_rows_and_prices,4_spot_check,2022-07-29,9.2,"8277: adj close 9.2 = official raw close 9.2 x cumulative official factor 1.000000 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret -0.11%",,
+1_rows_and_prices,4_spot_check,2023-12-29,12.3,"8277: adj close 12.3 = official raw close 12.3 x cumulative official factor 1.000000 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret -1.20%",,
+1_rows_and_prices,4_spot_check,2024-01-02,12.1,"8277: adj close 12.1 = official raw close 12.1 x cumulative official factor 1.000000 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret -1.63%",,
+1_rows_and_prices,4_spot_check,2024-07-30,13.45,"8277: adj close 13.45 = official raw close 13.45 x cumulative official factor 1.000000 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret 2.28%",,
+1_rows_and_prices,4_spot_check,2024-07-31,13.4,"8277: adj close 13.4 = official raw close 13.4 x cumulative official factor 1.000000 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret -0.37%",,
+1_rows_and_prices,4_spot_check,2026-07-24,8.15,"8277: adj close 8.15 = official raw close 8.15 x cumulative official factor 1.000000 (raw: TWSE MI_INDEX / TPEx dailyQuotes official quote; factor: TWSE TWT49U/TWTAUU, TPEx exDailyQ/revivt); daily ret 1.12%",,
+1_rows_and_prices,7_research_break_list,2022-07-29,1,53 flagged stocks; after fix |ret|>10.5%: 1; median old ret -13.03% -> new 0.34%; remaining: 3288 -11.0%,,
+1_rows_and_prices,7_research_break_list,2024-01-02,0,491 flagged stocks; after fix |ret|>10.5%: 0; median old ret -13.77% -> new 0.00%; remaining: ,,
+1_rows_and_prices,7_research_break_list,2024-07-31,0,174 flagged stocks; after fix |ret|>10.5%: 0; median old ret -12.63% -> new -0.33%; remaining: ,,
+2_market_capital,P1_2024-07-31_big_move_share,2024-07-31,0.0,0/1744 stocks |ret|>10.5% (was 217/1744); median share on all days 0.0000,,
+2_market_capital,M1_mktcap_seam,2022-07-28->2022-07-29,0.487,"median mc change 0.487% vs median raw price change 0.543%; |mc chg - price chg| median 0.0048pp, p90 0.058pp, >1pp: 52/1752 stocks",,
+2_market_capital,M1_mktcap_seam,2022-07-29->2022-08-01,0.203,"median mc change 0.203% vs median raw price change 0.224%; |mc chg - price chg| median 0.0041pp, p90 0.037pp, >1pp: 8/1733 stocks",,
+2_market_capital,M1_mktcap_seam,2023-03-31->2023-04-06,0.0,"median mc change 0.000% vs median raw price change 0.000%; |mc chg - price chg| median 0.0042pp, p90 0.045pp, >1pp: 15/1740 stocks",,
+2_market_capital,M1_mktcap_seam,2023-12-29->2024-01-02,0.0,"median mc change 0.000% vs median raw price change 0.000%; |mc chg - price chg| median 0.0047pp, p90 0.217pp, >1pp: 100/1722 stocks",,
+2_market_capital,M2_mktcap_null_2022-07-29_on,,1950.0,1950 NULL market_capital of 1687739 TW rows 2022-07-29..2026-07-24,,
+2_market_capital,M3_spot_check,2022-09-30,10942621.0,"2330: DB mc 10,942,621 (NT$ million) = official close 422.0 x TWSE MI_QFIIS issued shares 25,930,380,458 / 1e6 = 10,942,621; TEJ quarter-end 季底普通股市值 10,942,600 (ratio 1.0000)",,
+2_market_capital,M3_spot_check,2022-12-30,11629776.0,"2330: DB mc 11,629,776 (NT$ million) = official close 448.5 x TWSE MI_QFIIS issued shares 25,930,380,458 / 1e6 = 11,629,776; TEJ quarter-end 季底普通股市值 11,629,800 (ratio 1.0000)",,
+2_market_capital,M3_spot_check,2023-03-31,13822017.0,"2330: DB mc 13,822,017 (NT$ million) = official close 533.0 x TWSE MI_QFIIS issued shares 25,932,490,458 / 1e6 = 13,822,017; TEJ quarter-end 季底普通股市值 13,822,000 (ratio 1.0000)",,
+2_market_capital,M3_spot_check,2023-06-30,14936873.0,"2330: DB mc 14,936,873 (NT$ million) = official close 576.0 x TWSE MI_QFIIS issued shares 25,932,070,992 / 1e6 = 14,936,873; TEJ quarter-end 季底普通股市值 14,936,900 (ratio 1.0000)",,
+2_market_capital,M3_spot_check,2023-09-28,13562473.0,"2330: DB mc 13,562,473 (NT$ million) = official close 523.0 x TWSE MI_QFIIS issued shares 25,932,070,992 / 1e6 = 13,562,473; TEJ quarter-end 季底普通股市值 13,562,500 (ratio 1.0000)",,
+2_market_capital,M3_spot_check,2023-12-29,15377718.0,"2330: DB mc 15,377,718 (NT$ million) = official close 593.0 x TWSE MI_QFIIS issued shares 25,932,070,992 / 1e6 = 15,377,718; TEJ quarter-end 季底普通股市值 15,377,700 (ratio 1.0000)",,
+2_market_capital,M3_spot_check,2024-07-15,26970974.0,"2330: DB mc 26,970,974 (NT$ million) = official close 1040.0 x TWSE MI_QFIIS issued shares 25,933,629,242 / 1e6 = 26,970,974",,
+2_market_capital,M3_spot_check,2022-09-30,884349.0,"2412: DB mc 884,349 (NT$ million) = official close 114.0 x TWSE MI_QFIIS issued shares 7,757,446,545 / 1e6 = 884,349; TEJ quarter-end 季底普通股市值 884,349 (ratio 1.0000)",,
+2_market_capital,M3_spot_check,2022-12-30,876591.0,"2412: DB mc 876,591 (NT$ million) = official close 113.0 x TWSE MI_QFIIS issued shares 7,757,446,545 / 1e6 = 876,591; TEJ quarter-end 季底普通股市值 876,591 (ratio 1.0000)",,
+2_market_capital,M3_spot_check,2023-03-31,927015.0,"2412: DB mc 927,015 (NT$ million) = official close 119.5 x TWSE MI_QFIIS issued shares 7,757,446,545 / 1e6 = 927,015; TEJ quarter-end 季底普通股市值 927,015 (ratio 1.0000)",,
+2_market_capital,M3_spot_check,2023-06-30,903743.0,"2412: DB mc 903,743 (NT$ million) = official close 116.5 x TWSE MI_QFIIS issued shares 7,757,446,545 / 1e6 = 903,743; TEJ quarter-end 季底普通股市值 903,742 (ratio 1.0000)",,
+2_market_capital,M3_spot_check,2023-09-28,899864.0,"2412: DB mc 899,864 (NT$ million) = official close 116.0 x TWSE MI_QFIIS issued shares 7,757,446,545 / 1e6 = 899,864; TEJ quarter-end 季底普通股市值 899,864 (ratio 1.0000)",,
+2_market_capital,M3_spot_check,2023-12-29,930894.0,"2412: DB mc 930,894 (NT$ million) = official close 120.0 x TWSE MI_QFIIS issued shares 7,757,446,545 / 1e6 = 930,894; TEJ quarter-end 季底普通股市值 930,894 (ratio 1.0000)",,
+2_market_capital,M3_spot_check,2024-07-15,927015.0,"2412: DB mc 927,015 (NT$ million) = official close 119.5 x TWSE MI_QFIIS issued shares 7,757,446,545 / 1e6 = 927,015",,
+2_market_capital,M3_spot_check,2022-09-30,1414025.0,"2317: DB mc 1,414,025 (NT$ million) = official close 102.0 x TWSE MI_QFIIS issued shares 13,862,990,609 / 1e6 = 1,414,025; TEJ quarter-end 季底普通股市值 1,414,020 (ratio 1.0000)",,
+2_market_capital,M3_spot_check,2022-12-30,1384913.0,"2317: DB mc 1,384,913 (NT$ million) = official close 99.9 x TWSE MI_QFIIS issued shares 13,862,990,609 / 1e6 = 1,384,913; TEJ quarter-end 季底普通股市值 1,384,910 (ratio 1.0000)",,
+2_market_capital,M3_spot_check,2023-03-31,1441751.0,"2317: DB mc 1,441,751 (NT$ million) = official close 104.0 x TWSE MI_QFIIS issued shares 13,862,990,609 / 1e6 = 1,441,751; TEJ quarter-end 季底普通股市值 1,441,750 (ratio 1.0000)",,
+2_market_capital,M3_spot_check,2023-06-30,1566518.0,"2317: DB mc 1,566,518 (NT$ million) = official close 113.0 x TWSE MI_QFIIS issued shares 13,862,990,609 / 1e6 = 1,566,518; TEJ quarter-end 季底普通股市值 1,566,520 (ratio 1.0000)",,
+2_market_capital,M3_spot_check,2023-09-28,1441751.0,"2317: DB mc 1,441,751 (NT$ million) = official close 104.0 x TWSE MI_QFIIS issued shares 13,862,990,609 / 1e6 = 1,441,751; TEJ quarter-end 季底普通股市值 1,441,750 (ratio 1.0000)",,
+2_market_capital,M3_spot_check,2023-12-29,1448683.0,"2317: DB mc 1,448,683 (NT$ million) = official close 104.5 x TWSE MI_QFIIS issued shares 13,862,990,609 / 1e6 = 1,448,683; TEJ quarter-end 季底普通股市值 1,448,680 (ratio 1.0000)",,
+2_market_capital,M3_spot_check,2024-07-15,3001759.0,"2317: DB mc 3,001,759 (NT$ million) = official close 216.5 x TWSE MI_QFIIS issued shares 13,862,990,609 / 1e6 = 3,001,337",,
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.05822 p99 0.05822 max 0.05822; NULL->value 0,MOM,2003.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.09840 p99 0.09840 max 0.09840; NULL->value 0,MOM,2004.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.17796 p99 0.17796 max 0.17796; NULL->value 0,MOM,2005.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.01468 p99 0.01468 max 0.01468; NULL->value 0,MOM,2008.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.12399 p99 0.12399 max 0.12399; NULL->value 0,MOM,2010.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.06785 p99 0.06785 max 0.06785; NULL->value 0,MOM,2011.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.10864 p99 0.10864 max 0.10864; NULL->value 0,MOM,2012.0
+3_factorvalue,F1_changes_by_factor_year,,2.0,|new-old| median 0.05619 p99 0.10168 max 0.10260; NULL->value 0,MOM,2013.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.00754 p99 0.00754 max 0.00754; NULL->value 0,MOM,2015.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.20055 p99 0.20055 max 0.20055; NULL->value 0,MOM,2017.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.05581 p99 0.05581 max 0.05581; NULL->value 0,MOM,2019.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.06601 p99 0.06601 max 0.06601; NULL->value 0,MOM,2020.0
+3_factorvalue,F1_changes_by_factor_year,,2.0,|new-old| median 0.00637 p99 0.00860 max 0.00864; NULL->value 0,MOM,2021.0
+3_factorvalue,F1_changes_by_factor_year,,587.0,|new-old| median 0.04409 p99 0.22737 max 0.28566; NULL->value 0,MOM,2022.0
+3_factorvalue,F1_changes_by_factor_year,,6473.0,|new-old| median 0.01310 p99 0.21752 max 1.54174; NULL->value 66,MOM,2023.0
+3_factorvalue,F1_changes_by_factor_year,,52.0,|new-old| median 0.30948 p99 1.46657 max 1.84641; NULL->value 0,MOM,2024.0
+3_factorvalue,F1_changes_by_factor_year,,20.0,|new-old| median 0.00957 p99 0.40383 max 0.48060; NULL->value 0,MOM,2025.0
+3_factorvalue,F1_changes_by_factor_year,,12.0,|new-old| median 0.00996 p99 1.11676 max 1.17465; NULL->value 0,MOM,2026.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.06853 p99 0.06853 max 0.06853; NULL->value 0,MOM1,2003.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.11571 p99 0.11571 max 0.11571; NULL->value 0,MOM1,2004.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.14778 p99 0.14778 max 0.14778; NULL->value 0,MOM1,2005.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.00883 p99 0.00883 max 0.00883; NULL->value 0,MOM1,2008.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.12442 p99 0.12442 max 0.12442; NULL->value 0,MOM1,2010.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.05766 p99 0.05766 max 0.05766; NULL->value 0,MOM1,2011.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.10961 p99 0.10961 max 0.10961; NULL->value 0,MOM1,2012.0
+3_factorvalue,F1_changes_by_factor_year,,2.0,|new-old| median 0.06130 p99 0.11138 max 0.11240; NULL->value 0,MOM1,2013.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.12412 p99 0.12412 max 0.12412; NULL->value 0,MOM1,2014.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.00725 p99 0.00725 max 0.00725; NULL->value 0,MOM1,2015.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.10752 p99 0.10752 max 0.10752; NULL->value 0,MOM1,2016.0
+3_factorvalue,F1_changes_by_factor_year,,2.0,|new-old| median 0.16152 p99 0.24171 max 0.24335; NULL->value 0,MOM1,2017.0
+3_factorvalue,F1_changes_by_factor_year,,2.0,|new-old| median 0.05151 p99 0.08462 max 0.08530; NULL->value 0,MOM1,2018.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.05663 p99 0.05663 max 0.05663; NULL->value 0,MOM1,2019.0
+3_factorvalue,F1_changes_by_factor_year,,2.0,|new-old| median 0.03930 p99 0.06351 max 0.06401; NULL->value 0,MOM1,2020.0
+3_factorvalue,F1_changes_by_factor_year,,2.0,|new-old| median 0.04604 p99 0.09000 max 0.09089; NULL->value 0,MOM1,2021.0
+3_factorvalue,F1_changes_by_factor_year,,2131.0,|new-old| median 0.01401 p99 0.16086 max 0.86628; NULL->value 0,MOM1,2022.0
+3_factorvalue,F1_changes_by_factor_year,,6426.0,|new-old| median 0.01674 p99 0.23446 max 1.54174; NULL->value 0,MOM1,2023.0
+3_factorvalue,F1_changes_by_factor_year,,55.0,|new-old| median 0.32718 p99 4.31907 max 7.64211; NULL->value 0,MOM1,2024.0
+3_factorvalue,F1_changes_by_factor_year,,23.0,|new-old| median 0.01208 p99 1.37238 max 1.58442; NULL->value 0,MOM1,2025.0
+3_factorvalue,F1_changes_by_factor_year,,11.0,|new-old| median 0.00862 p99 0.96399 max 1.01017; NULL->value 0,MOM1,2026.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.12111 p99 0.12111 max 0.12111; NULL->value 0,MOM_3M,2010.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.05898 p99 0.05898 max 0.05898; NULL->value 0,MOM_3M,2011.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.10772 p99 0.10772 max 0.10772; NULL->value 0,MOM_3M,2012.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.11033 p99 0.11033 max 0.11033; NULL->value 0,MOM_3M,2013.0
+3_factorvalue,F1_changes_by_factor_year,,2.0,|new-old| median 0.06518 p99 0.11925 max 0.12035; NULL->value 0,MOM_3M,2014.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.00725 p99 0.00725 max 0.00725; NULL->value 0,MOM_3M,2015.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.10703 p99 0.10703 max 0.10703; NULL->value 0,MOM_3M,2016.0
+3_factorvalue,F1_changes_by_factor_year,,2.0,|new-old| median 0.16219 p99 0.24390 max 0.24557; NULL->value 0,MOM_3M,2017.0
+3_factorvalue,F1_changes_by_factor_year,,2.0,|new-old| median 0.05141 p99 0.08462 max 0.08530; NULL->value 0,MOM_3M,2018.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.05663 p99 0.05663 max 0.05663; NULL->value 0,MOM_3M,2019.0
+3_factorvalue,F1_changes_by_factor_year,,2.0,|new-old| median 0.03879 p99 0.06305 max 0.06354; NULL->value 0,MOM_3M,2020.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.09115 p99 0.09115 max 0.09115; NULL->value 0,MOM_3M,2021.0
+3_factorvalue,F1_changes_by_factor_year,,581.0,|new-old| median 0.04440 p99 0.28015 max 0.87478; NULL->value 0,MOM_3M,2022.0
+3_factorvalue,F1_changes_by_factor_year,,4817.0,|new-old| median 0.01186 p99 0.16306 max 0.97654; NULL->value 0,MOM_3M,2023.0
+3_factorvalue,F1_changes_by_factor_year,,1731.0,|new-old| median 0.07106 p99 0.42867 max 8.16842; NULL->value 0,MOM_3M,2024.0
+3_factorvalue,F1_changes_by_factor_year,,17.0,|new-old| median 0.01429 p99 2.65673 max 3.03520; NULL->value 0,MOM_3M,2025.0
+3_factorvalue,F1_changes_by_factor_year,,7.0,|new-old| median 0.00877 p99 0.46520 max 0.48788; NULL->value 0,MOM_3M,2026.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.09970 p99 0.09970 max 0.09970; NULL->value 0,PROX_52WK_HIGH,2004.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.11835 p99 0.11835 max 0.11835; NULL->value 0,PROX_52WK_HIGH,2005.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.13861 p99 0.13861 max 0.13861; NULL->value 0,PROX_52WK_HIGH,2006.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.00606 p99 0.00606 max 0.00606; NULL->value 0,PROX_52WK_HIGH,2008.0
+3_factorvalue,F1_changes_by_factor_year,,2.0,|new-old| median 0.01069 p99 0.01551 max 0.01561; NULL->value 0,PROX_52WK_HIGH,2009.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.09013 p99 0.09013 max 0.09013; NULL->value 0,PROX_52WK_HIGH,2010.0
+3_factorvalue,F1_changes_by_factor_year,,2.0,|new-old| median 0.05318 p99 0.05644 max 0.05650; NULL->value 0,PROX_52WK_HIGH,2011.0
+3_factorvalue,F1_changes_by_factor_year,,4.0,|new-old| median 0.06610 p99 0.09622 max 0.09686; NULL->value 0,PROX_52WK_HIGH,2012.0
+3_factorvalue,F1_changes_by_factor_year,,3.0,|new-old| median 0.04649 p99 0.05068 max 0.05077; NULL->value 0,PROX_52WK_HIGH,2014.0
+3_factorvalue,F1_changes_by_factor_year,,4.0,|new-old| median 0.02609 p99 0.04733 max 0.04738; NULL->value 0,PROX_52WK_HIGH,2015.0
+3_factorvalue,F1_changes_by_factor_year,,3.0,|new-old| median 0.09817 p99 0.09942 max 0.09944; NULL->value 0,PROX_52WK_HIGH,2016.0
+3_factorvalue,F1_changes_by_factor_year,,4.0,|new-old| median 0.04783 p99 0.06717 max 0.06763; NULL->value 0,PROX_52WK_HIGH,2017.0
+3_factorvalue,F1_changes_by_factor_year,,5.0,|new-old| median 0.01373 p99 0.03867 max 0.03909; NULL->value 0,PROX_52WK_HIGH,2018.0
+3_factorvalue,F1_changes_by_factor_year,,6.0,|new-old| median 0.02324 p99 0.04870 max 0.04961; NULL->value 0,PROX_52WK_HIGH,2019.0
+3_factorvalue,F1_changes_by_factor_year,,6.0,|new-old| median 0.00945 p99 0.06031 max 0.06041; NULL->value 0,PROX_52WK_HIGH,2020.0
+3_factorvalue,F1_changes_by_factor_year,,6.0,|new-old| median 0.01250 p99 0.05127 max 0.05227; NULL->value 0,PROX_52WK_HIGH,2021.0
+3_factorvalue,F1_changes_by_factor_year,,935.0,|new-old| median 0.03069 p99 0.16979 max 0.51158; NULL->value 0,PROX_52WK_HIGH,2022.0
+3_factorvalue,F1_changes_by_factor_year,,5144.0,|new-old| median 0.01808 p99 0.12781 max 0.67957; NULL->value 0,PROX_52WK_HIGH,2023.0
+3_factorvalue,F1_changes_by_factor_year,,3425.0,|new-old| median 0.04811 p99 0.22487 max 0.79735; NULL->value 0,PROX_52WK_HIGH,2024.0
+3_factorvalue,F1_changes_by_factor_year,,366.0,|new-old| median 0.02283 p99 0.60236 max 0.94547; NULL->value 0,PROX_52WK_HIGH,2025.0
+3_factorvalue,F1_changes_by_factor_year,,8.0,|new-old| median 0.01732 p99 0.46815 max 0.47787; NULL->value 0,PROX_52WK_HIGH,2026.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.00050 p99 0.00050 max 0.00050; NULL->value 0,VOL,2003.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.07225 p99 0.07225 max 0.07225; NULL->value 0,VOL,2004.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.12506 p99 0.12506 max 0.12506; NULL->value 0,VOL,2005.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.00066 p99 0.00066 max 0.00066; NULL->value 0,VOL,2008.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.03385 p99 0.03385 max 0.03385; NULL->value 0,VOL,2010.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.04255 p99 0.04255 max 0.04255; NULL->value 0,VOL,2011.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.03850 p99 0.03850 max 0.03850; NULL->value 0,VOL,2012.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.03366 p99 0.03366 max 0.03366; NULL->value 0,VOL,2013.0
+3_factorvalue,F1_changes_by_factor_year,,2.0,|new-old| median 0.02004 p99 0.03923 max 0.03962; NULL->value 0,VOL,2014.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.00153 p99 0.00153 max 0.00153; NULL->value 0,VOL,2015.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.09774 p99 0.09774 max 0.09774; NULL->value 0,VOL,2016.0
+3_factorvalue,F1_changes_by_factor_year,,2.0,|new-old| median 0.10897 p99 0.15584 max 0.15679; NULL->value 0,VOL,2017.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.03444 p99 0.03444 max 0.03444; NULL->value 0,VOL,2018.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.02917 p99 0.02917 max 0.02917; NULL->value 0,VOL,2019.0
+3_factorvalue,F1_changes_by_factor_year,,2.0,|new-old| median 0.01986 p99 0.03558 max 0.03590; NULL->value 0,VOL,2020.0
+3_factorvalue,F1_changes_by_factor_year,,1.0,|new-old| median 0.04053 p99 0.04053 max 0.04053; NULL->value 0,VOL,2021.0
+3_factorvalue,F1_changes_by_factor_year,,739.0,|new-old| median 0.00728 p99 0.23329 max 1.18532; NULL->value 0,VOL,2022.0
+3_factorvalue,F1_changes_by_factor_year,,5244.0,|new-old| median 0.03595 p99 0.18953 max 0.54247; NULL->value 0,VOL,2023.0
+3_factorvalue,F1_changes_by_factor_year,,2462.0,|new-old| median 0.03049 p99 0.30437 max 8.34288; NULL->value 0,VOL,2024.0
+3_factorvalue,F1_changes_by_factor_year,,154.0,|new-old| median 0.00220 p99 1.25679 max 1.97748; NULL->value 0,VOL,2025.0
+3_factorvalue,F1_changes_by_factor_year,,49.0,|new-old| median 0.00133 p99 0.47769 max 0.73267; NULL->value 0,VOL,2026.0
+3_factorvalue,F2_unaffected_identical,,0.0,4400560 TW factorvalue rows not in the fix log; rows whose value differs from backup: 0; row count now/backup 4442150/4442150; rows with changed keys (company/factor/date/filing_date/period_id): 0,all,
+3_factorvalue,F5_new_nan,,0.0,value->NULL: 0; NULL->value: 66 (MOM rows that were NULL because the stock had no price rows at the time),all,
+3_factorvalue,F3_hand_calc,,-0.060764,2330 2023-06-30: DB -0.060764 vs hand -0.060764 (close(<= 2023-08-14) / close(<= 2023-06-30) - 1); match=True,MOM,2023.0
+3_factorvalue,F3_hand_calc,,0.093691,2330 2023-09-30: DB 0.093691 vs hand 0.093691 (close(<= 2023-11-14) / close(<= 2023-09-30) - 1); match=True,MOM,2023.0
+3_factorvalue,F3_hand_calc,,0.319795,2330 2023-12-31: DB 0.319795 vs hand 0.319795 (close(<= 2024-03-31) / close(<= 2023-12-31) - 1); match=True,MOM,2023.0
+3_factorvalue,F3_hand_calc,,0.210606,2330 2023-06-30: DB 0.210606 vs hand 0.210606 (std of last 60 daily returns x sqrt(252)); match=True,VOL,2023.0
+3_factorvalue,F3_hand_calc,,0.200386,2330 2023-09-30: DB 0.200386 vs hand 0.200386 (std of last 60 daily returns x sqrt(252)); match=True,VOL,2023.0
+3_factorvalue,F3_hand_calc,,0.172851,2330 2023-12-31: DB 0.172851 vs hand 0.172851 (std of last 60 daily returns x sqrt(252)); match=True,VOL,2023.0
+3_factorvalue,F3_hand_calc,,0.974619,2330 2023-06-30: DB 0.974619 vs hand 0.974619 (close / max(last 252 trading days)); match=True,PROX_52WK_HIGH,2023.0
+3_factorvalue,F3_hand_calc,,0.889875,2330 2023-09-30: DB 0.889875 vs hand 0.889875 (close / max(last 252 trading days)); match=True,PROX_52WK_HIGH,2023.0
+3_factorvalue,F3_hand_calc,,1.0,2330 2023-12-31: DB 1.000000 vs hand 1.000000 (close / max(last 252 trading days)); match=True,PROX_52WK_HIGH,2023.0
+3_factorvalue,F3_hand_calc,,0.089826,2330 2023-06-30: DB 0.089826 vs hand 0.089826 (close / close 63 calendar-trading-days earlier - 1); match=True,MOM_3M,2023.0
+3_factorvalue,F3_hand_calc,,-0.086951,2330 2023-09-30: DB -0.086951 vs hand -0.086951 (close / close 63 calendar-trading-days earlier - 1); match=True,MOM_3M,2023.0
+3_factorvalue,F3_hand_calc,,0.139769,2330 2023-12-31: DB 0.139769 vs hand 0.139769 (close / close 63 calendar-trading-days earlier - 1); match=True,MOM_3M,2023.0
+3_factorvalue,F4_valuation_series,,,"2330 2021-09-30: EV_EBITDA=51.9, EV_S=35.32, FCF_P=-0.003112, MKTCAP=1.504e+10, PB=7.236, PE=27.14, PEG=2.558, PS=36.27, P_IC=4.513",PE/PB/PS/MKTCAP...,2021.0
+3_factorvalue,F4_valuation_series,,,"2330 2021-12-30: EV_EBITDA=52.05, EV_S=35.35, FCF_P=-0.006965, MKTCAP=1.595e+10, PB=7.346, PE=27.83, PEG=1.97, PS=36.39, P_IC=4.281",PE/PB/PS/MKTCAP...,2021.0
+3_factorvalue,F4_valuation_series,,,"2330 2022-03-31: EV_EBITDA=44.09, EV_S=30.53, FCF_P=0.001294, MKTCAP=1.548e+10, PB=6.669, PE=25.95, PEG=1.704, PS=31.53, P_IC=3.877",PE/PB/PS/MKTCAP...,2022.0
+3_factorvalue,F4_valuation_series,,,"2330 2022-06-30: EV_EBITDA=30.9, EV_S=22.11, FCF_P=-0.002315, MKTCAP=1.234e+10, PB=4.917, PE=18.71, PEG=0.5756, PS=23.11, P_IC=2.84",PE/PB/PS/MKTCAP...,2022.0
+3_factorvalue,F4_valuation_series,,,"2330 2022-09-30: EV_EBITDA=24.24, EV_S=16.82, FCF_P=-0.002361, MKTCAP=1.094e+10, PB=3.976, PE=14.35, PEG=0.2447, PS=17.85, P_IC=2.357",PE/PB/PS/MKTCAP...,2022.0
+3_factorvalue,F4_valuation_series,,,"2330 2022-12-30: EV_EBITDA=24.52, EV_S=17.47, FCF_P=0.01417, MKTCAP=1.163e+10, PB=3.928, PE=13.11, PEG=0.1803, PS=18.59, P_IC=2.342",PE/PB/PS/MKTCAP...,2022.0
+3_factorvalue,F4_valuation_series,,,"2330 2023-03-31: EV_EBITDA=36.62, EV_S=25.75, FCF_P=5.827e-05, MKTCAP=1.382e+10, PB=4.469, PE=11.9, PEG=0.1681, PS=27.17, P_IC=2.739",PE/PB/PS/MKTCAP...,2023.0
+3_factorvalue,F4_valuation_series,,,"2330 2023-06-30: EV_EBITDA=42.04, EV_S=29.87, FCF_P=0.001916, MKTCAP=1.494e+10, PB=4.66, PE=13.57, PEG=5.816, PS=31.06, P_IC=2.901",PE/PB/PS/MKTCAP...,2023.0
+3_factorvalue,F4_valuation_series,,,"2330 2023-09-30: EV_EBITDA=33.02, EV_S=23.7, FCF_P=0.0124, MKTCAP=1.356e+10, PB=4.021, PE=13.17, PS=24.81, P_IC=2.473",PE/PB/PS/MKTCAP...,2023.0
+3_factorvalue,F4_valuation_series,,,"2330 2023-12-31: EV_EBITDA=33.85, EV_S=23.37, FCF_P=0.003303, MKTCAP=1.538e+10, PB=4.415, PE=15.8, PS=24.58, P_IC=2.78",PE/PB/PS/MKTCAP...,2023.0
+3_factorvalue,F4_valuation_series,,,"2330 2024-03-31: EV_EBITDA=44.97, EV_S=32.5, FCF_P=0.002812, MKTCAP=2.02e+10, PB=5.511, PE=20.21, PS=34.09, P_IC=3.491",PE/PB/PS/MKTCAP...,2024.0
+3_factorvalue,F4_valuation_series,,,"2330 2024-06-30: EV_EBITDA=50.62, EV_S=35.64, FCF_P=0.003632, MKTCAP=2.505e+10, PB=6.558, PE=22.87, PEG=2.24, PS=37.2, P_IC=4.188",PE/PB/PS/MKTCAP...,2024.0
+3_factorvalue,F4_valuation_series,,,"2330 2024-09-30: EV_EBITDA=42.6, EV_S=31.12, FCF_P=0.005458, MKTCAP=2.482e+10, PB=6.171, PE=20.06, PEG=0.6287, PS=32.67, P_IC=4.025",PE/PB/PS/MKTCAP...,2024.0
+3_factorvalue,F4_valuation_series,,,"2330 2024-12-31: EV_EBITDA=42.58, EV_S=30.48, FCF_P=0.001886, MKTCAP=2.788e+10, PB=6.448, PE=19.71, PEG=0.3703, PS=32.1, P_IC=4.166",PE/PB/PS/MKTCAP...,2024.0
+3_factorvalue,F3_hand_calc,,0.004293,2412 2023-06-30: DB 0.004293 vs hand 0.004293 (close(<= 2023-08-14) / close(<= 2023-06-30) - 1); match=True,MOM,2023.0
+3_factorvalue,F3_hand_calc,,0.00431,2412 2023-09-30: DB 0.004310 vs hand 0.004311 (close(<= 2023-11-14) / close(<= 2023-09-30) - 1); match=True,MOM,2023.0
+3_factorvalue,F3_hand_calc,,0.050003,2412 2023-12-31: DB 0.050003 vs hand 0.050003 (close(<= 2024-03-31) / close(<= 2023-12-31) - 1); match=True,MOM,2023.0
+3_factorvalue,F3_hand_calc,,0.106176,2412 2023-06-30: DB 0.106176 vs hand 0.106176 (std of last 60 daily returns x sqrt(252)); match=True,VOL,2023.0
+3_factorvalue,F3_hand_calc,,0.086856,2412 2023-09-30: DB 0.086856 vs hand 0.086856 (std of last 60 daily returns x sqrt(252)); match=True,VOL,2023.0
+3_factorvalue,F3_hand_calc,,0.078486,2412 2023-12-31: DB 0.078486 vs hand 0.078486 (std of last 60 daily returns x sqrt(252)); match=True,VOL,2023.0
+3_factorvalue,F3_hand_calc,,0.946857,2412 2023-06-30: DB 0.946857 vs hand 0.946857 (close / max(last 252 trading days)); match=True,PROX_52WK_HIGH,2023.0
+3_factorvalue,F3_hand_calc,,0.942792,2412 2023-09-30: DB 0.942792 vs hand 0.942792 (close / max(last 252 trading days)); match=True,PROX_52WK_HIGH,2023.0
+3_factorvalue,F3_hand_calc,,0.975301,2412 2023-12-31: DB 0.975301 vs hand 0.975301 (close / max(last 252 trading days)); match=True,PROX_52WK_HIGH,2023.0
+3_factorvalue,F3_hand_calc,,0.009984,2412 2023-06-30: DB 0.009984 vs hand 0.009984 (close / close 63 calendar-trading-days earlier - 1); match=True,MOM_3M,2023.0
+3_factorvalue,F3_hand_calc,,-0.004293,2412 2023-09-30: DB -0.004293 vs hand -0.004293 (close / close 63 calendar-trading-days earlier - 1); match=True,MOM_3M,2023.0
+3_factorvalue,F3_hand_calc,,0.034482,2412 2023-12-31: DB 0.034482 vs hand 0.034482 (close / close 63 calendar-trading-days earlier - 1); match=True,MOM_3M,2023.0
+3_factorvalue,F4_valuation_series,,,"2412 2021-09-30: EV_EBITDA=39.21, EV_S=16.95, FCF_P=-3.69e-05, MKTCAP=8.572e+08, PB=2.245, PE=25, PEG=7.24, PS=16.85, P_IC=1.729",PE/PB/PS/MKTCAP...,2021.0
+3_factorvalue,F4_valuation_series,,,"2412 2021-12-30: EV_EBITDA=42.15, EV_S=14.9, FCF_P=-0.002439, MKTCAP=9.037e+08, PB=2.31, PE=25.6, PEG=1.911, PS=15.09, P_IC=1.761",PE/PB/PS/MKTCAP...,2021.0
+3_factorvalue,F4_valuation_series,,,"2412 2022-03-31: EV_EBITDA=44.89, EV_S=18.93, FCF_P=-0.002746, MKTCAP=9.852e+08, PB=2.461, PE=27.55, PEG=5.427, PS=19.21, P_IC=1.901",PE/PB/PS/MKTCAP...,2022.0
+3_factorvalue,F4_valuation_series,,,"2412 2022-06-30: EV_EBITDA=40.7, EV_S=17.63, FCF_P=0.041, MKTCAP=9.464e+08, PB=2.53, PE=26.29, PEG=10.47, PS=18.05, P_IC=1.797",PE/PB/PS/MKTCAP...,2022.0
+3_factorvalue,F4_valuation_series,,,"2412 2022-09-30: EV_EBITDA=39.47, EV_S=16.52, FCF_P=-0.000727, MKTCAP=8.843e+08, PB=2.303, PE=24.1, PEG=3.359, PS=16.53, P_IC=1.756",PE/PB/PS/MKTCAP...,2022.0
+3_factorvalue,F4_valuation_series,,,"2412 2022-12-30: EV_EBITDA=40.89, EV_S=14.44, FCF_P=0.002062, MKTCAP=8.766e+08, PB=2.226, PE=23.89, PS=14.73, P_IC=1.675",PE/PB/PS/MKTCAP...,2022.0
+3_factorvalue,F4_valuation_series,,,"2412 2023-03-31: EV_EBITDA=41.05, EV_S=16.98, FCF_P=0.0008175, MKTCAP=9.27e+08, PB=2.297, PE=19.32, PS=17.1, P_IC=1.767",PE/PB/PS/MKTCAP...,2023.0
+3_factorvalue,F4_valuation_series,,,"2412 2023-06-30: EV_EBITDA=38.75, EV_S=16.59, FCF_P=0.04374, MKTCAP=9.037e+08, PB=2.399, PE=18.75, PEG=3.229, PS=16.9, P_IC=1.695",PE/PB/PS/MKTCAP...,2023.0
+3_factorvalue,F4_valuation_series,,,"2412 2023-09-30: EV_EBITDA=41.24, EV_S=16.79, FCF_P=0.003427, MKTCAP=8.999e+08, PB=2.329, PE=18.92, PEG=5.812, PS=16.77, P_IC=1.757",PE/PB/PS/MKTCAP...,2023.0
+3_factorvalue,F4_valuation_series,,,"2412 2023-12-31: EV_EBITDA=44.99, EV_S=15.03, FCF_P=0.003389, MKTCAP=9.309e+08, PB=2.357, PE=19.77, PS=15.05, P_IC=1.777",PE/PB/PS/MKTCAP...,2023.0
+3_factorvalue,F4_valuation_series,,,"2412 2024-03-31: EV_EBITDA=44, EV_S=17.78, FCF_P=0.001859, MKTCAP=9.774e+08, PB=2.416, PE=20.87, PS=17.79, P_IC=1.85",PE/PB/PS/MKTCAP...,2024.0
+3_factorvalue,F4_valuation_series,,,"2412 2024-06-30: EV_EBITDA=42.96, EV_S=17.89, FCF_P=0.03971, MKTCAP=9.736e+08, PB=2.58, PE=20.94, PS=17.99, P_IC=1.815",PE/PB/PS/MKTCAP...,2024.0
+3_factorvalue,F4_valuation_series,,,"2412 2024-09-30: EV_EBITDA=44.94, EV_S=17.53, FCF_P=0.00888, MKTCAP=9.736e+08, PB=2.518, PE=20.98, PS=17.51, P_IC=1.91",PE/PB/PS/MKTCAP...,2024.0
+3_factorvalue,F4_valuation_series,,,"2412 2024-12-31: EV_EBITDA=42.99, EV_S=14.61, FCF_P=0.005789, MKTCAP=9.58e+08, PB=2.407, PE=20, PS=14.67, P_IC=1.792",PE/PB/PS/MKTCAP...,2024.0
+3_factorvalue,F3_hand_calc,,-0.025705,3512 2023-06-30: DB -0.025705 vs hand -0.025705 (close(<= 2023-08-14) / close(<= 2023-06-30) - 1); match=True,MOM,2023.0
+3_factorvalue,F3_hand_calc,,0.080428,3512 2023-09-30: DB 0.080428 vs hand 0.080428 (close(<= 2023-11-14) / close(<= 2023-09-30) - 1); match=True,MOM,2023.0
+3_factorvalue,F3_hand_calc,,0.141995,3512 2023-12-31: DB 0.141995 vs hand 0.141995 (close(<= 2024-03-31) / close(<= 2023-12-31) - 1); match=True,MOM,2023.0
+3_factorvalue,F3_hand_calc,,0.122524,3512 2023-06-30: DB 0.122524 vs hand 0.122524 (std of last 60 daily returns x sqrt(252)); match=True,VOL,2023.0
+3_factorvalue,F3_hand_calc,,0.141037,3512 2023-09-30: DB 0.141037 vs hand 0.141037 (std of last 60 daily returns x sqrt(252)); match=True,VOL,2023.0
+3_factorvalue,F3_hand_calc,,0.202256,3512 2023-12-31: DB 0.202256 vs hand 0.202256 (std of last 60 daily returns x sqrt(252)); match=True,VOL,2023.0
+3_factorvalue,F3_hand_calc,,0.97033,3512 2023-06-30: DB 0.970330 vs hand 0.970330 (close / max(last 252 trading days)); match=True,PROX_52WK_HIGH,2023.0
+3_factorvalue,F3_hand_calc,,0.996974,3512 2023-09-30: DB 0.996974 vs hand 0.996974 (close / max(last 252 trading days)); match=True,PROX_52WK_HIGH,2023.0
+3_factorvalue,F3_hand_calc,,0.874504,3512 2023-12-31: DB 0.874504 vs hand 0.874504 (close / max(last 252 trading days)); match=True,PROX_52WK_HIGH,2023.0
+3_factorvalue,F3_hand_calc,,0.058253,3512 2023-06-30: DB 0.058253 vs hand 0.058253 (close / close 63 calendar-trading-days earlier - 1); match=True,MOM_3M,2023.0
+3_factorvalue,F3_hand_calc,,0.108913,3512 2023-09-30: DB 0.108913 vs hand 0.108913 (close / close 63 calendar-trading-days earlier - 1); match=True,MOM_3M,2023.0
+3_factorvalue,F3_hand_calc,,0.004552,3512 2023-12-31: DB 0.004552 vs hand 0.004553 (close / close 63 calendar-trading-days earlier - 1); match=True,MOM_3M,2023.0

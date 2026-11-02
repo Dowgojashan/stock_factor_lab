@@ -1,0 +1,5 @@
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:164: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  b = pd.read_sql(f"SELECT date, close FROM {table} ORDER BY date", conn)
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:164: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  b = pd.read_sql(f"SELECT date, close FROM {table} ORDER BY date", conn)
+輸出： ['fig1_heatmap_sharpe_vs_control0.png', 'fig2_scatter_is_vs_oos.png', 'fig3_oos_quarterly_bars.png', 'fig4_oos_cumulative.png', 'table1_summary.csv', 'table1_summary.md', 'table2_promoted.csv', 'table2_promoted.md', 'table3_marginal.csv', 'table3_marginal.md']

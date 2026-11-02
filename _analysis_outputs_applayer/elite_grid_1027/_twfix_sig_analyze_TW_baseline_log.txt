@@ -1,0 +1,18 @@
+D:\git\stock_factor_lab\code\app\_elite_grid_offline.py:164: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  b = pd.read_sql(f"SELECT date, close FROM {table} ORDER BY date", conn)
+# TW_baseline_sig 晉級結果（規則見腳本docstring，跑之前已寫死）
+網格 160 組＋對照 3 組
+大盤 IS：Sharpe 0.821｜累積 +172.65%｜MDD -28.55%
+大盤 OOS：Sharpe 1.335｜累積 +70.56%｜MDD -27.72%
+D. Spearman ρ（IS扣成本Sharpe排名 vs OOS扣成本Sharpe排名，160組）＝+0.860
+   參考：累積報酬排名的 ρ＝-0.180
+   各維度平均效果兩期同號比例＝67%（12/18）
+
+                           promote_reason  IS_net_sharpe  IS_net_cum  IS_net_mdd  OOS_net_sharpe  OOS_net_cum  OOS_gross_cum  OOS_net_mdd  turnover_OOS  max_weight_peak_OOS
+combo                                                                                                                                                                       
+S7_hot|N3|top2x2|sl10          整體前3;S7最佳;       1.436581    5.971822   -0.273250        0.309184     0.083474       0.119339    -0.314209      0.694315             0.046384
+S8_breakout|N5|top2x2|sl10     整體前3;S8最佳;       1.422850    4.408533   -0.273215        0.572763     0.181964       0.220024    -0.268215      0.675729             0.035735
+S8_breakout|N10|equal|sl10          整體前3;       1.422850    4.408533   -0.273215        0.572763     0.181964       0.220024    -0.268215      0.675729             0.035735
+REF_control0                                    1.419590    4.437152   -0.271932        0.614377     0.201435       0.239757    -0.262499      0.669433             0.030014
+REF_stock_equal                                 1.290090    3.352606   -0.288165        0.632077     0.203836       0.231317    -0.261438      0.481536             0.002268
+REF_w2c_full                                    0.938398    2.408622   -0.288422        1.042536     0.461478       0.492050    -0.305595      0.441664             0.300000

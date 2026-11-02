@@ -370,3 +370,11 @@ _frozen/stage1/returns_monthly.parquet
 
 # 論文寫作專案（使用者要求不上傳 git，2026-10-29）
 /論文/
+
+# 🔴 2026-11-02 台股股價資料修正後重跑的回測原始產物（Phase 3／4 全部 40,506 個策略＋自建宇宙基準，約 60 GB）。
+# 跟 results_artifacts/ 同性質（巨大、重跑就有，見 code/research/_rebacktest_tw_jobs.py），但資料夾名稱不同、
+# 原本的 results_artifacts/ 規則沒有涵蓋，差點整包被加進版控。
+results_artifacts_twfix/
+
+# 用量帳本的跨程序寫入鎖（utils/openai_quota._locked_append 產生的空檔，沒有內容）
+code/_catalog/*.lock

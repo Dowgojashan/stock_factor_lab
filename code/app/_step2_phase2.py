@@ -14,6 +14,7 @@ import argparse
 import json
 import sys
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -45,35 +46,45 @@ def run_chain(ctx, plan, style, rep, done, path, model, api_key):
     for k in range(1, 9):
         if (plan, style, rep, k) in done:
             continue
-        try:
-            if plan in ("A", "B", "C"):
-                if ctx["version"] == 2:
-                    facts = RL.build_facts_v2(ctx["market"], ctx["pool"], plan, k, ctx["g"], ctx["sig"], ctx["bq"])
-                    r = RL.decide_v2(plan, style, facts, model=model, api_key=api_key)
+        # 2026-11-02：OpenAI 偶發的伺服器暫時錯誤（實際遇到 HTTP 520）會讓整條鏈中斷；
+        # 只對 5xx 自動重試（10/20/30 秒），額度不足與其他錯誤照舊停下；逾時不重試（避免重複計費）
+        for attempt in range(4):
+            try:
+                if plan in ("A", "B", "C"):
+                    if ctx["version"] == 2:
+                        facts = RL.build_facts_v2(ctx["market"], ctx["pool"], plan, k, ctx["g"], ctx["sig"], ctx["bq"])
+                        r = RL.decide_v2(plan, style, facts, model=model, api_key=api_key)
+                    else:
+                        facts = RL.build_facts(ctx["market"], ctx["pool"], plan, k, ctx["g"], ctx["states"], ctx["bq"])
+                        r = RL.decide(plan, style, facts, model=model, api_key=api_key)
+                    rec = {"choice": r["choice"], "combo": {x["code"]: x["combo"] for x in facts["rows"]}[r["choice"]],
+                           "reason": r["reason"], "leakage": r["leakage"], "usage": r["usage"]}
                 else:
-                    facts = RL.build_facts(ctx["market"], ctx["pool"], plan, k, ctx["g"], ctx["states"], ctx["bq"])
-                    r = RL.decide(plan, style, facts, model=model, api_key=api_key)
-                rec = {"choice": r["choice"], "combo": {x["code"]: x["combo"] for x in facts["rows"]}[r["choice"]],
-                       "reason": r["reason"], "leakage": r["leakage"], "usage": r["usage"]}
-            else:
-                as_of = ctx["as_ofs"][k - 1]
-                f = SD.features(ctx["md"], ctx["close"], ctx["mw"], ctx["cand"][as_of], as_of)
-                tab, codes = SD.anonymized_table(f, seed=1000 * rep + k)
-                prompt = (SD.build_prompt_v2(k, ctx["sig"].loc[as_of], ctx["bq"][k - 1], tab) if ctx["version"] == 2
-                          else SD.build_prompt(k, ctx["states"][as_of], ctx["dev"][as_of], ctx["bq"][k - 1], tab))
-                out = None
-                for _ in range(2):   # 評分不完整重問一次
-                    out, usage = _call_llm(prompt, model, api_key, purpose=f"step2{'v2' if ctx['version'] == 2 else ''}_D_{style}", est_tokens=6000,
-                                           system_prompt=SD.SYSTEM + (RL.STYLES_V2 if ctx["version"] == 2 else RL.STYLES)[style], schema=SD.schema(list(codes)))
-                    if not SD.check_ratings(out["ratings"], codes):
-                        break
-                probs = SD.check_ratings(out["ratings"], codes)
-                if probs:
-                    raise RuntimeError(f"D 評分仍不完整：{probs}")
-                rec = {"ratings": out["ratings"], "codes": codes, "reason": out["reason"], "usage": usage}
-        except OQ.FreeTierExhaustedError as e:
-            print(f"⛔ 免費額度不足，停止（{plan}/{style}/rep{rep}/第{k}季）：{e}", flush=True)
-            return "quota"
+                    as_of = ctx["as_ofs"][k - 1]
+                    f = SD.features(ctx["md"], ctx["close"], ctx["mw"], ctx["cand"][as_of], as_of)
+                    tab, codes = SD.anonymized_table(f, seed=1000 * rep + k)
+                    prompt = (SD.build_prompt_v2(k, ctx["sig"].loc[as_of], ctx["bq"][k - 1], tab) if ctx["version"] == 2
+                              else SD.build_prompt(k, ctx["states"][as_of], ctx["dev"][as_of], ctx["bq"][k - 1], tab))
+                    out = None
+                    for _ in range(2):   # 評分不完整重問一次
+                        out, usage = _call_llm(prompt, model, api_key, purpose=f"step2{'v2' if ctx['version'] == 2 else ''}_D_{style}", est_tokens=6000,
+                                               system_prompt=SD.SYSTEM + (RL.STYLES_V2 if ctx["version"] == 2 else RL.STYLES)[style], schema=SD.schema(list(codes)))
+                        if not SD.check_ratings(out["ratings"], codes):
+                            break
+                    probs = SD.check_ratings(out["ratings"], codes)
+                    if probs:
+                        raise RuntimeError(f"D 評分仍不完整：{probs}")
+                    rec = {"ratings": out["ratings"], "codes": codes, "reason": out["reason"], "usage": usage}
+                break
+            except OQ.FreeTierExhaustedError as e:
+                print(f"⛔ 免費額度不足，停止（{plan}/{style}/rep{rep}/第{k}季）：{e}", flush=True)
+                return "quota"
+            except OQ.OpenAIAPIError as e:
+                if e.status_code >= 500 and attempt < 3:
+                    print(f"⚠️ OpenAI 暫時錯誤 {e}，{10 * (attempt + 1)} 秒後重試（{plan}/{style}/rep{rep}/第{k}季）", flush=True)
+                    time.sleep(10 * (attempt + 1))
+                    continue
+                raise
         rec.update({"plan": plan, "style": style, "rep": rep, "k": k, "model": model})
         with LOCK:
             with open(path, "a", encoding="utf-8") as fo:

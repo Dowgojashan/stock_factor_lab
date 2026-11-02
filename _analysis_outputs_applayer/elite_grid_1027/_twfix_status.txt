@@ -1,0 +1,9 @@
+MAIN exclude_v1 exit=0
+MAIN baseline exit=0
+SIG exclude_v1 exit=0
+SIG baseline exit=0
+FIGS exit=0
+TABLES exit=0
+PHASE0 v1 exit=0
+PHASE0 v2 exit=0
+ALLDONE
