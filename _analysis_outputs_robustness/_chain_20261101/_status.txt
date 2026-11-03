@@ -14,3 +14,4 @@ PART1_DONE
 11-02_03:16 cluster_count_pass2 exit=0
 11-02_05:27 stage3_isoos exit=0
 11-02_05:28 stage4 exit=0
+11-03_11:56 k_stability exit=0

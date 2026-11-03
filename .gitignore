@@ -378,3 +378,7 @@ results_artifacts_twfix/
 
 # 用量帳本的跨程序寫入鎖（utils/openai_quota._locked_append 產生的空檔，沒有內容）
 code/_catalog/*.lock
+
+# 步驟2 權重矩陣寬表（1,596 張 CSV、約 159MB）：可由 code/app/_step2_weight_matrix_report.py 從 step2/*_weights_*.parquet 幾秒內重建；
+# 特徵總表（weight_matrix_summary.csv、weight_matrix_features_v*.csv）照常進版控
+_analysis_outputs_applayer/step2/weight_matrices/
