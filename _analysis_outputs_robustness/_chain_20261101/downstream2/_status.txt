@@ -1,0 +1,4 @@
+11-04_22:54 第1組已完成，開始第2組
+11-04_22:59 rank_persistence exit=0
+11-04_22:59 complementarity_granularity exit=0
+11-04_23:00 window_robustness exit=0

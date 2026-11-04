@@ -1,7 +1,7 @@
 {
   "stage": "cluster_macro_interface",
-  "produced_at": "2026-10-13T11:28:55",
-  "git_sha": "49c7789",
+  "produced_at": "2026-11-04T22:54:11",
+  "git_sha": "c5bb059",
   "params": {
     "excluded_quant_columns": [
       "window_start_year",

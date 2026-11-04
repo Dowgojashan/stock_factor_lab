@@ -1,7 +1,7 @@
 {
   "stage": "window_robustness",
-  "produced_at": "2026-10-13T00:30:19",
-  "git_sha": "8292d71",
+  "produced_at": "2026-11-04T23:00:27",
+  "git_sha": "c5bb059",
   "params": {
     "main_window": [
       "2007-01",
@@ -29,34 +29,34 @@
   "inputs": [
     {
       "path": "_frozen\\stage1\\returns_monthly.parquet",
-      "sha256": "4713dedffe8969263d19aed96166b25f3cb63c812a7a31c6b3700010396b1164",
-      "bytes": 114193546,
-      "rows": 14607899
+      "sha256": "1d2d08fa8cd47a5307ca428152088ca2292a7811e2b6dcf704cce126b60fe189",
+      "bytes": 115036535,
+      "rows": 14711937
     },
     {
       "path": "_frozen\\stage1\\returns_meta.parquet",
-      "sha256": "728ca65670052d3f6938960e675a1388604817ce821bc56a4ca30d31bfe5af48",
-      "bytes": 560120,
-      "rows": 52111
+      "sha256": "309e2ffadf036e7ca44f87776b8845525fd9024c50b0a98fdbb6bd73613aad02",
+      "bytes": 564220,
+      "rows": 52498
     },
     {
       "path": "_frozen\\stage1\\strategy_marks.parquet",
-      "sha256": "d5ffb4a29aa775b2c681086fc7f4c0c2d63abfaf9606998947d36eb632d445db",
-      "bytes": 1891219,
-      "rows": 52111
+      "sha256": "3fb2c1f807ab84320342c7fabfbeb0e84be699f1a248bbbfe14d688baf8eff5d",
+      "bytes": 1976451,
+      "rows": 52498
     },
     {
       "path": "_frozen\\stage3\\cluster_assign.parquet",
-      "sha256": "e5678a8cf4141f98f57e1d8afebf9c398fffa6ccbfbbae0654bfb115628f6be5",
-      "bytes": 2042680,
-      "rows": 191458
+      "sha256": "188f6e63315c5a1613b9c74de90fcb12aeb144c0618d1604fb0012e9edb8d8d9",
+      "bytes": 2059252,
+      "rows": 192946
     }
   ],
   "outputs": [
     {
       "path": "_analysis_outputs_robustness\\window_robustness.csv",
-      "sha256": "1e2b549f4df963876a18af04f1c1147132c3f3ef30c61f6d9c36a009167e318f",
-      "bytes": 770
+      "sha256": "5a6b7bddfef44ccb2f30898bcf4a3b106b12e823e8ec5c28b33505a82fc2b43f",
+      "bytes": 764
     }
   ],
   "notes": "H-26d（＝落差3 的方案E，2026-09-04 首次執行）：台股共同窗 2007-01 vs 2003-01 的群結構一致性，用來回答「群結構是不是窗選擇的產物」。"

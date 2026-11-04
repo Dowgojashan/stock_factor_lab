@@ -1,7 +1,7 @@
 {
   "stage": "complementarity_granularity",
-  "produced_at": "2026-10-22T07:00:04",
-  "git_sha": "b07d3cf",
+  "produced_at": "2026-11-04T22:59:57",
+  "git_sha": "c5bb059",
   "params": {
     "trees": [
       "TW_normal",
@@ -28,38 +28,38 @@
   "inputs": [
     {
       "path": "_frozen\\stage3\\cluster_assign.parquet",
-      "sha256": "e5678a8cf4141f98f57e1d8afebf9c398fffa6ccbfbbae0654bfb115628f6be5",
-      "bytes": 2042680,
-      "rows": 191458
+      "sha256": "188f6e63315c5a1613b9c74de90fcb12aeb144c0618d1604fb0012e9edb8d8d9",
+      "bytes": 2059252,
+      "rows": 192946
     },
     {
       "path": "_frozen\\stage1\\returns_monthly.parquet",
-      "sha256": "4713dedffe8969263d19aed96166b25f3cb63c812a7a31c6b3700010396b1164",
-      "bytes": 114193546,
-      "rows": 14607899
+      "sha256": "1d2d08fa8cd47a5307ca428152088ca2292a7811e2b6dcf704cce126b60fe189",
+      "bytes": 115036535,
+      "rows": 14711937
     },
     {
       "path": "_frozen\\stage0\\candidate_index.parquet",
-      "sha256": "34e14b4069c518d7e82c57e419787467c81d5e7bfb027f096ff4506b53006fab",
-      "bytes": 4836688,
-      "rows": 52111
+      "sha256": "04a53c666ecc77b6a7ad0d0c2ef0033fd87195e598d603e12ee54d41e6bff7ba",
+      "bytes": 4873241,
+      "rows": 52498
     }
   ],
   "outputs": [
     {
       "path": "_analysis_outputs_robustness\\complementarity_granularity_summary.csv",
-      "sha256": "516b78a6820d6ce216d9cbbea3cf7c42afc885e2b1fa0f1a46aa858889d2c5da",
-      "bytes": 3205
+      "sha256": "2ee74a1082b65c1a42332e697fa073b568666e4c8f9cff67db6ac3416891d48b",
+      "bytes": 3253
     },
     {
       "path": "_analysis_outputs_robustness\\complementarity_granularity_pairs.csv",
-      "sha256": "cb1644f21c9156b4668c59ad4a1a5b8363110bfa2de92c4db254c239bf6fefb8",
-      "bytes": 25622805
+      "sha256": "9c4a6ea280b6a67be2a175fb895784fb44e902d613d0cc89a687efcccc20605a",
+      "bytes": 25622378
     },
     {
       "path": "_analysis_outputs_robustness\\free_lunch_shortlist.csv",
-      "sha256": "e0c733a6aa2e3eb32cdd74ae62504049347237226cb027b58712cd25d5a0e1d0",
-      "bytes": 108826
+      "sha256": "ac1b87f3889b5e539a97abae12742ab03b6bae1d7a3a54ff824c0d6cbc005f76",
+      "bytes": 109484
     }
   ],
   "notes": "H-25：互補性的分群粒度效應。L1沒有高互補配對是聚合效應不是門檻問題，同市場配對當對照組排除小群雜訊解釋。H-25b：免費午餐清單，把結論落實成具體可指認的群。理由見模組docstring。"
