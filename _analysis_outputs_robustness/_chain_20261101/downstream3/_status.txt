@@ -1,0 +1,8 @@
+11-08_23:41 effective_bets exit=0
+11-09_00:32 turnover_cost exit=0
+11-09_00:32 mdd_window_length exit=0
+11-09_00:33 cluster_representatives exit=0
+11-09_00:33 complementarity_sensitivity exit=0
+11-09_00:33 cluster_temporal_profile exit=0
+11-09_00:34 four_group_control exit=0
+DONE

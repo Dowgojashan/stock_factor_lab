@@ -1,7 +1,7 @@
 {
   "stage": "threshold_control",
-  "produced_at": "2026-10-13T00:08:59",
-  "git_sha": "8292d71",
+  "produced_at": "2026-11-08T14:29:41",
+  "git_sha": "78c66a7",
   "params": {
     "subset_schemes": [
       "E",
@@ -14,42 +14,37 @@
     "k_mode": "fixed",
     "n_draws": 30,
     "seed": 42,
-    "diagnose_only": false
+    "diagnose_only": true
   },
   "inputs": [
     {
       "path": "_frozen\\stage0\\candidate_index.parquet",
-      "sha256": "34e14b4069c518d7e82c57e419787467c81d5e7bfb027f096ff4506b53006fab",
-      "bytes": 4836688,
-      "rows": 52111
+      "sha256": "04a53c666ecc77b6a7ad0d0c2ef0033fd87195e598d603e12ee54d41e6bff7ba",
+      "bytes": 4873241,
+      "rows": 52498
     },
     {
       "path": "_frozen\\stage1\\returns_monthly.parquet",
-      "sha256": "4713dedffe8969263d19aed96166b25f3cb63c812a7a31c6b3700010396b1164",
-      "bytes": 114193546,
-      "rows": 14607899
+      "sha256": "1d2d08fa8cd47a5307ca428152088ca2292a7811e2b6dcf704cce126b60fe189",
+      "bytes": 115036535,
+      "rows": 14711937
     },
     {
       "path": "_analysis_outputs_robustness\\walkforward_matrix_detail.csv",
-      "sha256": "b6fe48bff7c464e38ea7d323fddda7c398c94ca1fb53b644090828a1ef8b047a",
-      "bytes": 2209007
+      "sha256": "3a9bb8237cfdc517f7145e2a8ea7a5b3668f523799a2ad92261317940bb62f37",
+      "bytes": 2205115
     },
     {
       "path": "_analysis_outputs_robustness\\walkforward_partition.csv",
-      "sha256": "d0ec9b42cedfbc461f9d79eed54939ec9e481abef2c5fdf4d3de220e89729678",
-      "bytes": 632701
+      "sha256": "2291faf696912cea4a44d939c46d66c8d1bead4169f2acace1e8dfdfe6a45831",
+      "bytes": 635299
     }
   ],
   "outputs": [
     {
       "path": "_analysis_outputs_robustness\\backfill_diagnosis.csv",
-      "sha256": "939183cb234ae9353f96bae4c82e5fce11a6ddae160fb5d84e5291e4222fb6fa",
-      "bytes": 2721
-    },
-    {
-      "path": "_analysis_outputs_robustness\\threshold_control.csv",
-      "sha256": "a2badf2884d173c4731e1d0aa6571a4f7627d0aac0781bf155d9c7d9db442a65",
-      "bytes": 73776
+      "sha256": "d87ea9f35865c25edde6541d30ffd362091341c75da6d9c725957f1da7125ee7",
+      "bytes": 2692
     }
   ],
   "notes": "M-15：多樣性門檻是 M-03/M-03b 的第二個變因。A=backfill 診斷（免費）；B=固定門檻變體（代表性子集），把門檻真的釘死看結論是否改變。"

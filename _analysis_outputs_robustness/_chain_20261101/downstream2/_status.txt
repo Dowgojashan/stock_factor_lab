@@ -2,3 +2,13 @@
 11-04_22:59 rank_persistence exit=0
 11-04_22:59 complementarity_granularity exit=0
 11-04_23:00 window_robustness exit=0
+11-07_14:31 排程調整：threshold_control 完整版與 residual_tree_selection 延後（啟動即中止），測試後補跑 threshold_control --diagnose-only
+11-08_14:23 walkforward_partition exit=0
+11-08_14:23 enb_rank_deficiency exit=0
+11-08_14:23 threshold_control exit=0
+11-08_14:24 residual_tree_selection exit=0
+11-08_14:29 tests exit=0
+DONE
+11-08_14:29 threshold_control --diagnose-only exit=0
+11-08_14:35 tests_final exit=0
+ADJUST_DONE

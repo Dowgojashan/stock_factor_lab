@@ -26,7 +26,7 @@ def make():
     c.arrow(xs[1] + bw + 0.08, ymid, xs[2], ymid, lw=1.4)
     c.label((xs[0] + bw + 0.08 + xs[1]) / 2, ymid + 0.45, "候選\n策略池", fs=6.4, bold=True)
     c.label((xs[1] + bw + 0.08 + xs[2]) / 2, ymid + 0.45, "精選\n持倉", fs=6.4, bold=True)
-    c.label((xs[0] + bw + 0.08 + xs[1]) / 2, ymid - 0.42, "TW 29,255\nUS 22,856", fs=5.6,
+    c.label((xs[0] + bw + 0.08 + xs[1]) / 2, ymid - 0.42, "TW 29,642\nUS 22,856", fs=5.6,
             color=C["mute"])
 
     # 底部：樣本外監控與修正橫帶（涵蓋研究部＋實戰層）
