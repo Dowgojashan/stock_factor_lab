@@ -1,7 +1,7 @@
 {
   "stage": "stage0_index",
-  "produced_at": "2026-11-08T14:34:59",
-  "git_sha": "78c66a7",
+  "produced_at": "2026-11-09T17:41:22",
+  "git_sha": "438b165",
   "params": {
     "variant": {
       "TW": "openSec_boost",
@@ -17,8 +17,8 @@
   "inputs": [
     {
       "path": "_analysis_outputs_phase4_twfix\\TW_L4_openSec_boost_final_candidates.csv",
-      "sha256": "ae6a10b248ab461dfa92ac07f8e99638d93f89001b5b419751712525d405a7b1",
-      "bytes": 5631811
+      "sha256": "1b3a117d511cdd6434c5e1c5f058c260740f019468da8cc012999bc8d36db149",
+      "bytes": 6222989
     },
     {
       "path": "_analysis_outputs_phase4\\US_L4_openSec_balanced_final_candidates.csv",
@@ -27,15 +27,15 @@
     },
     {
       "path": "code\\results_artifacts_twfix\\TW_L3_openSec_boost_M\\stats.parquet",
-      "sha256": "b80c97459e25b6277310e81397f6e709040879e2c157c7468a6ae063a7cbf30b",
-      "bytes": 1419314,
-      "rows": 20253
+      "sha256": "482253c780aef323b8d1d55908af432aa74770a9335b5d1c875a5f2785e84bab",
+      "bytes": 1570684,
+      "rows": 22489
     },
     {
       "path": "code\\results_artifacts_twfix\\TW_L4_openSec_boost_M\\stats.parquet",
-      "sha256": "c7d089252ec1aef05c0a5b357bf324c9539bb0ee7c683a08e3dceb63240ff698",
-      "bytes": 1390417,
-      "rows": 20253
+      "sha256": "6d2e36b8ff243ee9a7c46b11640535b6661640af6c163a8930f39dd4be9622a4",
+      "bytes": 1538439,
+      "rows": 22489
     },
     {
       "path": "code\\results_artifacts\\US_L3_openSec_balanced_M\\stats.parquet",
@@ -53,9 +53,9 @@
   "outputs": [
     {
       "path": "_frozen\\stage0\\candidate_index.parquet",
-      "sha256": "04a53c666ecc77b6a7ad0d0c2ef0033fd87195e598d603e12ee54d41e6bff7ba",
-      "bytes": 4873241,
-      "rows": 52498
+      "sha256": "44ca9e3e4de2dc897076e5b12bef2ab0a1ed870c70680d350e85dcae13dbe057",
+      "bytes": 5153577,
+      "rows": 55582
     }
   ],
   "notes": "修掉落差1(join stats)/落差2(artifacts_dir 規則解析)/落差5(複合主鍵)"

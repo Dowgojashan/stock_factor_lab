@@ -1,7 +1,7 @@
 {
   "stage": "stage3_hrp",
-  "produced_at": "2026-11-02T03:15:15",
-  "git_sha": "fa8c771",
+  "produced_at": "2026-11-10T05:49:29",
+  "git_sha": "438b165",
   "params": {
     "trees_built": [
       "TW_normal",
@@ -12,14 +12,14 @@
       "XM_crisis"
     ],
     "L1_target": {
-      "TW": 7,
+      "TW": 8,
       "US": 4,
-      "XM": 8
+      "XM": 13
     },
     "L3_target": {
-      "TW": 471,
+      "TW": 523,
       "US": 303,
-      "XM": 774
+      "XM": 826
     },
     "L1_target_method": "silhouette（H-03，見cluster_count_selection.py）",
     "linkage_method_chosen": {
@@ -34,13 +34,13 @@
     "method_comparison": {
       "TW_normal": {
         "single": {
-          "cophenetic": 0.7664297673239969,
-          "max_share": 0.9764143902074937,
-          "n_singleton": 356
+          "cophenetic": 0.7590371830863897,
+          "max_share": 0.9755438454262938,
+          "n_singleton": 382
         },
         "ward": {
-          "cophenetic": 0.28876687907336185,
-          "max_share": 0.020040304523063143,
+          "cophenetic": 0.13771435733773754,
+          "max_share": 0.016011349817592217,
           "n_singleton": 0
         }
       },
@@ -58,25 +58,25 @@
       },
       "XM_normal": {
         "single": {
-          "cophenetic": 0.8954485564669863,
-          "max_share": 0.5442047289742846,
-          "n_singleton": 600
+          "cophenetic": 0.8951242487089696,
+          "max_share": 0.5679176613313506,
+          "n_singleton": 628
         },
         "ward": {
-          "cophenetic": 0.8848837300761644,
-          "max_share": 0.014389829806617252,
+          "cophenetic": 0.8809329466232171,
+          "max_share": 0.01346221578679607,
           "n_singleton": 0
         }
       },
       "TW_crisis": {
         "single": {
-          "cophenetic": 0.7990586242863774,
-          "max_share": 0.9749962680997164,
-          "n_singleton": 389
+          "cophenetic": 0.7934645847137721,
+          "max_share": 0.9742940143223888,
+          "n_singleton": 424
         },
         "ward": {
-          "cophenetic": 0.4173304044493492,
-          "max_share": 0.01709210329899985,
+          "cophenetic": 0.23434015862484328,
+          "max_share": 0.011586272125388462,
           "n_singleton": 0
         }
       },
@@ -94,13 +94,13 @@
       },
       "XM_crisis": {
         "single": {
-          "cophenetic": 0.9186512648765234,
-          "max_share": 0.5502505279721728,
-          "n_singleton": 648
+          "cophenetic": 0.9204493496826749,
+          "max_share": 0.574550933354205,
+          "n_singleton": 685
         },
         "ward": {
-          "cophenetic": 0.8915076257528416,
-          "max_share": 0.011781026129446355,
+          "cophenetic": 0.8908374394607004,
+          "max_share": 0.01031190075529292,
           "n_singleton": 0
         }
       }
@@ -108,13 +108,13 @@
     "level_diag": {
       "TW_normal": {
         "L1": {
-          "n_clusters": 7,
-          "max_share": 0.3625167935512763,
+          "n_clusters": 8,
+          "max_share": 0.32698284015673557,
           "n_singleton": 0
         },
         "L3": {
-          "n_clusters": 471,
-          "max_share": 0.020040304523063143,
+          "n_clusters": 523,
+          "max_share": 0.016011349817592217,
           "n_singleton": 0
         }
       },
@@ -132,25 +132,25 @@
       },
       "XM_normal": {
         "L1": {
-          "n_clusters": 8,
-          "max_share": 0.2993705743509048,
+          "n_clusters": 13,
+          "max_share": 0.1894102453723633,
           "n_singleton": 0
         },
         "L3": {
-          "n_clusters": 774,
-          "max_share": 0.014389829806617252,
+          "n_clusters": 826,
+          "max_share": 0.01346221578679607,
           "n_singleton": 0
         }
       },
       "TW_crisis": {
         "L1": {
-          "n_clusters": 7,
-          "max_share": 0.4339080459770115,
+          "n_clusters": 8,
+          "max_share": 0.4126131603837319,
           "n_singleton": 0
         },
         "L3": {
-          "n_clusters": 471,
-          "max_share": 0.01709210329899985,
+          "n_clusters": 523,
+          "max_share": 0.011586272125388462,
           "n_singleton": 0
         }
       },
@@ -168,32 +168,32 @@
       },
       "XM_crisis": {
         "L1": {
-          "n_clusters": 8,
-          "max_share": 0.22154126464863969,
+          "n_clusters": 13,
+          "max_share": 0.26378507415958985,
           "n_singleton": 0
         },
         "L3": {
-          "n_clusters": 774,
-          "max_share": 0.011781026129446355,
+          "n_clusters": 826,
+          "max_share": 0.01031190075529292,
           "n_singleton": 0
         }
       }
     },
     "cophenetic": {
-      "TW_normal": 0.28876687907336185,
+      "TW_normal": 0.13771435733773754,
       "US_normal": 0.2675711267294786,
-      "XM_normal": 0.8848837300761644,
-      "TW_crisis": 0.4173304044493492,
+      "XM_normal": 0.8809329466232171,
+      "TW_crisis": 0.23434015862484328,
       "US_crisis": 0.26932580937937095,
-      "XM_crisis": 0.8915076257528416
+      "XM_crisis": 0.8908374394607004
     },
     "ari_l3_vs_fcombo": {
-      "TW_normal": 0.171414998933028,
+      "TW_normal": 0.16903476052282773,
       "US_normal": 0.20202341853725803,
-      "XM_normal": 0.17414327732045526,
-      "TW_crisis": 0.075065157019229,
+      "XM_normal": 0.17558399205512376,
+      "TW_crisis": 0.07262857764488749,
       "US_crisis": 0.0929382092014454,
-      "XM_crisis": 0.1127461026827486
+      "XM_crisis": 0.11317501329770724
     },
     "n_dropped_zero_var": {
       "TW_normal": 0,
@@ -226,27 +226,27 @@
   "inputs": [
     {
       "path": "_frozen\\stage1\\returns_monthly.parquet",
-      "sha256": "1d2d08fa8cd47a5307ca428152088ca2292a7811e2b6dcf704cce126b60fe189",
-      "bytes": 115036535,
-      "rows": 14711937
+      "sha256": "2ef7e650d8375714f9417197a1a13afaf6138196d44d52c5af4be0c88d1c6b40",
+      "bytes": 121414946,
+      "rows": 15527462
     },
     {
       "path": "_frozen\\stage1\\returns_meta.parquet",
-      "sha256": "309e2ffadf036e7ca44f87776b8845525fd9024c50b0a98fdbb6bd73613aad02",
-      "bytes": 564220,
-      "rows": 52498
+      "sha256": "03877f910e2274b82188e7363e310c03dff2dac995b92415a5bf81a4ad6f91f2",
+      "bytes": 598357,
+      "rows": 55582
     },
     {
       "path": "_frozen\\stage1\\strategy_marks.parquet",
-      "sha256": "3fb2c1f807ab84320342c7fabfbeb0e84be699f1a248bbbfe14d688baf8eff5d",
-      "bytes": 1976451,
-      "rows": 52498
+      "sha256": "7736936969eec876c7b114e7fb8f1aa52925322cd718b951ae55fef9cdba77a3",
+      "bytes": 2090256,
+      "rows": 55582
     },
     {
       "path": "_frozen\\stage0\\candidate_index.parquet",
-      "sha256": "04a53c666ecc77b6a7ad0d0c2ef0033fd87195e598d603e12ee54d41e6bff7ba",
-      "bytes": 4873241,
-      "rows": 52498
+      "sha256": "44ca9e3e4de2dc897076e5b12bef2ab0a1ed870c70680d350e85dcae13dbe057",
+      "bytes": 5153577,
+      "rows": 55582
     },
     {
       "path": "_frozen\\stage2\\regime\\regime_table_TW.parquet",
@@ -264,26 +264,26 @@
   "outputs": [
     {
       "path": "_frozen\\stage3\\cluster_assign.parquet",
-      "sha256": "188f6e63315c5a1613b9c74de90fcb12aeb144c0618d1604fb0012e9edb8d8d9",
-      "bytes": 2059252,
-      "rows": 192946
+      "sha256": "20c6c1e904bdb3d83b26a927439d7c39f64d665e096caf34b84bbd7ebe06b3d2",
+      "bytes": 2189692,
+      "rows": 204178
     },
     {
       "path": "_frozen\\stage3\\cluster_meta.parquet",
-      "sha256": "527df6dd09c4bbb97bb278ba5530ba4bf80046372042cd0d392be5059423c8fe",
-      "bytes": 64076,
-      "rows": 3134
+      "sha256": "c9bf76282e55e114c59a5670867ab7d199fa16fd2e9b621b98d16f96cff78e1e",
+      "bytes": 66919,
+      "rows": 3354
     },
     {
       "path": "_frozen\\stage3\\cluster_corr_matrix_TW_normal.parquet",
-      "sha256": "1b86e7d9ed29f4757babfe08aec96ad27fc845351551452de9337c55deec804c",
-      "bytes": 6235,
-      "rows": 7
+      "sha256": "b40da51ceed7ec5aa07727bb683cde36129f127c4c464163b0b6c0e95bf3f55f",
+      "bytes": 6963,
+      "rows": 8
     },
     {
       "path": "_frozen\\stage3\\linkage_TW_normal.npy",
-      "sha256": "52958fc77552324fc58e1adb30c137a8aa1f4eaa3d7513613eeb5ac00e88428c",
-      "bytes": 857568
+      "sha256": "4c1b68fda9d3621cccdf62fe77a19d1208f608ae77fe6a017fbc87213a2d6358",
+      "bytes": 947424
     },
     {
       "path": "_frozen\\stage3\\cluster_corr_matrix_US_normal.parquet",
@@ -298,25 +298,25 @@
     },
     {
       "path": "_frozen\\stage3\\cluster_corr_matrix_XM_normal.parquet",
-      "sha256": "0a5fb0cf71abd161a374d8bd7cce62da8d7987be774d6520d1ad6e97b4bd0a14",
+      "sha256": "3e43dd2180e99ea96c1ab086dbcb8b2b04e7f1ba41149aacb3a624e4b4053fc5",
+      "bytes": 10927,
+      "rows": 13
+    },
+    {
+      "path": "_frozen\\stage3\\linkage_XM_normal.npy",
+      "sha256": "c870c9209054e7ee78a132dc182afddb1a599678204b80200559132198a177ab",
+      "bytes": 1635488
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_corr_matrix_TW_crisis.parquet",
+      "sha256": "3aac0df0843ce65ac60d1dffa0192cd94843913b472be07f81b73511ba5a5361",
       "bytes": 6963,
       "rows": 8
     },
     {
-      "path": "_frozen\\stage3\\linkage_XM_normal.npy",
-      "sha256": "22f0dc8edfb0ed0b42d880fe7198a990cba6ef05c1551fc096bb1020dd916598",
-      "bytes": 1545632
-    },
-    {
-      "path": "_frozen\\stage3\\cluster_corr_matrix_TW_crisis.parquet",
-      "sha256": "6b984ffa02c6d4027e0883d83692e38fd82336bd2c37e514f528e18c5038cca5",
-      "bytes": 6235,
-      "rows": 7
-    },
-    {
       "path": "_frozen\\stage3\\linkage_TW_crisis.npy",
-      "sha256": "3399bcbf5e6598f615f6df1bd692e26e1cc589ad68db153d152d5067a97ff469",
-      "bytes": 857568
+      "sha256": "4435d02c5f44cc6ccb9d2949e9072e2f4a3b29028f1a3a9c33a2e6ac548e073a",
+      "bytes": 947424
     },
     {
       "path": "_frozen\\stage3\\cluster_corr_matrix_US_crisis.parquet",
@@ -331,20 +331,20 @@
     },
     {
       "path": "_frozen\\stage3\\cluster_corr_matrix_XM_crisis.parquet",
-      "sha256": "cae249fdcf21fb75da10a722c5cdebe97299a71fd90f608b30b98e790a540858",
-      "bytes": 6963,
-      "rows": 8
+      "sha256": "5461e092f4ed15e738aabb52d91e3800b50f6dfcc0d4ccdd13485833257f5b55",
+      "bytes": 10927,
+      "rows": 13
     },
     {
       "path": "_frozen\\stage3\\linkage_XM_crisis.npy",
-      "sha256": "34c769a5890eceaf4a139c74bbc1c416dc94a945565eea519785e3393d596243",
-      "bytes": 1545632
+      "sha256": "3d31b161ac4a56290b4f0780a2209eff946370d8ff24df4479b5f0b5acb2e149",
+      "bytes": 1635488
     },
     {
       "path": "_frozen\\stage3\\co_fail_regimes.parquet",
-      "sha256": "6bf40670287c6d0139da827e243bd420f620934f49bc51ffdcf05e9d08e7b381",
-      "bytes": 6669,
-      "rows": 19
+      "sha256": "4a47b0c78ccc88467daaee441c90eec5becd32d48cbdf72916cd4df05b4e5ea4",
+      "bytes": 6780,
+      "rows": 25
     }
   ],
   "notes": "normal+crisis 六棵樹"

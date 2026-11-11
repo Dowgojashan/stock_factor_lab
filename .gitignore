@@ -382,3 +382,11 @@ code/_catalog/*.lock
 # 步驟2 權重矩陣寬表（1,596 張 CSV、約 159MB）：可由 code/app/_step2_weight_matrix_report.py 從 step2/*_weights_*.parquet 幾秒內重建；
 # 特徵總表（weight_matrix_summary.csv、weight_matrix_features_v*.csv）照常進版控
 _analysis_outputs_applayer/step2/weight_matrices/
+
+# 🔴 2026-11-09 股價修正後 Phase 2 白名單新增 57 組的增量回測原始產物（Phase 3／4 各 2,236 個策略、約 17,900 檔、6.3 GB）。
+# 已合併進 results_artifacts_twfix/，這裡是增量回測的原始輸出（見 code/research/_rebacktest_tw_delta.py），巨大、重跑就有。
+results_artifacts_twfix_delta/
+
+# 規則排名變化圖（老師 11/3 意見）：4 組 × 5 種資金比例的 PNG 共約 325 張、約 145 MB，
+# 可由 code/app/_rank_dynamics.py、_rank_dynamics_rolling_fig.py 幾分鐘內重畫；數值 CSV（約 63 個、540 KB）照常進版控
+_analysis_outputs_applayer/rank_dynamics/**/*.png

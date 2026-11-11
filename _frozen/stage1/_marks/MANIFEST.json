@@ -1,7 +1,7 @@
 {
   "stage": "stage1_marks",
-  "produced_at": "2026-11-01T17:43:05",
-  "git_sha": "fa8c771",
+  "produced_at": "2026-11-09T18:07:47",
+  "git_sha": "438b165",
   "params": {
     "rotation_high_pct": 0.95,
     "effn_low_pct": 0.1,
@@ -21,29 +21,29 @@
   "inputs": [
     {
       "path": "_frozen\\stage0\\candidate_index.parquet",
-      "sha256": "04a53c666ecc77b6a7ad0d0c2ef0033fd87195e598d603e12ee54d41e6bff7ba",
-      "bytes": 4873241,
-      "rows": 52498
+      "sha256": "44ca9e3e4de2dc897076e5b12bef2ab0a1ed870c70680d350e85dcae13dbe057",
+      "bytes": 5153577,
+      "rows": 55582
     },
     {
       "path": "_frozen\\stage1\\strategy_scan.parquet",
-      "sha256": "24389d3e8bf65171fc0ce38db5dcdab2ddf1fa78cddf4c60503d1dbbf43cf7e8",
-      "bytes": 7021301,
-      "rows": 52498
+      "sha256": "654f1a3af85200c842b67ecd45b32bf13da9188341a103d18df8cefadd87e90a",
+      "bytes": 7420716,
+      "rows": 55582
     },
     {
       "path": "_frozen\\stage1\\returns_monthly.parquet",
-      "sha256": "1d2d08fa8cd47a5307ca428152088ca2292a7811e2b6dcf704cce126b60fe189",
-      "bytes": 115036535,
-      "rows": 14711937
+      "sha256": "2ef7e650d8375714f9417197a1a13afaf6138196d44d52c5af4be0c88d1c6b40",
+      "bytes": 121414946,
+      "rows": 15527462
     }
   ],
   "outputs": [
     {
       "path": "_frozen\\stage1\\strategy_marks.parquet",
-      "sha256": "3fb2c1f807ab84320342c7fabfbeb0e84be699f1a248bbbfe14d688baf8eff5d",
-      "bytes": 1976451,
-      "rows": 52498
+      "sha256": "7736936969eec876c7b114e7fb8f1aa52925322cd718b951ae55fef9cdba77a3",
+      "bytes": 2090256,
+      "rows": 55582
     }
   ],
   "notes": "兩把刀方向：低effective_n+高rotation_score（不輪動）；empty_ratio過高。stability_grade 公式為本階段解讀，見 module docstring。W-08：data_glitch=單日跳動≥300%或單月報酬≥100%（OR合併，只標記不淘汰，門檻用diagnose_price_anomalies的CAGR_inflation_pp反推校準，見contracts.py）。H-01：passes_alpha_gate=CAGR>=自建宇宙基準（只標記不淘汰，不覆寫is_usable），見開發待辦追蹤.md H-01"

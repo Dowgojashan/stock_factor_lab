@@ -1,0 +1,2 @@
+phase1 exit=0
+p1analyze exit=0

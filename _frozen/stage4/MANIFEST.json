@@ -1,7 +1,7 @@
 {
   "stage": "stage4_strategy_map",
-  "produced_at": "2026-11-02T05:28:07",
-  "git_sha": "fa8c771",
+  "produced_at": "2026-11-10T08:50:27",
+  "git_sha": "438b165",
   "params": {
     "regime_fit_min_months": 3,
     "macro_confidence_cuts": {
@@ -13,39 +13,39 @@
   "inputs": [
     {
       "path": "_frozen\\stage0\\candidate_index.parquet",
-      "sha256": "04a53c666ecc77b6a7ad0d0c2ef0033fd87195e598d603e12ee54d41e6bff7ba",
-      "bytes": 4873241,
-      "rows": 52498
+      "sha256": "44ca9e3e4de2dc897076e5b12bef2ab0a1ed870c70680d350e85dcae13dbe057",
+      "bytes": 5153577,
+      "rows": 55582
     },
     {
       "path": "_frozen\\stage1\\strategy_scan.parquet",
-      "sha256": "24389d3e8bf65171fc0ce38db5dcdab2ddf1fa78cddf4c60503d1dbbf43cf7e8",
-      "bytes": 7021301,
-      "rows": 52498
+      "sha256": "654f1a3af85200c842b67ecd45b32bf13da9188341a103d18df8cefadd87e90a",
+      "bytes": 7420716,
+      "rows": 55582
     },
     {
       "path": "_frozen\\stage1\\strategy_marks.parquet",
-      "sha256": "3fb2c1f807ab84320342c7fabfbeb0e84be699f1a248bbbfe14d688baf8eff5d",
-      "bytes": 1976451,
-      "rows": 52498
+      "sha256": "7736936969eec876c7b114e7fb8f1aa52925322cd718b951ae55fef9cdba77a3",
+      "bytes": 2090256,
+      "rows": 55582
     },
     {
       "path": "_frozen\\stage1\\returns_monthly.parquet",
-      "sha256": "1d2d08fa8cd47a5307ca428152088ca2292a7811e2b6dcf704cce126b60fe189",
-      "bytes": 115036535,
-      "rows": 14711937
+      "sha256": "2ef7e650d8375714f9417197a1a13afaf6138196d44d52c5af4be0c88d1c6b40",
+      "bytes": 121414946,
+      "rows": 15527462
     },
     {
       "path": "_frozen\\stage3\\cluster_assign.parquet",
-      "sha256": "188f6e63315c5a1613b9c74de90fcb12aeb144c0618d1604fb0012e9edb8d8d9",
-      "bytes": 2059252,
-      "rows": 192946
+      "sha256": "20c6c1e904bdb3d83b26a927439d7c39f64d665e096caf34b84bbd7ebe06b3d2",
+      "bytes": 2189692,
+      "rows": 204178
     },
     {
       "path": "_frozen\\stage3\\co_fail_regimes.parquet",
-      "sha256": "6bf40670287c6d0139da827e243bd420f620934f49bc51ffdcf05e9d08e7b381",
-      "bytes": 6669,
-      "rows": 19
+      "sha256": "4a47b0c78ccc88467daaee441c90eec5becd32d48cbdf72916cd4df05b4e5ea4",
+      "bytes": 6780,
+      "rows": 25
     },
     {
       "path": "_frozen\\stage2\\regime\\regime_table_TW.parquet",
@@ -75,21 +75,21 @@
   "outputs": [
     {
       "path": "_frozen\\stage4\\strategy_map.parquet",
-      "sha256": "39e36f0d79e2b887ad5ca61396f6c1912dfccd1feb0cfc2ffad3e5cce6b18227",
-      "bytes": 13485257,
-      "rows": 52498
+      "sha256": "b8139207e00b90815747d1e862f8e556855a1ad960796c8f2fb9481bde4d3c02",
+      "bytes": 14266610,
+      "rows": 55582
     },
     {
       "path": "_frozen\\stage4\\regime_performance.parquet",
-      "sha256": "19b6c3f2a59797750ff59ef00d1580b60e45aacdb4560ff23492076ff74f6bf0",
-      "bytes": 2504898,
-      "rows": 209992
+      "sha256": "4f4b8f309242e314026977de4cbbca94d9695ed16241c0e5827ead7364c26927",
+      "bytes": 2637520,
+      "rows": 222328
     },
     {
       "path": "_frozen\\stage4\\macro_performance.parquet",
-      "sha256": "81ed6d8f0bdc669511bbc215185592f6020a7cbddd01fd98f1b53dfe9a0d6ca8",
-      "bytes": 2811649,
-      "rows": 209992
+      "sha256": "9a5ee02c5555cc12d0122e4d16b39910e991128c31dd98fd3422c723c90e1a6b",
+      "bytes": 2960575,
+      "rows": 222328
     }
   ],
   "notes": "彙整層，不重算既有產物；②③④⑤(returns/clusters/macro/regime)引用階段1/2/3的既有凍結目錄，不複製。②returns/=stage1/returns_monthly.parquet、③clusters/=stage3/*、④macro/=stage2/macro_rolling/*（H-18②起改讀滾動窗版，非stage2/macro/凍結版，理由見模組開頭）、⑤regime/=stage2/regime+consistency/*。return_story四道安檢與cluster_story(LLM點③)未做，理由見模組開頭"

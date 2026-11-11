@@ -1,0 +1,18 @@
+=== PART1（2026-11-09 Phase 2 白名單更新，TW 候選池 32,726；pass1 用現行 L1_TARGET TW=7 US=4 XM=8）===
+11-09_17:41 stage0 exit=0
+11-09_17:50 stage1_mktcap exit=0
+11-09_17:50 已刪除台股舊掃描分片（備份在 _frozen/_舊版備份_20261109_白名單更新前/stage1/scan）
+11-09_18:07 stage1_scan exit=0
+11-09_18:07 stage1_marks exit=0
+11-09_18:07 stage2a exit=0
+11-09_18:07 stage2b exit=0
+11-09_18:07 stage2c exit=0
+11-09_23:56 stage3 exit=0
+11-10_00:00 cluster_count exit=0
+PART1_DONE
+=== PART2（L1_TARGET TW=8 US=4 XM=13，pass2）===
+11-10_05:49 stage3_pass2 exit=0
+11-10_05:53 cluster_count_pass2 exit=0
+11-10_08:48 stage3_isoos exit=0
+11-10_08:50 stage4 exit=0
+=== RESUME 11-11_09:33：11-11 04:14 Windows Update 自動重開機中斷 k_stability（XM 5/14），從 k_stability 重跑 ===

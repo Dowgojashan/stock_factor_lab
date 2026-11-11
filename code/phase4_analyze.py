@@ -42,6 +42,7 @@ from phase3_analyze import parse                         # noqa: E402
 
 ART = HERE / "results_artifacts"
 OUT = HERE.parent / "_analysis_outputs_phase4"
+P2_DIR = None   # 2026-11-09：Phase 2 體質檢查表所在目錄；None＝沿用 OUT.parent / "_analysis_outputs_phase2"（台股股價修正後重跑時改指 _analysis_outputs_phase2_twfix）
 
 OI = ["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9", "#F0E442", "#000000"]
 plt.rcParams.update({
@@ -85,7 +86,7 @@ def main():
     log(f"v0（Phase 3）{len(v0)} 個｜v1（Phase 4）{len(v1)} 個")
 
     # 依 Phase 2 體質檢查表篩 F 組合（換基準/變體後合格者是原 203 的子集）
-    p2 = OUT.parent / "_analysis_outputs_phase2" / f"{mkt}_L2{sfx}_體質檢查表.csv"
+    p2 = (P2_DIR or OUT.parent / "_analysis_outputs_phase2") / f"{mkt}_L2{sfx}_體質檢查表.csv"
     if p2.exists():
         ok_f = {"__".join(s.split("__")[:2])
                 for s in pd.read_csv(p2, encoding="utf-8-sig")["strategy"]}

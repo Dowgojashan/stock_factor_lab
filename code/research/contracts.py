@@ -41,14 +41,17 @@ MARKETS = ("TW", "US")
 #: 🆕 2026-11-01：台股股價資料修正後，Phase 3／4 回測與候選篩選在 `results_artifacts_twfix`／
 #:   `_analysis_outputs_phase4_twfix` 重跑（基準 9.0098%）：TW 29,255→29,642（相同 29,206、新增 436、
 #:   移除 49；獨立 F 組合仍 471）。舊值：TW 29,255。
-EXPECTED_ROWS = {"TW": 29642, "US": 22856}
-EXPECTED_ROWS_TOTAL = sum(EXPECTED_ROWS.values())          # 52,498
+#: 🆕 2026-11-09：股價修正後重跑台股 Phase 1／2，Phase 2 白名單 521→577（新增 57、移除 1），新增組合的 Phase 3／4
+#:   增量回測併入 `results_artifacts_twfix`，候選篩選改讀 `_analysis_outputs_phase2_twfix`：TW 29,642→32,726（+3,084）。舊值：TW 29,642。
+EXPECTED_ROWS = {"TW": 32726, "US": 22856}
+EXPECTED_ROWS_TOTAL = sum(EXPECTED_ROWS.values())          # 55,582
 
 #: v0/v1 拆分
 #: 🔄 台股（2026-10-03 openSec_boost 重跑後）：v0=18,779／v1=10,476。
 #: 🆕 美股（2026-10-08 openSec_balanced 重跑後）：v0=12,784／v1=10,072。
 #: 🆕 台股（2026-11-01 股價資料修正後重跑）：v0 18,779→18,870／v1 10,476→10,772。
-EXPECTED_V_SPLIT = {"TW": {"v0": 18870, "v1": 10772},
+#: 🆕 台股（2026-11-09 Phase 2 白名單更新後）：v0 18,870→20,854／v1 10,772→11,872。
+EXPECTED_V_SPLIT = {"TW": {"v0": 20854, "v1": 11872},
                     "US": {"v0": 12784, "v1": 10072}}
 
 #: F2 空集合策略數（老師「F1+C 就好」的分流依據）。
@@ -65,7 +68,8 @@ EXPECTED_V_SPLIT = {"TW": {"v0": 18870, "v1": 10772},
 #: 補位3個），786→2314（實際從重跑後candidate_index驗證得出，primary清單擴大、
 #: C因子池不變，更多F1+C單獨組合贏過基準而納入）。
 #: 🆕 2026-11-01 台股股價資料修正後重跑：TW 1,381→1,408（候選池 29,255→29,642；新舊名單各自實數）。
-EXPECTED_F2_EMPTY = {"TW": 1408, "US": 2314}
+#: 🆕 2026-11-09 Phase 2 白名單更新後：TW 1,408→1,555。
+EXPECTED_F2_EMPTY = {"TW": 1555, "US": 2314}
 
 #: 獨立 F 組合數（快篩「多樣性假象」的根源；也是 HRP L3 群數的錨點）
 #: 🔄 台股 2026-10-06：218→346，與 Phase2 晉升的 346 組 F 組合數一致（內部驗證通過）。
@@ -73,7 +77,8 @@ EXPECTED_F2_EMPTY = {"TW": 1408, "US": 2314}
 #: F組合中、實際在 Phase4 候選池留下至少一筆的 471 組一致（內部驗證通過）。
 #: 🆕 2026-10-08：美股換openSec_balanced後 235→303，與 phase2_analyze.py(openSec_
 #: balanced) log「依Phase2篩後：F組合303個」一致（內部驗證通過）。
-EXPECTED_F_COMBOS = {"TW": 471, "US": 303}
+#: 🆕 2026-11-09 Phase 2 白名單更新後（577 組晉升，候選池實際留下 523 組）：TW 471→523。
+EXPECTED_F_COMBOS = {"TW": 523, "US": 303}
 
 #: 自建宇宙基準年化報酬（研究部 v9 更正版：同宇宙、同成本、含股利、等權）
 #: 🔄 2026-08-22 用修復後價格重算：TW 8.67%→8.43%、US 12.35%→11.06%

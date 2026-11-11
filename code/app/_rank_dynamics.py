@@ -52,6 +52,7 @@ PERIODS = [("2016–17", "2016", "2017"), ("2018–20", "2018", "2020"), ("2021�
            ("2024–25", "2024", "2025"), ("全期 2016–25", "2016", "2025")]
 EVAL_START = 4          # 第 5 季＝2016Q1
 N_SEEDS = 1000
+SLEEVES = (0.1, 0.2, 0.3, 0.5, 1.0)
 
 
 def fam_of(combo: str) -> str:
@@ -77,15 +78,15 @@ def bench_quarterly(market: str, ends: pd.Index) -> pd.Series:
 
 # ───────────────────────── (A) 排名變化圖 ─────────────────────────
 
-def trailing_rank(net: pd.DataFrame, meta: pd.DataFrame, look: int = 4) -> pd.DataFrame:
-    grid = [x for x in meta.index[meta.sleeve == 0.3]]
+def trailing_rank(net: pd.DataFrame, meta: pd.DataFrame, look: int = 4, sleeve: float = 0.3) -> pd.DataFrame:
+    grid = [x for x in meta.index[meta.sleeve == sleeve]]
     trail = (1 + net).rolling(look).apply(np.prod, raw=True).dropna() - 1
     rank = trail[grid].rank(axis=1, ascending=False, method="min")
     rank["REF_control0"] = trail[grid].gt(trail["REF_control0"], axis=0).sum(axis=1) + 1
     return rank
 
 
-def plot_family(rank, meta, market, pool, score, d: Path, look=4):
+def plot_family(rank, meta, market, pool, score, d: Path, look=4, sleeve=0.3):
     n_grid = rank.shape[1] - 1
     fam = [x for x in rank.columns if fam_of(x) == score]
     x = pd.to_datetime(rank.index)
@@ -101,7 +102,7 @@ def plot_family(rank, meta, market, pool, score, d: Path, look=4):
     ax.set_ylim(n_grid + 5, -5)
     ax.set_ylabel(f"名次（共 {n_grid} 組，1＝最好）")
     ax.set_xlabel(f"排名時點（季末；依過去 {look} 季累積報酬、扣成本）")
-    ax.set_title(f"{GLAB[market]}・{GLAB[pool]}：「{FAM[score]}」排名依據的名次變化（優等生資金 30%）")
+    ax.set_title(f"{GLAB[market]}・{GLAB[pool]}：「{FAM[score]}」排名依據的名次變化（優等生資金 {sleeve:.0%}）")
     ax.grid(alpha=0.25)
     ax.legend(loc="lower left", fontsize=9, ncol=2)
     fig.tight_layout()
@@ -110,7 +111,8 @@ def plot_family(rank, meta, market, pool, score, d: Path, look=4):
     plt.close(fig)
 
 
-def plot_heatmap(rank, market, pool, d: Path, look=4):
+def plot_heatmap(rank, market, pool, d: Path, look=4, sleeve=0.3, basis=None, fname="00_總覽熱圖"):
+    basis = basis or f"過去 {look} 季累積報酬"
     n_grid = rank.shape[1] - 1
     fams = [f for f in FAM if f != "REF_control0"]
     med = pd.DataFrame({f: rank[[x for x in rank.columns if fam_of(x) == f]].median(axis=1) for f in fams}).T
@@ -129,12 +131,65 @@ def plot_heatmap(rank, market, pool, d: Path, look=4):
     ax.axvline(j24 - 0.5, color="red", lw=1.2)
     cb = fig.colorbar(im, ax=ax, fraction=0.025)
     cb.set_label(f"中位數名次（共 {n_grid} 組，顏色越深越好）")
-    ax.set_title(f"{GLAB[market]}・{GLAB[pool]}：13 類排名依據的中位數名次（每季季末依過去 {look} 季累積報酬排名；資金 30%；紅線右側＝2024–25）")
+    ax.set_title(f"{GLAB[market]}・{GLAB[pool]}：13 類排名依據的中位數名次（每季季末依{basis}排名；資金 {sleeve:.0%}；紅線右側＝2024–25）")
     fig.tight_layout()
-    fig.savefig(d / "00_總覽熱圖.png", dpi=130)
+    fig.savefig(d / f"{fname}.png", dpi=130)
     plt.close(fig)
     med.index = [FAM[f] for f in med.index]
-    med.to_csv(d / "00_總覽熱圖_數值.csv", encoding="utf-8-sig")
+    med.to_csv(d / f"{fname}_數值.csv", encoding="utf-8-sig")
+
+
+def plot_n_heatmap(rank, meta, market, pool, d: Path, look=4, sleeve=0.3):
+    """2026-11-10 使用者要求：取前 N 名 × 每季的中位數名次（跨 13 類合併；同一資金比例的 208 組內排名）。"""
+    n_grid = rank.shape[1] - 1
+    grid = [c for c in rank.columns if c != "REF_control0"]
+    nn = meta.loc[grid, "n"].astype(int)
+    med = pd.DataFrame({f"取前{k}名": rank[[c for c in grid if nn[c] == k]].median(axis=1) for k in (1, 3, 5, 10)}).T
+    med.loc["control0（不調整）"] = rank["REF_control0"]
+    fig, ax = plt.subplots(figsize=(15, 3.6))
+    im = ax.imshow(med.values, aspect="auto", cmap="Blues_r", vmin=1, vmax=n_grid)
+    ax.set_yticks(range(len(med)), list(med.index))
+    lab = [f"{e[:4]}Q{(int(e[5:7]) - 1) // 3 + 1}" for e in med.columns]
+    ax.set_xticks(range(len(lab)), lab, rotation=90, fontsize=8)
+    for i in range(len(med)):
+        for j in range(med.shape[1]):
+            v = med.iat[i, j]
+            ax.text(j, i, f"{v:.0f}", ha="center", va="center", fontsize=6.5,
+                    color="white" if v < n_grid * 0.35 else "black")
+    j24 = list(med.columns).index(next(c for c in med.columns if c >= "2024-03-31"))
+    ax.axvline(j24 - 0.5, color="red", lw=1.2)
+    cb = fig.colorbar(im, ax=ax, fraction=0.025)
+    cb.set_label(f"中位數名次（共 {n_grid} 組）")
+    ax.set_title(f"{GLAB[market]}・{GLAB[pool]}：取前 N 名的中位數名次（跨 13 類；每季季末依過去 {look} 季累積報酬排名；資金 {sleeve:.0%}；紅線右側＝2024–25）")
+    fig.tight_layout()
+    fig.savefig(d / "00b_取幾名熱圖.png", dpi=130)
+    plt.close(fig)
+    med.to_csv(d / "00b_取幾名熱圖_數值.csv", encoding="utf-8-sig")
+
+
+def load_daily(market: str, pool: str, suf: str) -> pd.DataFrame:
+    """步驟1 存的逐日淨值（扣成本，`daily_net_*_w{1..4}`，每窗從 1 起算）→ 逐日報酬，四窗接起來。"""
+    parts = []
+    for w in (1, 2, 3, 4):
+        nav = pd.read_parquet(SRC / f"daily_net_{market}_{pool}{suf}_w{w}.parquet").sort_index()
+        r = nav.pct_change()
+        r.iloc[0] = nav.iloc[0] - 1
+        parts.append(r)
+    return pd.concat(parts).sort_index()
+
+
+def trailing_sharpe_rank(daily: pd.DataFrame, meta: pd.DataFrame, ends, sleeve: float = 0.3) -> pd.DataFrame:
+    """2026-11-10 使用者要求的風險調整版：每季季末回看過去一年（365 天內）的日報酬，年化 Sharpe（rf=0、×√252）排名。"""
+    grid = [x for x in meta.index[meta.sleeve == sleeve]]
+    rows = {}
+    for e in ends:
+        t = pd.Timestamp(e)
+        win = daily.loc[(daily.index > t - pd.Timedelta(days=365)) & (daily.index <= t)]
+        rows[e] = win.mean() / win.std() * np.sqrt(252)
+    sh = pd.DataFrame(rows).T
+    rank = sh[grid].rank(axis=1, ascending=False, method="min")
+    rank["REF_control0"] = sh[grid].gt(sh["REF_control0"], axis=0).sum(axis=1) + 1
+    return rank
 
 
 # ───────────────────────── (B) 滾動重挑 ─────────────────────────
@@ -176,11 +231,19 @@ def run_group(market: str, pool: str, suf: str):
     d.mkdir(parents=True, exist_ok=True)
 
     # (A)
-    rank = trailing_rank(n, meta)
-    for f in FAM:
-        if f != "REF_control0":
-            plot_family(rank, meta, market, pool, f, d)
-    plot_heatmap(rank, market, pool, d)
+    # 2026-11-10 使用者要求：資金 10／20／30／50／100% 都要畫，各放一個子資料夾（排名都在同一資金比例的 208 組內比）
+    daily = load_daily(market, pool, suf)
+    for sl in SLEEVES:
+        ds = d / f"資金{sl:.0%}"
+        ds.mkdir(parents=True, exist_ok=True)
+        rank = trailing_rank(n, meta, sleeve=sl)
+        for f in FAM:
+            if f != "REF_control0":
+                plot_family(rank, meta, market, pool, f, ds, sleeve=sl)
+        plot_heatmap(rank, market, pool, ds, sleeve=sl)
+        plot_n_heatmap(rank, meta, market, pool, ds, sleeve=sl)
+        rk_sh = trailing_sharpe_rank(daily, meta, rank.index, sleeve=sl)
+        plot_heatmap(rk_sh, market, pool, ds, sleeve=sl, basis="過去一年日報酬的 Sharpe", fname="00c_總覽熱圖_Sharpe")
 
     # (B)
     ends = g.index[EVAL_START:]
