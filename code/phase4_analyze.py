@@ -87,6 +87,8 @@ def main():
 
     # 依 Phase 2 體質檢查表篩 F 組合（換基準/變體後合格者是原 203 的子集）
     p2 = (P2_DIR or OUT.parent / "_analysis_outputs_phase2") / f"{mkt}_L2{sfx}_體質檢查表.csv"
+    if P2_DIR is not None and not p2.exists():   # 2026-11-10 code review：明確指定了白名單目錄卻找不到檔案時，不可默默跳過篩選
+        raise FileNotFoundError(f"P2_DIR 指定的 Phase 2 體質檢查表不存在：{p2}")
     if p2.exists():
         ok_f = {"__".join(s.split("__")[:2])
                 for s in pd.read_csv(p2, encoding="utf-8-sig")["strategy"]}

@@ -1,7 +1,7 @@
 {
   "stage": "output_a",
-  "produced_at": "2026-11-04T20:07:49",
-  "git_sha": "c5bb059",
+  "produced_at": "2026-11-14T07:30:14",
+  "git_sha": "392b458",
   "params": {
     "group_size": 5,
     "k_crisis_groups": 4,
@@ -12,21 +12,21 @@
   "inputs": [
     {
       "path": "_frozen\\stage4\\strategy_map.parquet",
-      "sha256": "39e36f0d79e2b887ad5ca61396f6c1912dfccd1feb0cfc2ffad3e5cce6b18227",
-      "bytes": 13485257,
-      "rows": 52498
+      "sha256": "b8139207e00b90815747d1e862f8e556855a1ad960796c8f2fb9481bde4d3c02",
+      "bytes": 14266610,
+      "rows": 55582
     },
     {
       "path": "_frozen\\stage3\\cluster_assign.parquet",
-      "sha256": "188f6e63315c5a1613b9c74de90fcb12aeb144c0618d1604fb0012e9edb8d8d9",
-      "bytes": 2059252,
-      "rows": 192946
+      "sha256": "20c6c1e904bdb3d83b26a927439d7c39f64d665e096caf34b84bbd7ebe06b3d2",
+      "bytes": 2189692,
+      "rows": 204178
     },
     {
       "path": "_frozen\\stage3\\co_fail_regimes.parquet",
-      "sha256": "6bf40670287c6d0139da827e243bd420f620934f49bc51ffdcf05e9d08e7b381",
-      "bytes": 6669,
-      "rows": 19
+      "sha256": "4a47b0c78ccc88467daaee441c90eec5becd32d48cbdf72916cd4df05b4e5ea4",
+      "bytes": 6780,
+      "rows": 25
     },
     {
       "path": "_frozen\\stage2\\regime\\regime_table_TW.parquet",
@@ -44,8 +44,8 @@
   "outputs": [
     {
       "path": "_frozen\\output_a\\scenario_table.parquet",
-      "sha256": "41ff0af6c4a89dfc1fd5014fb2c8a14d2d769bf008758896bdf735ec2670e53f",
-      "bytes": 31650,
+      "sha256": "b23cf09d087f49697c87e577aefa40ec10f4755563fc9235d74bfc95526b105a",
+      "bytes": 31542,
       "rows": 216
     }
   ],

@@ -1,7 +1,7 @@
 {
   "stage": "walkforward_matrix",
-  "produced_at": "2026-11-04T20:06:37",
-  "git_sha": "c5bb059",
+  "produced_at": "2026-11-14T07:29:16",
+  "git_sha": "392b458",
   "params": {
     "min_is_grid": [
       72,
@@ -42,44 +42,44 @@
   "inputs": [
     {
       "path": "_frozen\\stage0\\candidate_index.parquet",
-      "sha256": "04a53c666ecc77b6a7ad0d0c2ef0033fd87195e598d603e12ee54d41e6bff7ba",
-      "bytes": 4873241,
-      "rows": 52498
+      "sha256": "44ca9e3e4de2dc897076e5b12bef2ab0a1ed870c70680d350e85dcae13dbe057",
+      "bytes": 5153577,
+      "rows": 55582
     },
     {
       "path": "_frozen\\stage1\\returns_monthly.parquet",
-      "sha256": "1d2d08fa8cd47a5307ca428152088ca2292a7811e2b6dcf704cce126b60fe189",
-      "bytes": 115036535,
-      "rows": 14711937
+      "sha256": "2ef7e650d8375714f9417197a1a13afaf6138196d44d52c5af4be0c88d1c6b40",
+      "bytes": 121414946,
+      "rows": 15527462
     },
     {
       "path": "_frozen\\stage1\\returns_meta.parquet",
-      "sha256": "309e2ffadf036e7ca44f87776b8845525fd9024c50b0a98fdbb6bd73613aad02",
-      "bytes": 564220,
-      "rows": 52498
+      "sha256": "03877f910e2274b82188e7363e310c03dff2dac995b92415a5bf81a4ad6f91f2",
+      "bytes": 598357,
+      "rows": 55582
     },
     {
       "path": "_frozen\\stage1\\strategy_marks.parquet",
-      "sha256": "3fb2c1f807ab84320342c7fabfbeb0e84be699f1a248bbbfe14d688baf8eff5d",
-      "bytes": 1976451,
-      "rows": 52498
+      "sha256": "7736936969eec876c7b114e7fb8f1aa52925322cd718b951ae55fef9cdba77a3",
+      "bytes": 2090256,
+      "rows": 55582
     }
   ],
   "outputs": [
     {
       "path": "_analysis_outputs_robustness\\walkforward_matrix_detail.csv",
-      "sha256": "3a9bb8237cfdc517f7145e2a8ea7a5b3668f523799a2ad92261317940bb62f37",
-      "bytes": 2205115
+      "sha256": "56543ea84737797055e57b2cc1219fb9db3bb845f80d3bb80ac1df04098f52fe",
+      "bytes": 2206083
     },
     {
       "path": "_analysis_outputs_robustness\\walkforward_matrix_summary.csv",
-      "sha256": "ca65f5dcc0299432bd185238d6ff685805162a8594a554c0623089dc494656ef",
-      "bytes": 8483
+      "sha256": "e1b638cf10d5f6d85e2b89554fb94ae391710c6a1563302aa91290dc20588db1",
+      "bytes": 8602
     },
     {
       "path": "_analysis_outputs_robustness\\walkforward_members.parquet",
-      "sha256": "61c242613c39e227bd265bdd772abed8ce5bcce064eb5ab9cafb109e10fdbaa4",
-      "bytes": 89782647,
+      "sha256": "817c260867651a9e173315a63bab781272eff2122a87f0ff5909d11ee65afb36",
+      "bytes": 93753276,
       "rows": 8100
     }
   ],

@@ -16,3 +16,37 @@ PART1_DONE
 11-10_08:48 stage3_isoos exit=0
 11-10_08:50 stage4 exit=0
 === RESUME 11-11_09:33：11-11 04:14 Windows Update 自動重開機中斷 k_stability（XM 5/14），從 k_stability 重跑 ===
+11-11_09:48 k_stability exit=127
+STOP
+=== RESUME2 11-11_09:51：使用者同意美股沿用上一輪結果（research._run_keep_us，--trees US 試跑已驗證逐列相同），從 k_stability 重跑 ===
+11-11_09:51 k_stability exit=127
+STOP
+11-11_09:51 中止：使用者要求重跑前先 code review
+=== RESUME2 11-11_09:52：使用者同意美股沿用上一輪結果（research._run_keep_us，--trees US 試跑已驗證逐列相同），從 k_stability 重跑 ===
+=== RESUME2 11-11_09:53：使用者同意美股沿用上一輪結果（research._run_keep_us，--trees US 試跑已驗證逐列相同），從 k_stability 重跑 ===
+11-11_09:56 中止：加入 effective_bets／turnover_cost 美股沿用後重新啟動
+=== RESUME2 11-11_09:56：使用者同意美股沿用上一輪結果（research._run_keep_us，--trees US 試跑已驗證逐列相同），從 k_stability 重跑；11-11 10:2x 再加 effective_bets、turnover_cost 也沿用美股 ===
+11-12_19:40 k_stability exit=0
+11-12_19:40 verify_k_stability exit=0
+11-14_07:29 walkforward_matrix exit=0
+11-14_07:29 verify_walkforward_matrix exit=0
+11-14_07:30 output_a exit=0
+=== DOWNSTREAM ===
+11-14_09:50 effective_bets exit=0
+11-14_09:50 verify_effective_bets exit=0
+11-14_10:30 turnover_cost exit=0
+11-14_10:30 verify_turnover_cost exit=0
+11-14_10:45 walkforward_random exit=0
+11-14_10:45 walkforward_significance exit=0
+11-14_10:45 walkforward_evidence exit=0
+11-14_10:46 subject_comparison exit=0
+11-14_10:46 market_benchmark exit=0
+11-14_10:46 cluster_macro_interface exit=0
+11-14_10:52 rank_persistence exit=0
+11-14_10:52 complementarity_granularity exit=0
+11-14_10:53 window_robustness exit=0
+11-14_10:53 mdd_window_length exit=0
+11-14_10:53 cluster_representatives exit=0
+11-14_10:53 complementarity_sensitivity exit=0
+11-14_10:53 cluster_temporal_profile exit=0
+11-14_10:54 four_group_control exit=0

@@ -1,7 +1,7 @@
 {
   "stage": "rank_persistence",
-  "produced_at": "2026-11-04T22:59:34",
-  "git_sha": "c5bb059",
+  "produced_at": "2026-11-14T10:52:00",
+  "git_sha": "392b458",
   "params": {
     "top_qs": [
       0.01,
@@ -18,34 +18,34 @@
   "inputs": [
     {
       "path": "_frozen\\stage0\\candidate_index.parquet",
-      "sha256": "04a53c666ecc77b6a7ad0d0c2ef0033fd87195e598d603e12ee54d41e6bff7ba",
-      "bytes": 4873241,
-      "rows": 52498
+      "sha256": "44ca9e3e4de2dc897076e5b12bef2ab0a1ed870c70680d350e85dcae13dbe057",
+      "bytes": 5153577,
+      "rows": 55582
     },
     {
       "path": "_frozen\\stage1\\returns_monthly.parquet",
-      "sha256": "1d2d08fa8cd47a5307ca428152088ca2292a7811e2b6dcf704cce126b60fe189",
-      "bytes": 115036535,
-      "rows": 14711937
+      "sha256": "2ef7e650d8375714f9417197a1a13afaf6138196d44d52c5af4be0c88d1c6b40",
+      "bytes": 121414946,
+      "rows": 15527462
     },
     {
       "path": "_frozen\\stage1\\returns_meta.parquet",
-      "sha256": "309e2ffadf036e7ca44f87776b8845525fd9024c50b0a98fdbb6bd73613aad02",
-      "bytes": 564220,
-      "rows": 52498
+      "sha256": "03877f910e2274b82188e7363e310c03dff2dac995b92415a5bf81a4ad6f91f2",
+      "bytes": 598357,
+      "rows": 55582
     },
     {
       "path": "_frozen\\stage1\\strategy_marks.parquet",
-      "sha256": "3fb2c1f807ab84320342c7fabfbeb0e84be699f1a248bbbfe14d688baf8eff5d",
-      "bytes": 1976451,
-      "rows": 52498
+      "sha256": "7736936969eec876c7b114e7fb8f1aa52925322cd718b951ae55fef9cdba77a3",
+      "bytes": 2090256,
+      "rows": 55582
     }
   ],
   "outputs": [
     {
       "path": "_analysis_outputs_robustness\\rank_persistence.csv",
-      "sha256": "dbb12f8878911b6bb55238670ec1d8fa009d3d76d44bc19543942fa090338e0c",
-      "bytes": 55853
+      "sha256": "b6d518ce3d405e04e4151784801c7172225a4c13fdb2d6d84ccffe4645c57852",
+      "bytes": 55780
     }
   ],
   "notes": "M-12：IS→OOS 品質排序的持續性（Spearman rank IC）+ 分位版。不建樹。⚠️ 45 個窗互相重疊（巢狀 IS），不是獨立樣本，只報分布與逐方案結果，不做檢定。"

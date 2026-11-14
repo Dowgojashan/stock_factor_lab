@@ -1,7 +1,7 @@
 {
   "stage": "effective_bets",
-  "produced_at": "2026-11-08T23:41:15",
-  "git_sha": "78c66a7",
+  "produced_at": "2026-11-14T09:50:27",
+  "git_sha": "392b458",
   "params": {
     "trees": [
       "TW_normal",
@@ -13,27 +13,27 @@
   "inputs": [
     {
       "path": "_frozen\\stage1\\returns_monthly.parquet",
-      "sha256": "1d2d08fa8cd47a5307ca428152088ca2292a7811e2b6dcf704cce126b60fe189",
-      "bytes": 115036535,
-      "rows": 14711937
+      "sha256": "2ef7e650d8375714f9417197a1a13afaf6138196d44d52c5af4be0c88d1c6b40",
+      "bytes": 121414946,
+      "rows": 15527462
     },
     {
       "path": "_frozen\\stage1\\returns_meta.parquet",
-      "sha256": "309e2ffadf036e7ca44f87776b8845525fd9024c50b0a98fdbb6bd73613aad02",
-      "bytes": 564220,
-      "rows": 52498
+      "sha256": "03877f910e2274b82188e7363e310c03dff2dac995b92415a5bf81a4ad6f91f2",
+      "bytes": 598357,
+      "rows": 55582
     },
     {
       "path": "_frozen\\stage1\\strategy_marks.parquet",
-      "sha256": "3fb2c1f807ab84320342c7fabfbeb0e84be699f1a248bbbfe14d688baf8eff5d",
-      "bytes": 1976451,
-      "rows": 52498
+      "sha256": "7736936969eec876c7b114e7fb8f1aa52925322cd718b951ae55fef9cdba77a3",
+      "bytes": 2090256,
+      "rows": 55582
     },
     {
       "path": "_frozen\\stage3\\cluster_corr_matrix_TW_normal.parquet",
-      "sha256": "1b86e7d9ed29f4757babfe08aec96ad27fc845351551452de9337c55deec804c",
-      "bytes": 6235,
-      "rows": 7
+      "sha256": "b40da51ceed7ec5aa07727bb683cde36129f127c4c464163b0b6c0e95bf3f55f",
+      "bytes": 6963,
+      "rows": 8
     },
     {
       "path": "_frozen\\stage3\\cluster_corr_matrix_US_normal.parquet",
@@ -43,16 +43,16 @@
     },
     {
       "path": "_frozen\\stage3\\cluster_corr_matrix_XM_normal.parquet",
-      "sha256": "0a5fb0cf71abd161a374d8bd7cce62da8d7987be774d6520d1ad6e97b4bd0a14",
-      "bytes": 6963,
-      "rows": 8
+      "sha256": "3e43dd2180e99ea96c1ab086dbcb8b2b04e7f1ba41149aacb3a624e4b4053fc5",
+      "bytes": 10927,
+      "rows": 13
     }
   ],
   "outputs": [
     {
       "path": "_analysis_outputs_robustness\\effective_number_of_bets.csv",
-      "sha256": "f3b1e8458c6de575f2107c5822a7954dfe8eda537efd7984f7d41e008d181d30",
-      "bytes": 292
+      "sha256": "5a42ce19f5dabdc6f6a2d838e9572c3c28871315c87ce01d2b7f41b943e5c55f",
+      "bytes": 293
     }
   ],
   "notes": "H-09：有效獨立賭注數，只做normal樹（crisis樣本量太小、H-14已限定描述性用途）"

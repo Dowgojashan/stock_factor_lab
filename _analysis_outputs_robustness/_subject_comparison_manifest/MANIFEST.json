@@ -1,7 +1,7 @@
 {
   "stage": "subject_comparison",
-  "produced_at": "2026-11-04T22:53:17",
-  "git_sha": "c5bb059",
+  "produced_at": "2026-11-14T10:46:00",
+  "git_sha": "392b458",
   "params": {
     "subjects": [
       "A_hrp",
@@ -14,20 +14,20 @@
   "inputs": [
     {
       "path": "_analysis_outputs_robustness\\walkforward_matrix_detail.csv",
-      "sha256": "3a9bb8237cfdc517f7145e2a8ea7a5b3668f523799a2ad92261317940bb62f37",
-      "bytes": 2205115
+      "sha256": "56543ea84737797055e57b2cc1219fb9db3bb845f80d3bb80ac1df04098f52fe",
+      "bytes": 2206083
     },
     {
       "path": "_analysis_outputs_robustness\\walkforward_matrix_summary.csv",
-      "sha256": "ca65f5dcc0299432bd185238d6ff685805162a8594a554c0623089dc494656ef",
-      "bytes": 8483
+      "sha256": "e1b638cf10d5f6d85e2b89554fb94ae391710c6a1563302aa91290dc20588db1",
+      "bytes": 8602
     }
   ],
   "outputs": [
     {
       "path": "_analysis_outputs_robustness\\subject_comparison.csv",
-      "sha256": "26c7d8636766ad300d1e3cfaa8f2f8f092fef2fa8a6858ad8a1e1f160c01ff88",
-      "bytes": 8760
+      "sha256": "c1c890aa4c2ca85a3dba06dd2cebf068703618b846f91f6086df554e4bccdc97",
+      "bytes": 8688
     }
   ],
   "notes": "M-11：把檢定主體從寫死的 A_hrp 換成 E_top_calmar / D_top_cagr。只讀既有明細彙整，不重跑矩陣、不擾動凍結鏈。含自我校驗：A_hrp 主體的結果必須與凍結的 summary 完全一致。"

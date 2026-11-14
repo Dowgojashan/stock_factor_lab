@@ -1,7 +1,7 @@
 {
   "stage": "walkforward_significance",
-  "produced_at": "2026-11-04T22:53:13",
-  "git_sha": "c5bb059",
+  "produced_at": "2026-11-14T10:45:55",
+  "git_sha": "392b458",
   "params": {
     "opponents": [
       "B_all",
@@ -20,20 +20,20 @@
   "inputs": [
     {
       "path": "_analysis_outputs_robustness\\walkforward_matrix_detail.csv",
-      "sha256": "3a9bb8237cfdc517f7145e2a8ea7a5b3668f523799a2ad92261317940bb62f37",
-      "bytes": 2205115
+      "sha256": "56543ea84737797055e57b2cc1219fb9db3bb845f80d3bb80ac1df04098f52fe",
+      "bytes": 2206083
     }
   ],
   "outputs": [
     {
       "path": "_analysis_outputs_robustness\\walkforward_significance.csv",
-      "sha256": "c1b5df60aaeb59bd14e8bcba1afdf91a07f12ac82f489739f721f1ff65e856c1",
-      "bytes": 22693
+      "sha256": "8deba71cf0d559dff5dbdc4b81768d420deaabb978cf038cc9ce5e662126b731",
+      "bytes": 22568
     },
     {
       "path": "_analysis_outputs_robustness\\walkforward_significance_units.csv",
-      "sha256": "a70e37a35714cca00b1394eed0a6c57f4fd11da634a7451242ca4836b38e0f8f",
-      "bytes": 43762
+      "sha256": "c07913fb1c2718ce52d2effe6e7a4541a27d6aa0adfa9dee1a4613e903593ebb",
+      "bytes": 43806
     }
   ],
   "notes": "H-26c：只在方案內部（互不重疊）的窗次上做二項檢定，不把 2,700 格當樣本數；不合併各方案 p 值（方案間共用歷史）。"

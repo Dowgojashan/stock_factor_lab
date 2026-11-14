@@ -1,7 +1,7 @@
 {
   "stage": "four_group_control",
-  "produced_at": "2026-11-09T00:34:01",
-  "git_sha": "78c66a7",
+  "produced_at": "2026-11-14T10:54:30",
+  "git_sha": "392b458",
   "params": {
     "m_per_cluster": 5,
     "n_random_draws": 200,
@@ -10,33 +10,33 @@
   "inputs": [
     {
       "path": "_frozen\\stage3_isoos\\cluster_assign_IS.parquet",
-      "sha256": "84c49596e942dd1342856fb319bf57a3feb0f1b51862cadc3046c594bb62abea",
-      "bytes": 1042022,
-      "rows": 96473
+      "sha256": "caad57c0db56051463a2c6ef9d8e4f9d03e380f4283baa0c86f0c850e2956278",
+      "bytes": 1111329,
+      "rows": 102089
     },
     {
       "path": "_frozen\\stage3_isoos\\cluster_meta_IS.parquet",
-      "sha256": "c25713a5a944da567eb0266eaa48b69acf2896c055e2a5ac39c27d4648030d4f",
-      "bytes": 33551,
-      "rows": 1567
+      "sha256": "8c1e4c7dd03765ae36066a5b805ad8f0711207d734bf46ae342a2b02080eed73",
+      "bytes": 34674,
+      "rows": 1677
     },
     {
       "path": "_frozen\\stage1\\returns_monthly.parquet",
-      "sha256": "1d2d08fa8cd47a5307ca428152088ca2292a7811e2b6dcf704cce126b60fe189",
-      "bytes": 115036535,
-      "rows": 14711937
+      "sha256": "2ef7e650d8375714f9417197a1a13afaf6138196d44d52c5af4be0c88d1c6b40",
+      "bytes": 121414946,
+      "rows": 15527462
     },
     {
       "path": "_analysis_outputs_robustness\\effective_number_of_bets.csv",
-      "sha256": "f3b1e8458c6de575f2107c5822a7954dfe8eda537efd7984f7d41e008d181d30",
-      "bytes": 292
+      "sha256": "5a42ce19f5dabdc6f6a2d838e9572c3c28871315c87ce01d2b7f41b943e5c55f",
+      "bytes": 293
     }
   ],
   "outputs": [
     {
       "path": "_analysis_outputs_robustness\\four_group_control.csv",
-      "sha256": "6a270edf27efaf266f5580e969dd26f55f9377994dfa03c89c506f067522bffb",
-      "bytes": 4109
+      "sha256": "2762329d1eff5bf0a02f46479f8d0877d6d0272340c4afec928c082eadbb5d5e",
+      "bytes": 4117
     }
   ],
   "notes": "H-12：四組對照(A_hrp/B_all/C_random/D_top_cagr)，挑選依據只用IS窗資訊，IS/OOS各自評估CAGR/MDD/Sharpe/ENB。B組ENB沿用H-09全時間窗數字，未按期間重算。"

@@ -1,7 +1,7 @@
 {
   "stage": "cluster_macro_interface",
-  "produced_at": "2026-11-04T22:54:11",
-  "git_sha": "c5bb059",
+  "produced_at": "2026-11-14T10:46:52",
+  "git_sha": "392b458",
   "params": {
     "excluded_quant_columns": [
       "window_start_year",
@@ -27,16 +27,16 @@
     },
     {
       "path": "_frozen\\stage3\\cluster_profile_quant.parquet",
-      "sha256": "83c6fcfed0407763522a4a913b6c28997a3e689bd6edfe2c57d8d74d8e9ac7b0",
-      "bytes": 23117,
-      "rows": 17
+      "sha256": "da3d2f1bf1996525b1f01ac9b112210880bb62f6c305ce1274a7cb4fa8537f1f",
+      "bytes": 23368,
+      "rows": 19
     }
   ],
   "outputs": [
     {
       "path": "_frozen\\stage3\\cluster_macro_interface.parquet",
-      "sha256": "5fa9ce920a60c5259b97fd205f3590c8b6f3bad82a8ec0a7f4ebe8942e58af1f",
-      "bytes": 21469,
+      "sha256": "21c6e828a26f97c2c84c4a5d5b7750c96aac00e3e5bbed66f1a5a998bd0cf1b6",
+      "bytes": 21463,
       "rows": 17
     }
   ],

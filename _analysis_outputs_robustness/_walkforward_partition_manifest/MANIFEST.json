@@ -1,7 +1,7 @@
 {
   "stage": "walkforward_partition",
-  "produced_at": "2026-11-08T14:23:25",
-  "git_sha": "78c66a7",
+  "produced_at": "2026-11-11T09:51:27",
+  "git_sha": "392b458",
   "params": {
     "n_draws": 30,
     "seed": 42,
@@ -13,49 +13,49 @@
   "inputs": [
     {
       "path": "_frozen\\stage0\\candidate_index.parquet",
-      "sha256": "04a53c666ecc77b6a7ad0d0c2ef0033fd87195e598d603e12ee54d41e6bff7ba",
-      "bytes": 4873241,
-      "rows": 52498
+      "sha256": "44ca9e3e4de2dc897076e5b12bef2ab0a1ed870c70680d350e85dcae13dbe057",
+      "bytes": 5153577,
+      "rows": 55582
     },
     {
       "path": "_frozen\\stage1\\returns_monthly.parquet",
-      "sha256": "1d2d08fa8cd47a5307ca428152088ca2292a7811e2b6dcf704cce126b60fe189",
-      "bytes": 115036535,
-      "rows": 14711937
+      "sha256": "2ef7e650d8375714f9417197a1a13afaf6138196d44d52c5af4be0c88d1c6b40",
+      "bytes": 121414946,
+      "rows": 15527462
     },
     {
       "path": "_frozen\\stage1\\returns_meta.parquet",
-      "sha256": "309e2ffadf036e7ca44f87776b8845525fd9024c50b0a98fdbb6bd73613aad02",
-      "bytes": 564220,
-      "rows": 52498
+      "sha256": "03877f910e2274b82188e7363e310c03dff2dac995b92415a5bf81a4ad6f91f2",
+      "bytes": 598357,
+      "rows": 55582
     },
     {
       "path": "_frozen\\stage1\\strategy_marks.parquet",
-      "sha256": "3fb2c1f807ab84320342c7fabfbeb0e84be699f1a248bbbfe14d688baf8eff5d",
-      "bytes": 1976451,
-      "rows": 52498
+      "sha256": "7736936969eec876c7b114e7fb8f1aa52925322cd718b951ae55fef9cdba77a3",
+      "bytes": 2090256,
+      "rows": 55582
     },
     {
       "path": "_analysis_outputs_robustness\\walkforward_matrix_detail.csv",
-      "sha256": "3a9bb8237cfdc517f7145e2a8ea7a5b3668f523799a2ad92261317940bb62f37",
-      "bytes": 2205115
+      "sha256": "dca60b92f9e3caa39734163bdf638ad9fd31b275a873ae55b357ba92fd756c50",
+      "bytes": 735459
     },
     {
       "path": "_analysis_outputs_robustness\\k_stability.csv",
-      "sha256": "2167cc1e1a0370109c02fc712834c85c140fe39b0fd022c7effcdba34a829fa8",
-      "bytes": 5731
+      "sha256": "2fcb546d5de27ded3a6a271309e5a10fddde098c818c4d9ca81898012c54ac5f",
+      "bytes": 2128
     }
   ],
   "outputs": [
     {
       "path": "_analysis_outputs_robustness\\walkforward_partition.csv",
-      "sha256": "2291faf696912cea4a44d939c46d66c8d1bead4169f2acace1e8dfdfe6a45831",
-      "bytes": 635299
+      "sha256": "773ba567d79df187e7eebd6e9341b23cd34da48f38886c24288f6619f772b192",
+      "bytes": 212196
     },
     {
       "path": "_analysis_outputs_robustness\\walkforward_partition_compare.csv",
-      "sha256": "b2aeb4f984f06657b088ff4134d1d7b0e302b1d7af504c498eba001b0cde7616",
-      "bytes": 13113
+      "sha256": "a7bdcd4a718847e84fc482ef174caaadd4acf57145ba315f86f812b73f8b3a80",
+      "bytes": 4575
     }
   ],
   "notes": "M-03b：walk-forward 版的 A2_random（隨機分群）。群大小 profile 沿用該窗 HRP 樹，多樣性門檻用隨機群自己的 avg_intra_corr，走同一個 select_representatives。對照表帶 ratio 維度（ALL + 逐比例）——聚合列會掩蓋方向相反的結構，判讀必須逐比例。"

@@ -1,7 +1,7 @@
 {
   "stage": "turnover_cost",
-  "produced_at": "2026-11-09T00:32:35",
-  "git_sha": "78c66a7",
+  "produced_at": "2026-11-14T10:30:37",
+  "git_sha": "392b458",
   "params": {
     "level": "L1",
     "ratio_grid": [
@@ -26,34 +26,34 @@
   "inputs": [
     {
       "path": "_frozen\\stage0\\candidate_index.parquet",
-      "sha256": "04a53c666ecc77b6a7ad0d0c2ef0033fd87195e598d603e12ee54d41e6bff7ba",
-      "bytes": 4873241,
-      "rows": 52498
+      "sha256": "44ca9e3e4de2dc897076e5b12bef2ab0a1ed870c70680d350e85dcae13dbe057",
+      "bytes": 5153577,
+      "rows": 55582
     },
     {
       "path": "_frozen\\stage1\\returns_monthly.parquet",
-      "sha256": "1d2d08fa8cd47a5307ca428152088ca2292a7811e2b6dcf704cce126b60fe189",
-      "bytes": 115036535,
-      "rows": 14711937
+      "sha256": "2ef7e650d8375714f9417197a1a13afaf6138196d44d52c5af4be0c88d1c6b40",
+      "bytes": 121414946,
+      "rows": 15527462
     },
     {
       "path": "_frozen\\stage3\\cluster_assign.parquet",
-      "sha256": "188f6e63315c5a1613b9c74de90fcb12aeb144c0618d1604fb0012e9edb8d8d9",
-      "bytes": 2059252,
-      "rows": 192946
+      "sha256": "20c6c1e904bdb3d83b26a927439d7c39f64d665e096caf34b84bbd7ebe06b3d2",
+      "bytes": 2189692,
+      "rows": 204178
     },
     {
       "path": "_frozen\\stage3\\cluster_meta.parquet",
-      "sha256": "527df6dd09c4bbb97bb278ba5530ba4bf80046372042cd0d392be5059423c8fe",
-      "bytes": 64076,
-      "rows": 3134
+      "sha256": "c9bf76282e55e114c59a5670867ab7d199fa16fd2e9b621b98d16f96cff78e1e",
+      "bytes": 66919,
+      "rows": 3354
     }
   ],
   "outputs": [
     {
       "path": "_analysis_outputs_robustness\\turnover_cost.csv",
-      "sha256": "0cf81683bf5d621bd290e4850c72baafeb877062d5836693772c131629326077",
-      "bytes": 5468
+      "sha256": "f29fd161c7f7d1994b3cb55e357c5e3a40f223a42cf940b8b0fb389da02c1673",
+      "bytes": 5474
     }
   ],
   "notes": "H-27b：股票層的實際周轉率與交易成本。策略間持股重疊會讓買賣互相抵銷，故必須算到股票層，不能用策略數當代理。在主線完整窗上計算，為代表性估計非逐窗實算。"

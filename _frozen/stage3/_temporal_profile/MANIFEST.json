@@ -1,7 +1,7 @@
 {
   "stage": "cluster_temporal_profile",
-  "produced_at": "2026-11-09T00:33:25",
-  "git_sha": "78c66a7",
+  "produced_at": "2026-11-14T10:53:51",
+  "git_sha": "392b458",
   "params": {
     "trees": [
       "TW_normal",
@@ -13,47 +13,47 @@
   "inputs": [
     {
       "path": "_frozen\\stage1\\returns_monthly.parquet",
-      "sha256": "1d2d08fa8cd47a5307ca428152088ca2292a7811e2b6dcf704cce126b60fe189",
-      "bytes": 115036535,
-      "rows": 14711937
+      "sha256": "2ef7e650d8375714f9417197a1a13afaf6138196d44d52c5af4be0c88d1c6b40",
+      "bytes": 121414946,
+      "rows": 15527462
     },
     {
       "path": "_frozen\\stage3\\cluster_assign.parquet",
-      "sha256": "188f6e63315c5a1613b9c74de90fcb12aeb144c0618d1604fb0012e9edb8d8d9",
-      "bytes": 2059252,
-      "rows": 192946
+      "sha256": "20c6c1e904bdb3d83b26a927439d7c39f64d665e096caf34b84bbd7ebe06b3d2",
+      "bytes": 2189692,
+      "rows": 204178
     },
     {
       "path": "_frozen\\stage3\\cluster_meta.parquet",
-      "sha256": "527df6dd09c4bbb97bb278ba5530ba4bf80046372042cd0d392be5059423c8fe",
-      "bytes": 64076,
-      "rows": 3134
+      "sha256": "c9bf76282e55e114c59a5670867ab7d199fa16fd2e9b621b98d16f96cff78e1e",
+      "bytes": 66919,
+      "rows": 3354
     },
     {
       "path": "_frozen\\stage4\\strategy_map.parquet",
-      "sha256": "39e36f0d79e2b887ad5ca61396f6c1912dfccd1feb0cfc2ffad3e5cce6b18227",
-      "bytes": 13485257,
-      "rows": 52498
+      "sha256": "b8139207e00b90815747d1e862f8e556855a1ad960796c8f2fb9481bde4d3c02",
+      "bytes": 14266610,
+      "rows": 55582
     }
   ],
   "outputs": [
     {
       "path": "_frozen\\stage3\\cluster_annual_returns.parquet",
-      "sha256": "dbb30e7dc8fdfaf25d08fe0649619ea6e44af7bf3328b35410c7b5db3f587f74",
-      "bytes": 8195,
-      "rows": 381
+      "sha256": "9915c9f405624157b7ef84aa29dfae3c88ffebcca08803e08e982f291b67d201",
+      "bytes": 8363,
+      "rows": 495
     },
     {
       "path": "_frozen\\stage3\\cluster_quarterly_returns.parquet",
-      "sha256": "362df8c6ba7c876819c4f52fb73914ea73b93bc41beb3b1e773265bb23924a8d",
-      "bytes": 18666,
-      "rows": 1524
+      "sha256": "d19cb0287ece6c0650547787f4765d463f4d1187bfe97f632f35465a0349d955",
+      "bytes": 19391,
+      "rows": 1980
     },
     {
       "path": "_frozen\\stage3\\cluster_profile_quant.parquet",
-      "sha256": "da3d2f1bf1996525b1f01ac9b112210880bb62f6c305ce1274a7cb4fa8537f1f",
-      "bytes": 23368,
-      "rows": 19
+      "sha256": "c050790464c5df846a1a866328a6e5df425ea76989321b0bd1f720fb40668d4b",
+      "bytes": 23608,
+      "rows": 25
     }
   ],
   "notes": "H-06：群的定量特徵表，純程式算無LLM。群代表序列=成員報酬簡單平均（同stage3_hrp._cluster_meta_and_corr口徑）。crisis樹不做（樣本不足2年）。"

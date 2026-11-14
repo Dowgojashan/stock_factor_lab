@@ -92,7 +92,9 @@ def _turnover(weights: pd.DataFrame) -> tuple[float, float]:
     return float(d.iloc[1:].mean()), float((w != 0).sum(axis=1).mean())
 
 
-def run(trees=TREES, log=print) -> pd.DataFrame:
+def run(trees=TREES, log=print, reuse: pd.DataFrame | None = None) -> pd.DataFrame:
+    """`reuse`（2026-11-11 加）：給定時，其中有的 tree_key 直接沿用這些列、不重算（只重跑資料有變的市場用；
+    見 `research._run_keep_us`）。預設 None＝全部重算，行為與原本相同。"""
     freeze.verify_inputs(paths.STAGE0)
     freeze.verify_inputs(paths.STAGE1)
     freeze.verify_inputs(paths.STAGE1 / "_marks")
@@ -108,6 +110,10 @@ def run(trees=TREES, log=print) -> pd.DataFrame:
     t0 = time.time()
     for tree_id in trees:
         tree_key = tree_id.split("_")[0]
+        if reuse is not None and (reuse.tree_key.astype(str) == tree_key).any():
+            rows += reuse[reuse.tree_key.astype(str) == tree_key].to_dict("records")
+            log(f"[{tree_id}] 沿用上一輪結果（資料未變）")
+            continue
         assign = assign_all[assign_all.tree_id == tree_id]
         cmeta = meta_all[(meta_all.tree_id == tree_id) & (meta_all.level == LEVEL)]
         wide = S3.rebuild_tree_returns(tree_id, log=lambda *a, **k: None)

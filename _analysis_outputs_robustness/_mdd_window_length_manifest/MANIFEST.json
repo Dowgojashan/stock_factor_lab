@@ -1,7 +1,7 @@
 {
   "stage": "mdd_window_length",
-  "produced_at": "2026-11-09T00:32:39",
-  "git_sha": "78c66a7",
+  "produced_at": "2026-11-14T10:53:04",
+  "git_sha": "392b458",
   "params": {
     "alpha": 0.05,
     "opponents": [
@@ -18,20 +18,20 @@
   "inputs": [
     {
       "path": "_analysis_outputs_robustness\\walkforward_matrix_detail.csv",
-      "sha256": "3a9bb8237cfdc517f7145e2a8ea7a5b3668f523799a2ad92261317940bb62f37",
-      "bytes": 2205115
+      "sha256": "56543ea84737797055e57b2cc1219fb9db3bb845f80d3bb80ac1df04098f52fe",
+      "bytes": 2206083
     },
     {
       "path": "_analysis_outputs_robustness\\walkforward_significance_units.csv",
-      "sha256": "a70e37a35714cca00b1394eed0a6c57f4fd11da634a7451242ca4836b38e0f8f",
-      "bytes": 43762
+      "sha256": "c07913fb1c2718ce52d2effe6e7a4541a27d6aa0adfa9dee1a4613e903593ebb",
+      "bytes": 43806
     }
   ],
   "outputs": [
     {
       "path": "_analysis_outputs_robustness\\mdd_window_length.csv",
-      "sha256": "f3d4726c85c11399c4d77f6cbb3152fee4834ff2cd584264f38d8bf3d232b899",
-      "bytes": 27262
+      "sha256": "64a6644ad71f594604cdbf07d0c7f6eec7bd8b48ce7dbbf9e8b984f32789a377",
+      "bytes": 27422
     }
   ],
   "notes": "M-09：把 H-26c 的逐方案檢定按 OOS 窗長重新排列，並拆開「檢力不足」與「效果真的弱」。**不產生新的 p 值以外的檢定**——同窗長的方案互相重疊，不可合併。"

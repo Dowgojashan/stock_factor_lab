@@ -1,7 +1,7 @@
 {
   "stage": "market_benchmark",
-  "produced_at": "2026-11-04T22:54:11",
-  "git_sha": "c5bb059",
+  "produced_at": "2026-11-14T10:46:51",
+  "git_sha": "392b458",
   "params": {
     "tr_tables": {
       "TW": "taiex_tr",
@@ -17,8 +17,8 @@
   "inputs": [
     {
       "path": "_analysis_outputs_robustness\\walkforward_matrix_detail.csv",
-      "sha256": "3a9bb8237cfdc517f7145e2a8ea7a5b3668f523799a2ad92261317940bb62f37",
-      "bytes": 2205115
+      "sha256": "56543ea84737797055e57b2cc1219fb9db3bb845f80d3bb80ac1df04098f52fe",
+      "bytes": 2206083
     }
   ],
   "outputs": [
@@ -30,8 +30,8 @@
     },
     {
       "path": "_analysis_outputs_robustness\\market_benchmark_compare.csv",
-      "sha256": "c68fd49ed79d2ccb9e7341e7842e7ea838d8c897ef4e169037ab5183b98b1cb0",
-      "bytes": 7344
+      "sha256": "b5580b2e2694891827d0f7f50ddcc23f002e7b49d3276441c03b80e2c53ee0f5",
+      "bytes": 7345
     },
     {
       "path": "_analysis_outputs_robustness\\weighting_decomposition.csv",
