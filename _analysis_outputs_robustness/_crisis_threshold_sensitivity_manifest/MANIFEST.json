@@ -1,0 +1,66 @@
+{
+  "stage": "crisis_threshold_sensitivity",
+  "produced_at": "2026-11-15T02:27:55",
+  "git_sha": "67e1cf1",
+  "params": {
+    "thresholds": [
+      0.25,
+      0.3,
+      0.35
+    ],
+    "consolidation_speed": 0.15,
+    "SEED": 20261114,
+    "N_NULL": 1000,
+    "N_BOOT": 1000
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage2\\regime\\regime_table_TW.parquet",
+      "sha256": "c8b736811ad8b6cbcf70ea1b3df9b44a2fb188e7267507fbf1b7f511e2e7cd7c",
+      "bytes": 8773,
+      "rows": 43
+    },
+    {
+      "path": "_frozen\\stage2\\regime\\regime_table_US.parquet",
+      "sha256": "f592786973d2274a04d84959f89765d2f73d2bf3d342b0537d9533756b6d6e35",
+      "bytes": 7982,
+      "rows": 29
+    },
+    {
+      "path": "_frozen\\stage1\\returns_monthly.parquet",
+      "sha256": "2ef7e650d8375714f9417197a1a13afaf6138196d44d52c5af4be0c88d1c6b40",
+      "bytes": 121414946,
+      "rows": 15527462
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_assign.parquet",
+      "sha256": "20c6c1e904bdb3d83b26a927439d7c39f64d665e096caf34b84bbd7ebe06b3d2",
+      "bytes": 2189692,
+      "rows": 204178
+    },
+    {
+      "path": "_analysis_outputs_robustness\\walkforward_members.parquet",
+      "sha256": "817c260867651a9e173315a63bab781272eff2122a87f0ff5909d11ee65afb36",
+      "bytes": 93753276,
+      "rows": 8100
+    },
+    {
+      "path": "_analysis_outputs_robustness\\crisis_diversification.csv",
+      "sha256": "5fe00d84a23b196e7ac50f0f79516ba632446cdb1d143609b329d83fed8cdbab",
+      "bytes": 6499
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_analysis_outputs_robustness\\crisis_threshold_sensitivity.csv",
+      "sha256": "95853d870aa8fbac3b76fe278f4527ec07000bab48236e2a9098b6f88f1796fa",
+      "bytes": 19053
+    },
+    {
+      "path": "_analysis_outputs_robustness\\crisis_threshold_sensitivity_segments.csv",
+      "sha256": "35043ef4b8e3cdcb1e92e3e6c0e411f6087dcf51f513251a672a1a298497fb9e",
+      "bytes": 2067
+    }
+  ],
+  "notes": "只換 crisis_thresh；峰谷沿用凍結表（bear/bull 門檻不變），不覆寫 _frozen/stage2/regime/。"
+}

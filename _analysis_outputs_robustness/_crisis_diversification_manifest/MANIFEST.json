@@ -1,0 +1,68 @@
+{
+  "stage": "crisis_diversification",
+  "produced_at": "2026-11-14T23:36:30",
+  "git_sha": "67e1cf1",
+  "params": {
+    "N_NULL": 1000,
+    "N_BOOT": 1000,
+    "BOOT_BLOCK": 2,
+    "SEED": 20261114
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage1\\returns_monthly.parquet",
+      "sha256": "2ef7e650d8375714f9417197a1a13afaf6138196d44d52c5af4be0c88d1c6b40",
+      "bytes": 121414946,
+      "rows": 15527462
+    },
+    {
+      "path": "_frozen\\stage1\\returns_meta.parquet",
+      "sha256": "03877f910e2274b82188e7363e310c03dff2dac995b92415a5bf81a4ad6f91f2",
+      "bytes": 598357,
+      "rows": 55582
+    },
+    {
+      "path": "_frozen\\stage1\\strategy_marks.parquet",
+      "sha256": "7736936969eec876c7b114e7fb8f1aa52925322cd718b951ae55fef9cdba77a3",
+      "bytes": 2090256,
+      "rows": 55582
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_assign.parquet",
+      "sha256": "20c6c1e904bdb3d83b26a927439d7c39f64d665e096caf34b84bbd7ebe06b3d2",
+      "bytes": 2189692,
+      "rows": 204178
+    },
+    {
+      "path": "_frozen\\stage2\\regime\\regime_table_TW.parquet",
+      "sha256": "c8b736811ad8b6cbcf70ea1b3df9b44a2fb188e7267507fbf1b7f511e2e7cd7c",
+      "bytes": 8773,
+      "rows": 43
+    },
+    {
+      "path": "_frozen\\stage2\\regime\\regime_table_US.parquet",
+      "sha256": "f592786973d2274a04d84959f89765d2f73d2bf3d342b0537d9533756b6d6e35",
+      "bytes": 7982,
+      "rows": 29
+    },
+    {
+      "path": "_analysis_outputs_robustness\\walkforward_members.parquet",
+      "sha256": "817c260867651a9e173315a63bab781272eff2122a87f0ff5909d11ee65afb36",
+      "bytes": 93753276,
+      "rows": 8100
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_analysis_outputs_robustness\\crisis_diversification.csv",
+      "sha256": "5fe00d84a23b196e7ac50f0f79516ba632446cdb1d143609b329d83fed8cdbab",
+      "bytes": 6499
+    },
+    {
+      "path": "_analysis_outputs_robustness\\crisis_diversification_loss.csv",
+      "sha256": "c4e1f03170a695085b3f726fe785f3417c0a60c38db5a788f9925ef5cc338ba8",
+      "bytes": 6370
+    }
+  ],
+  "notes": "RQ4 危機期間分散：D2（2020、2022 下跌段）主、D1（危機標籤，含2008）描述性；同長度平時區段對照＋區塊自助法"
+}

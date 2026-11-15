@@ -1,0 +1,40 @@
+{
+  "stage": "cost_double_series",
+  "produced_at": "2026-11-15T17:45:45",
+  "git_sha": "67e1cf1",
+  "params": {
+    "fees_buy_sell": {
+      "TW": [
+        0.001425,
+        0.004425
+      ],
+      "US": [
+        0.001,
+        0.001
+      ]
+    }
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage0\\candidate_index.parquet",
+      "sha256": "44ca9e3e4de2dc897076e5b12bef2ab0a1ed870c70680d350e85dcae13dbe057",
+      "bytes": 5153577,
+      "rows": 55582
+    },
+    {
+      "path": "_frozen\\stage1\\strategy_scan.parquet",
+      "sha256": "654f1a3af85200c842b67ecd45b32bf13da9188341a103d18df8cefadd87e90a",
+      "bytes": 7420716,
+      "rows": 55582
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_analysis_outputs_robustness\\cost_double_strategy_cost.parquet",
+      "sha256": "0e7e7e858f9b0f7967ddeea0bb0cdaa2b671ed9627f42ea26e0e9fe78d301c1b",
+      "bytes": 20370842,
+      "rows": 55582
+    }
+  ],
+  "notes": "每策略每月多扣一份成本（目標權重變化×費率，記在下一個月）；讀 position.parquet，不重跑回測。"
+}

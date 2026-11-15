@@ -1,0 +1,62 @@
+{
+  "stage": "tail_cut_sensitivity",
+  "produced_at": "2026-11-15T21:30:58",
+  "git_sha": "67e1cf1",
+  "params": {
+    "effn_pct": [
+      0.05,
+      0.1,
+      0.15
+    ],
+    "rotation_empty_pct": [
+      0.9,
+      0.95,
+      0.99
+    ]
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage0\\candidate_index.parquet",
+      "sha256": "44ca9e3e4de2dc897076e5b12bef2ab0a1ed870c70680d350e85dcae13dbe057",
+      "bytes": 5153577,
+      "rows": 55582
+    },
+    {
+      "path": "_frozen\\stage1\\strategy_scan.parquet",
+      "sha256": "654f1a3af85200c842b67ecd45b32bf13da9188341a103d18df8cefadd87e90a",
+      "bytes": 7420716,
+      "rows": 55582
+    },
+    {
+      "path": "_frozen\\stage1\\strategy_marks.parquet",
+      "sha256": "7736936969eec876c7b114e7fb8f1aa52925322cd718b951ae55fef9cdba77a3",
+      "bytes": 2090256,
+      "rows": 55582
+    },
+    {
+      "path": "_frozen\\stage1\\returns_monthly.parquet",
+      "sha256": "2ef7e650d8375714f9417197a1a13afaf6138196d44d52c5af4be0c88d1c6b40",
+      "bytes": 121414946,
+      "rows": 15527462
+    },
+    {
+      "path": "_frozen\\stage1\\returns_meta.parquet",
+      "sha256": "03877f910e2274b82188e7363e310c03dff2dac995b92415a5bf81a4ad6f91f2",
+      "bytes": 598357,
+      "rows": 55582
+    },
+    {
+      "path": "_analysis_outputs_robustness\\effective_number_of_bets.csv",
+      "sha256": "5a42ce19f5dabdc6f6a2d838e9572c3c28871315c87ce01d2b7f41b943e5c55f",
+      "bytes": 293
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_analysis_outputs_robustness\\tail_cut_sensitivity.csv",
+      "sha256": "73f41bbac11e8433ed62d174ca1e12f45b6bf14993d59db237678d54710f0006",
+      "bytes": 2192
+    }
+  ],
+  "notes": "尾端硬篩百分位敏感度；只在記憶體重算 is_usable，不覆寫 _frozen/stage1；ENB 用 fast_enb。"
+}

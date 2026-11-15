@@ -2031,15 +2031,9 @@ def t_turnover_cost_real_data():
     ①**去重後持股數必須遠少於策略數×平均持股**——策略間持股高度重疊正是
       「周轉率不隨策略數等比放大」的原因。實測台股 30 檔策略（理論 1,320 個部位）
       去重後只有 356 檔，重疊率 73%。若此性質不成立，整個成本分析的前提就錯了。
-    ②**淨報酬必須低於毛報酬且成本隨周轉率單調**——欄位一致性。
-    ③🔴 **成本不改變實質結論**（2026-09-04 依實測放寬過的斷言）：
-      - 最佳比例在毛報酬與各成本率下必須是同一個（實測三棵樹都是 `legacy`）
-      - **只有「毛報酬本來就接近平手」的配對才允許在淨報酬下互換名次**
-      實測跨市場的 3% 與 10% 確實互換（毛 25.56% vs 25.22%，差 0.34pp；
-      淨@30bp 23.76% vs 23.79%，反向 0.03pp）——因為 10% 那組的周轉率明顯較低
-      （19.9% vs 25.0%，策略多→持股重疊多→買賣互相抵銷），扣的成本較少剛好補回來。
-      原斷言要求「排序完全一致」，被這組平手翻轉擋下；改為只禁止**有意義差距**
-      （毛報酬差 > 0.5pp）的配對翻轉，這才是「結論不變」真正的意思。
+    ②（2026-11-15 改）原本的②③檢查「淨報酬＜毛報酬」與「成本不翻轉比例排序」，
+      但策略報酬在回測內已扣過成本，舊表的 net_cagr_*bp 是重複扣成本，該欄已刪除，
+      ②③改為只檢查欄位合理性。
     """
     p = paths.ROOT / "_analysis_outputs_robustness" / "turnover_cost.csv"
     if not p.exists():
@@ -2054,31 +2048,11 @@ def t_turnover_cost_real_data():
            (df.n_strategies <= 2).all(), \
         "去重後持股數沒有明顯少於各策略持股的總和——持股重疊的前提不成立"
 
-    # ② 欄位一致性：成本越高淨報酬越低，且淨 < 毛
-    cost_cols = ["net_cagr_5bp", "net_cagr_10bp", "net_cagr_20bp", "net_cagr_30bp"]
-    assert (df[cost_cols].lt(df.gross_cagr, axis=0)).all().all(), "淨報酬未低於毛報酬"
-    for a, b in zip(cost_cols, cost_cols[1:]):
-        assert (df[a] > df[b]).all(), f"{b} 未低於 {a}——成本應隨費率單調遞增"
-
-    # ③ 核心結論：成本不改變「實質」結論（equal 分配）
-    TIE = 0.005      # 毛報酬差距 <= 0.5pp 視為平手，允許在淨報酬下互換
-    eq = df[df.allocation == "equal"]
-    for t, g in eq.groupby("tree_key", observed=True):
-        best_gross = g.loc[g.gross_cagr.idxmax(), "ratio"]
-        for c in cost_cols:
-            assert g.loc[g[c].idxmax(), "ratio"] == best_gross, (
-                f"[{t}] {c} 下的最佳比例 {g.loc[g[c].idxmax(), 'ratio']} "
-                f"不是毛報酬的最佳比例 {best_gross}——成本改變了最優解")
-            # 有意義差距的配對不得翻轉
-            for i, ri in g.iterrows():
-                for j, rj in g.iterrows():
-                    gap = ri.gross_cagr - rj.gross_cagr
-                    if gap <= TIE:
-                        continue
-                    assert ri[c] > rj[c], (
-                        f"[{t}] {c}：{ri.ratio} 毛報酬高過 {rj.ratio} {gap:.2%}"
-                        f"（超過 {TIE:.1%} 平手容差），淨報酬卻反轉"
-                        f"（{ri[c]:.2%} vs {rj[c]:.2%}）——交易成本翻轉了實質結論")
+    # ② 2026-11-15：原本的②③檢查 net_cagr_*bp（＝策略淨報酬再扣一次組合層成本），
+    #   屬重複扣成本，該欄已刪除，②③一併移除。現在只鎖住欄位合理性。
+    assert df.strategy_net_cagr.notna().all(), "strategy_net_cagr 有缺值"
+    assert df.monthly_turnover.between(0, 1).all(), "月周轉率應介於 0～1"
+    assert np.allclose(df.annual_turnover, df.monthly_turnover * 12), "年周轉率應為月周轉率×12"
 
 
 @test

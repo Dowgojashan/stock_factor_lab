@@ -127,7 +127,7 @@ def patch_turnover_cost(mod):
     import functools
     old = _csv("turnover_cost.csv")
     old = old[old.tree_key == KEEP][["tree_key", "ratio", "allocation", "n_strategies", "n_stocks_avg",
-                                      "monthly_turnover", "annual_turnover", "gross_cagr"]]
+                                      "monthly_turnover", "annual_turnover", "strategy_net_cagr"]]
     mod.run = functools.partial(mod.run, reuse=old)
 
 

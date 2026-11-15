@@ -15,12 +15,6 @@
       "equal",
       "proportional"
     ],
-    "cost_grid_one_way": [
-      0.0005,
-      0.001,
-      0.002,
-      0.003
-    ],
     "turnover_def": "0.5*sum|w_t - w_{t-1}|，未扣價格漂移（高估、保守）"
   },
   "inputs": [
@@ -52,9 +46,9 @@
   "outputs": [
     {
       "path": "_analysis_outputs_robustness\\turnover_cost.csv",
-      "sha256": "f29fd161c7f7d1994b3cb55e357c5e3a40f223a42cf940b8b0fb389da02c1673",
-      "bytes": 5474
+      "sha256": "075bdb6c91537cb659bef1d996351e10220ff8b93743f369aa61881912cb3bb0",
+      "bytes": 3022
     }
   ],
-  "notes": "H-27b：股票層的實際周轉率與交易成本。策略間持股重疊會讓買賣互相抵銷，故必須算到股票層，不能用策略數當代理。在主線完整窗上計算，為代表性估計非逐窗實算。"
+  "notes": "H-27b：股票層的實際周轉率與交易成本。策略間持股重疊會讓買賣互相抵銷，故必須算到股票層，不能用策略數當代理。在主線完整窗上計算，為代表性估計非逐窗實算。 ｜2026-11-15 更正（未重算）：gross_cagr 改名 strategy_net_cagr（策略報酬已逐筆扣成本），刪除重複扣成本的 net_cagr_*bp 四欄；其餘數值與 2026-11-14 10:30 產出相同，原檔備份於 code/research/_backup_20261115_turnover_cost修說明前/。"
 }

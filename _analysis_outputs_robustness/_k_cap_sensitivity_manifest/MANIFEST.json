@@ -1,0 +1,61 @@
+{
+  "stage": "k_cap_sensitivity",
+  "produced_at": "2026-11-15T21:35:41",
+  "git_sha": "67e1cf1",
+  "params": {
+    "caps": [
+      0.4,
+      0.5,
+      0.6
+    ],
+    "k_max_ext": 30,
+    "block": 1000
+  },
+  "inputs": [
+    {
+      "path": "_analysis_outputs_robustness\\cluster_count_silhouette_scan.csv",
+      "sha256": "5bf5a64f504b792c7c89175bbbfdad47016c06a27007ae0a107d5522ac74c7a8",
+      "bytes": 3223
+    },
+    {
+      "path": "_frozen\\stage1\\returns_monthly.parquet",
+      "sha256": "2ef7e650d8375714f9417197a1a13afaf6138196d44d52c5af4be0c88d1c6b40",
+      "bytes": 121414946,
+      "rows": 15527462
+    },
+    {
+      "path": "_frozen\\stage1\\strategy_marks.parquet",
+      "sha256": "7736936969eec876c7b114e7fb8f1aa52925322cd718b951ae55fef9cdba77a3",
+      "bytes": 2090256,
+      "rows": 55582
+    },
+    {
+      "path": "_frozen\\stage3\\linkage_TW_normal.npy",
+      "sha256": "4c1b68fda9d3621cccdf62fe77a19d1208f608ae77fe6a017fbc87213a2d6358",
+      "bytes": 947424
+    },
+    {
+      "path": "_frozen\\stage3\\linkage_US_normal.npy",
+      "sha256": "520e3f18e08956aa9f5cf4326fceec6e7cd93f63bff2362815c32bd3d65d407b",
+      "bytes": 684224
+    },
+    {
+      "path": "_frozen\\stage3\\linkage_XM_normal.npy",
+      "sha256": "c870c9209054e7ee78a132dc182afddb1a599678204b80200559132198a177ab",
+      "bytes": 1635488
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_analysis_outputs_robustness\\k_cap_sensitivity.csv",
+      "sha256": "96b00c0e4b5d7e351e4120720903b16c41f461e3d2437c6298b4f7a5fe35998f",
+      "bytes": 2575
+    },
+    {
+      "path": "_analysis_outputs_robustness\\cluster_count_silhouette_scan_k30.csv",
+      "sha256": "674b125588dba79ed2dc9002c2206d12910b0a677f0b8077b9a417b945c553b5",
+      "bytes": 5035
+    }
+  ],
+  "notes": "退化門檻敏感度；k=3..20 用現有掃描表，3..30 用凍結 linkage 分塊重算（3..20 已與原表對帳）。各 IS 窗未做：k_stability.csv 沒有存完整掃描。"
+}

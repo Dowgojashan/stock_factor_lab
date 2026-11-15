@@ -53,7 +53,7 @@ def fig1(d: pd.DataFrame) -> Path:
     fig.suptitle("每季換成「近期表現最好」的規則，能達到上帝視角的幾成？（39 個選項、2016–25 共 40 季、扣成本）", fontsize=12)
     h, l = axes[0].get_legend_handles_labels()
     fig.legend(h, ["隨機挑 1,000 次的 5～95% 範圍", "老師的標準：七成"], loc="lower center", ncol=2, fontsize=9, frameon=False, bbox_to_anchor=(0.5, 0.03))
-    fig.text(0.01, 0.005, "資料版本：台股 2026-10-30 舊名單（股價修正、白名單更新前）；美股 2026-10-28 _liq 版", fontsize=8, color="#555555")
+    fig.text(0.01, 0.005, "資料版本：台股 2026-10-30（股價已修正，策略名單為研究部重跑前的舊名單）；美股 2026-10-28 _liq 版", fontsize=8, color="#555555")
     fig.tight_layout(rect=(0, 0.08, 1, 0.95))
     out = D / "21_名次捕獲率.png"
     fig.savefig(out, dpi=130)

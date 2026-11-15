@@ -1,0 +1,76 @@
+{
+  "stage": "primary_margin_current",
+  "produced_at": "2026-11-15T14:44:20",
+  "git_sha": "67e1cf1",
+  "params": {
+    "margins": [
+      0.02,
+      0.025,
+      0.03,
+      0.04,
+      0.05
+    ],
+    "treatments": [
+      "強制保留",
+      "強制也受門檻"
+    ]
+  },
+  "inputs": [
+    {
+      "path": "_analysis_outputs_phase2_twfix\\TW_L2_openSec_boost_solo_buckets.csv",
+      "sha256": "a4ac4a9a0e53999648e06a8d71c67d22ed09ead9d86433cdd3facdb0cfe9a15d",
+      "bytes": 9255
+    },
+    {
+      "path": "_analysis_outputs_phase2\\US_L2_openSec_balanced_solo_buckets.csv",
+      "sha256": "f32eccf63af55c3a09859b725318ce3238076354a2a7d6c47e443d7517fd9073",
+      "bytes": 8771
+    },
+    {
+      "path": "_analysis_outputs_phase4_twfix\\TW_L4_openSec_boost_final_candidates.csv",
+      "sha256": "1b3a117d511cdd6434c5e1c5f058c260740f019468da8cc012999bc8d36db149",
+      "bytes": 6222989
+    },
+    {
+      "path": "_analysis_outputs_phase4\\US_L4_openSec_balanced_final_candidates.csv",
+      "sha256": "9bea39e0d7f2a87895526e94f29288d9e216504c86e2f79bd6970a22a6af12c7",
+      "bytes": 4324900
+    },
+    {
+      "path": "_frozen\\stage0\\candidate_index.parquet",
+      "sha256": "44ca9e3e4de2dc897076e5b12bef2ab0a1ed870c70680d350e85dcae13dbe057",
+      "bytes": 5153577,
+      "rows": 55582
+    },
+    {
+      "path": "_frozen\\stage1\\returns_monthly.parquet",
+      "sha256": "2ef7e650d8375714f9417197a1a13afaf6138196d44d52c5af4be0c88d1c6b40",
+      "bytes": 121414946,
+      "rows": 15527462
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_assign.parquet",
+      "sha256": "20c6c1e904bdb3d83b26a927439d7c39f64d665e096caf34b84bbd7ebe06b3d2",
+      "bytes": 2189692,
+      "rows": 204178
+    },
+    {
+      "path": "_analysis_outputs_robustness\\effective_number_of_bets.csv",
+      "sha256": "5a42ce19f5dabdc6f6a2d838e9572c3c28871315c87ce01d2b7f41b943e5c55f",
+      "bytes": 293
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_analysis_outputs_robustness\\primary_margin_sensitivity_current.csv",
+      "sha256": "aa01fdc899c2cd2a66d3620b87b5a6104ba9aa3fc9d32583e7ad1abc6b1ed07a",
+      "bytes": 2404
+    },
+    {
+      "path": "_analysis_outputs_robustness\\primary_margin_sensitivity_current_enb.csv",
+      "sha256": "fb03702c60c25cdca9373784c1845aa6d070fb24dce5913230f36453a4331d3e",
+      "bytes": 2576
+    }
+  ],
+  "notes": "C1 用現行池重做；只往嚴格方向；不建樹，群標籤沿用現行整棵樹。"
+}
