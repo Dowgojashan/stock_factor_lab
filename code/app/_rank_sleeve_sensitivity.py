@@ -8,7 +8,7 @@
   - 13 類「中位數名次」時間序列（41 季）與 30% 版本的相關：每類各算 Pearson，報 13 類的中位數與最小值，
     另報 13×41 格整體的 Spearman。
 30% 的中位數名次必須等於 `rank_dynamics/{組}/資金30%/00_總覽熱圖_數值.csv`（11-10），否則中止。
-台股步驟1 的季報酬是舊名單（2026-10-30 產生，早於 11-09～11-14 研究部重跑）；美股用 `_liq` 版本。
+台股步驟1 的季報酬是 2026-11-17 依研究部 11-14 新池重建名單後重跑的版本；美股用 `_liq` 版本。
 不呼叫 LLM、不重跑回測。輸出：`_analysis_outputs_applayer/rank_dynamics/sleeve_sensitivity.csv`
 """
 from __future__ import annotations
@@ -60,7 +60,7 @@ def main() -> int:
                          "13類中位名次序列與30%相關_最小": float(np.min(per_fam)),
                          "最小的類別": RD.FAM[FAMS[int(np.argmin(per_fam))]],
                          "13類×41季整體Spearman_與30%": float(pooled),
-                         "資料": "台股步驟1舊名單（10-30）" if market == "TW" else "美股 _liq 版本"})
+                         "資料": "台股步驟1（11-17 新名單）" if market == "TW" else "美股 _liq 版本"})
         print(f"✓ {market}_{pool}：30% 的中位數名次＝11-10 熱圖數值", flush=True)
     res = pd.DataFrame(rows)
     p = RD.OUT / "sleeve_sensitivity.csv"

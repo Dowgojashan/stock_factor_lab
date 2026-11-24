@@ -23,7 +23,7 @@
     全部買進＝normal 樹全部策略等權；大盤＝含息指數（XM 為台美各半，月再平衡）。
     實戰層（日頻）：優等生 control0（排除V1）與大盤，用事件的實際起訖日。
 資料版本：研究部＝`_frozen/stage1`、`stage3`（2026-11-10 這一輪：TW 32,726、k=8/4/13）；
-  實戰層日頻台股＝`elite_grid_1027` 2026-10-30（股價已修正；策略名單為研究部重跑前的舊名單），美股 _liq 2026-10-28。
+  實戰層日頻台股＝`elite_grid_1027` 2026-11-17（研究部 11-14 新池重建名單後重跑步驟1），美股 _liq 2026-10-28。
 
 用法（cwd＝code/）：python -m research.crisis_diversification
 """
@@ -263,7 +263,7 @@ def practical_daily(log=print) -> list[dict]:
     from app import _rank_dynamics as RD
     from app._elite_grid_offline import load_benchmark
     out = []
-    for mkt, suf, ver in (("TW", "", "實戰層 elite_grid_1027 2026-10-30（股價已修正；策略名單為研究部重跑前的舊名單）"),
+    for mkt, suf, ver in (("TW", "", "實戰層 elite_grid_1027 2026-11-17（研究部 11-14 新池重建名單後重跑步驟1）"),
                           ("US", "_liq", "實戰層 elite_grid_1027 2026-10-28 _liq（美股資料未變，有效）")):
         c0 = RD.load_daily(mkt, "exclude_v1", suf)["REF_control0"]
         b = load_benchmark(mkt).pct_change()

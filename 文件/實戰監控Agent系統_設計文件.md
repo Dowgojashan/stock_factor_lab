@@ -1618,6 +1618,8 @@ and the dissenting views」——**Agent-B 移除後，「dissenting views」這
 | 煞車行為 | 呼叫**前**檢查，不足即 `raise FreeTierExhaustedError`（**中斷執行**）| `memo.py:336` |
 | 付費模型 | **直接擋下**，不會靜默燒錢 | `check_free_tier_budget()` |
 
+> 🔴 2026-11-17 更正：現行金鑰所屬帳戶實際只有標準池 25 萬／小模型池 250 萬 tokens／日——11-01、11-17 超過部分共被收 $5.16，用 `/organization/costs` 對帳確認；`FREE_TIER_LIMITS` 已改，煞車另加「今天帳戶已有費用就停」
+
 **歷史實績**（`code/_catalog/llm_usage.jsonl`：159 次／9 天／2,288,258 tokens，全用 gpt-5）：
 
 | purpose | 次數 | tokens | 平均 |

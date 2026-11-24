@@ -1,7 +1,7 @@
 {
   "stage": "walkforward_partition",
-  "produced_at": "2026-11-11T09:51:27",
-  "git_sha": "392b458",
+  "produced_at": "2026-11-18T19:50:44",
+  "git_sha": "d54a100",
   "params": {
     "n_draws": 30,
     "seed": 42,
@@ -37,25 +37,25 @@
     },
     {
       "path": "_analysis_outputs_robustness\\walkforward_matrix_detail.csv",
-      "sha256": "dca60b92f9e3caa39734163bdf638ad9fd31b275a873ae55b357ba92fd756c50",
-      "bytes": 735459
+      "sha256": "56543ea84737797055e57b2cc1219fb9db3bb845f80d3bb80ac1df04098f52fe",
+      "bytes": 2206083
     },
     {
       "path": "_analysis_outputs_robustness\\k_stability.csv",
-      "sha256": "2fcb546d5de27ded3a6a271309e5a10fddde098c818c4d9ca81898012c54ac5f",
-      "bytes": 2128
+      "sha256": "b27ae6b234893f6817a04e28ecff622e845e2fd2a40ed106e9f3958bbd29c03b",
+      "bytes": 5758
     }
   ],
   "outputs": [
     {
       "path": "_analysis_outputs_robustness\\walkforward_partition.csv",
-      "sha256": "773ba567d79df187e7eebd6e9341b23cd34da48f38886c24288f6619f772b192",
-      "bytes": 212196
+      "sha256": "dff0320e29f60addf6cea390d54f26c767bf13a4f98f54529cccb58d72f54b39",
+      "bytes": 636208
     },
     {
       "path": "_analysis_outputs_robustness\\walkforward_partition_compare.csv",
-      "sha256": "a7bdcd4a718847e84fc482ef174caaadd4acf57145ba315f86f812b73f8b3a80",
-      "bytes": 4575
+      "sha256": "680d59e732fc79dd80b1b13b3d20ff74353164407112204ae117cbaa72028456",
+      "bytes": 13132
     }
   ],
   "notes": "M-03b：walk-forward 版的 A2_random（隨機分群）。群大小 profile 沿用該窗 HRP 樹，多樣性門檻用隨機群自己的 avg_intra_corr，走同一個 select_representatives。對照表帶 ratio 維度（ALL + 逐比例）——聚合列會掩蓋方向相反的結構，判讀必須逐比例。"

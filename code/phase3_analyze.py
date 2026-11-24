@@ -39,6 +39,7 @@ from phase2_analyze import MIN_HOLDINGS, avg_holdings  # noqa: E402
 
 ART = HERE / "results_artifacts"
 OUT = HERE.parent / "_analysis_outputs_phase3"
+P2_DIR = HERE.parent / "_analysis_outputs_phase2"   # Phase 2 體質檢查表所在目錄（twfix 重跑時由外部改寫）
 
 OI = ["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9", "#F0E442", "#000000"]
 plt.rcParams.update({
@@ -87,7 +88,7 @@ def main():
 
     # Phase 3 的回測是用「舊基準下的 203 個白名單」跑的；換基準/變體後合格的 F 組合
     # 是它的子集，故不需重跑，直接在這裡篩即可。
-    p2 = OUT.parent / "_analysis_outputs_phase2" / f"{mkt}_L2{sfx}_體質檢查表.csv"
+    p2 = P2_DIR / f"{mkt}_L2{sfx}_體質檢查表.csv"
     if p2.exists():
         ok_f = {f"{s.split('__')[0]}__{s.split('__')[1]}"
                 for s in pd.read_csv(p2, encoding="utf-8-sig")["strategy"]}
@@ -158,7 +159,16 @@ def main():
     # ---------- 圖 ----------
     fig, axes = plt.subplots(1, 2, figsize=(15, 6))
     order = g.sort_values("增益中位數", ascending=False)
-    colors = {"ROE": OI[0], "EPS": OI[2], "FCF_P": OI[1]}
+    # 2026-11-22：C 的來源因子已不只 ROE／EPS／FCF_P（openSec_boost 是 EPS_G／PROX 等六個）。
+    # 只替實際出現的來源配色：舊三個沿用原色，其餘依序取未用的顏色（排除黃色與黑色），
+    # 否則箱形圖全灰、右圖空白。
+    legacy = {"ROE": OI[0], "EPS": OI[2], "FCF_P": OI[1]}
+    present = sorted(set(cdf["C來源"]))
+    colors = {s: legacy[s] for s in present if s in legacy}
+    spare = [c for c in OI[:6] if c not in colors.values()]
+    for s in present:
+        if s not in colors:
+            colors[s] = spare.pop(0) if spare else OI[7]
     data = [cdf.loc[cdf["C"] == c, "C增益"].values for c in order["C"]]
     bp = axes[0].boxplot(data, labels=[f"C{int(n)}" for n in order["C編號"]],
                          showmeans=True, patch_artist=True,

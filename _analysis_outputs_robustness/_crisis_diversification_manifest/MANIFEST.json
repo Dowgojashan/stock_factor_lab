@@ -1,7 +1,7 @@
 {
   "stage": "crisis_diversification",
-  "produced_at": "2026-11-14T23:36:30",
-  "git_sha": "67e1cf1",
+  "produced_at": "2026-11-20T00:37:30",
+  "git_sha": "d54a100",
   "params": {
     "N_NULL": 1000,
     "N_BOOT": 1000,
@@ -60,8 +60,8 @@
     },
     {
       "path": "_analysis_outputs_robustness\\crisis_diversification_loss.csv",
-      "sha256": "c4e1f03170a695085b3f726fe785f3417c0a60c38db5a788f9925ef5cc338ba8",
-      "bytes": 6370
+      "sha256": "c1cc6238ecef68465e4ae5215463edc694a6163d1d175fdae319481ef8860bfa",
+      "bytes": 6319
     }
   ],
   "notes": "RQ4 危機期間分散：D2（2020、2022 下跌段）主、D1（危機標籤，含2008）描述性；同長度平時區段對照＋區塊自助法"

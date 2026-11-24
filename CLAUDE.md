@@ -18,11 +18,14 @@
    3. 文件裡寫數字時一律**標日期**（「2026-11-08 更新」或「來源：xxx.csv，YYYY-MM-DD」），
       讓之後的人知道這個數字是哪一版；
    4. 文件、記憶、CLAUDE.md 三者數字不一致時，**以結果檔為準**，不是以文件為準。
-   ⚠️ 2026-11-08 時點仍未依股價修正重算的研究部結果（重算要建樹或花 LLM 額度，使用者決定延後）：
+   ⚠️ 2026-11-20 時點仍未依最新候選池重算的研究部結果（重算要建樹或花 LLM 額度，使用者決定延後）：
    `threshold_control.csv`（10-13，完整版）、`residual_tree_selection.csv`／`residual_tree_compare.csv`（10-22）、
-   `partition_control.csv`（10-13）、`beta_baseline*.csv`（09-29）、`enb_null.csv`（10-12）、`l3_isoos.csv`（09-29）、
-   `cluster_identity`／`cluster_story`（群的描述，含 LLM 產生的文字）、`decision_repeatability.csv`。
+   `partition_control.csv`（10-13）、`l3_isoos.csv`（09-29）、`decision_repeatability.csv`。
    引用這些檔案的數字時必須標明是舊版。
+   ✅ 2026-11-19～20 已依 11-14 新池重跑、可直接引用：`beta_baseline.csv`（11-20 02:07）、`beta_baseline_isonly.csv`（11-20 04:52）、
+   `enb_null.csv`（11-20 05:01）、`cluster_identity`（11-19，gpt-5）／`cluster_story`（11-20，**改用 gpt-5-mini**，全部 112 對）、
+   `crisis_diversification*.csv`（11-20）。舊檔備份在 `_analysis_outputs_robustness/_舊版備份_20261119_beta與ENB虛無重跑前/`、
+   `_frozen/stage3/_舊版備份_20261119_cluster_identity_story_新池重跑前/`
 
 0-最新. **🔴 2026-10-27：最新的對話框交接在 `文件/交接_2026-10-27.md`**（實戰部10/27報告做到哪、
    未完成事項、踩過的坑、使用者常用說法對照表）——接手第一件事讀它。其中最重要的新發現：
@@ -125,8 +128,11 @@
 
 `meeting-digest`（開會後整理逐字稿）／`meeting-prep`（開會前準備報告）／
 `meeting-followup`（開會前稽核漏辦與文件同步）／`methodology-review`（方法論審視，
-附本專案實際踩過的陷阱清單）／`decision-log`（決策留痕）。
-用 `/<名稱>` 呼叫，說明見 `文件/現況銜接.md` §7。
+附本專案實際踩過的陷阱清單）／`decision-log`（決策留痕）／
+`thesis-narrative-review`（論文章節審查；2026-11-22 起含第四章的分析與排版檢查）／
+`thesis-results-writing`（2026-11-22 新增：寫第四章等結果章節的流程，含盤點既有圖、
+過期就請實驗 session 重跑、畫論文格式的圖、排版檢查）。
+用 `/<名稱>` 呼叫（⚠️ `文件/現況銜接.md` 已不存在，各 skill 的說明直接看 `.claude/skills/<名稱>/SKILL.md`）。
 
 ---
 
@@ -190,7 +196,19 @@ H-21 維度已改成「walk-forward窗次×精選比例」並隨 H-26/H-27 完�
 
 ### ⚠️ 幾個容易記錯的數字（已重新查證，舊版 CLAUDE.md 寫錯過）
 
-🔴🔴 **2026-11-08 更新（台股股價修正後，研究部主鏈 2026-11-01～11-08 全部重跑）——以下這組是現行值，本節更下面的舊段落一律以這裡為準**：
+🔴🔴 **2026-11-18 更新（台股候選池白名單更新後，研究部主鏈 2026-11-09～11-18 重跑；美股沿用、逐列相同）——以下這組是現行值，取代下面 11-08 那組**：
+- 候選策略池：**TW 32,726**（v0／v1＝20,854／11,872）、US 22,856（不變）（`_frozen/stage0/candidate_index.parquet`、`contracts.EXPECTED_ROWS`）；
+  可建樹（is_usable）TW 29,604、US 21,379、XM 51,106（`effective_number_of_bets.csv`，11-14）
+- 自建宇宙基準 CAGR：台股 9.0098%、美股 11.0556%（`contracts.BENCHMARK_CAGR`，未變）
+- HRP L1 群數：**TW 8、US 4、XM 13**（`stage3_hrp.L1_TARGET`；`cluster_count_silhouette_scan.csv` 11-10：
+  TW k=8 輪廓 0.0242 為全域最高、最大群佔 32.7%；XM 最高 k=4／3（0.27）但最大群佔 57.9% 屬退化解排除，取 k=13（0.0368）；US k=4 不變）
+- ENB：**TW 3.64、US 4.91、XM 6.19**（`effective_number_of_bets.csv`，11-14）
+- 研究部測試：**115/131**（2026-11-18）。和 11-01 那輪比：新失敗 `t_enb_null`、`t_partition_control`（兩者讀的 `enb_null.csv`（10-12）、
+  `partition_control.csv`（10-13）是使用者決定延後重算的舊檔）；`t_complementarity_granularity` 仍失敗但 L1 跨市場高互補對數從 6 變 17（XM k=13，敘事要重看）
+  🔶 2026-11-20 補記：beta／ENB 虛無／群描述重跑後，相關 24 項測試全過（`t_enb_null`、`t_complementarity_granularity` 轉為通過；`t_partition_control` 仍讀舊檔）。整套 131 項尚未重跑
+- 實戰層台股排除V1 名單已依新池重建（11-17，`anchored_w{1..4}_openSec_boost_exclude_v1.parquet`），步驟1 已重跑；步驟1、名次分析（11-18）、步驟2 LLM（11-19，v1 8/120、v2 2/152 有效）全部重跑完成，見 `文件/實戰收尾追蹤.md` 第六節
+
+🔶 **2026-11-08 那組（已被上面取代，留存）**：
 - 候選策略池：**TW 29,642**（股價修正前 29,255）、US 22,856（不變），合計 52,498（`_frozen/stage0/candidate_index.parquet`、`contracts.EXPECTED_ROWS`）；TW v0/v1＝18,870／10,772
 - 自建宇宙基準 CAGR：**台股 9.0098%**（股價修正前 8.4256%）、美股 11.0556%（不變）（`contracts.BENCHMARK_CAGR`）
 - HRP L1 群數：**TW 7、US 4、XM 8**（`stage3_hrp.L1_TARGET`；`cluster_count_silhouette_scan.csv` 2026-11-02 重掃：
@@ -241,7 +259,11 @@ Phase2 強制納入 ROE/EPS/ROIC/REV_G/MOM_3M 五個 regime-dependent 因子當 
 - 台美股 Phase 1~4 全部跑完，四個變體（strict / **openSec**（採用）/ relaxed / all）都跑完並互相對照過
 - **openSec** 是採用的正式設計：primary 用 Phase 1 過關的因子嚴格篩，secondary 全部開放（因為 Phase 1 檢定的是「因子自己能不能單調預測」，但 secondary 的功能是「提供不同構面資訊」，兩件事不一樣；台美股都獨立驗證過這個設計是對的）
 - 修過一個關鍵 bug（A1 defect）：美股的動態條件 C 原本全部失效（用日頻 ffill 密集 frame 而非公告點稀疏 frame，導致「較上季升」恆假、「近N季最高」恆真），修好後美股 C 的排名完全改變
-- 台股 2000-2004 財報資料回補完成（原本是空的，讓早期分位桶假訊號嚴重）
+- ~~台股 2000-2004 財報資料回補完成（原本是空的，讓早期分位桶假訊號嚴重）~~
+  🔴 2026-11-17 更正：台股 2000-2004 **只有年報**（Q1～Q3 列為 NULL），2005-2007 半年報，2008 起才是季報；
+  美股 1997 起即為季報。因此需要 N 次公告的動態條件 C，台股要 N 年才湊得到、美股只要 N 季，
+  台股策略的起始日因此較晚（qmax8 × 成長類 C 最晚到 2007-09 才開始）。
+  詳見 `文件/研究框架總覽_v10.md` §2 的 2026-11-15 更正段
 - 做過多項穩健性檢定：D1（9桶算術合併 vs 3桶實跑）、C1（primary門檻敏感度）、B3（規模集中度）、D3（子期間穩健性）——全部台美股都做過
 
 ### 給老師看的進度報告（都在 `文件/`）
@@ -283,7 +305,7 @@ _analysis_outputs_variants/      四變體對照（strict/openSec/relaxed/all）
 並延伸出有效獨立賭注數（ENB）、群內代表挑選規則、IS/OOS 驗證分支、四組對照實驗、
 群的定量描述與 LLM 解釋、總經決策層。**核心發現與全部數字見 `研究框架總覽_v10.md` §3.5、§4、§6。**
 
-一句話結論：**上萬個策略的有效獨立賭注數只有 3.60（TW）/ 4.91（US）/ 6.21（XM）**（2026-11-08 股價修正後重算；最早 9 月 6,679 檔時代是 3.27／4.36／5.77），
+一句話結論：**上萬個策略的有效獨立賭注數只有 3.64（TW）/ 4.91（US）/ 6.19（XM）**（2026-11-14 台股白名單新池重算；11-08 版 3.60／4.91／6.21；最早 9 月 6,679 檔時代是 3.27／4.36／5.77），
 而且**分散效果的來源是市場邊界不是因子邊界**（同市場群間相關 0.78~0.94，跨市場降到 0.54）。
 
 老師後續會提供評估標準，之後可能要跟美國公債等資產再做比較分析（**尚未進行**）。

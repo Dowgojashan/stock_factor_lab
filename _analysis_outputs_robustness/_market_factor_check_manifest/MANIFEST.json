@@ -1,0 +1,67 @@
+{
+  "stage": "market_factor_check",
+  "produced_at": "2026-11-22T18:14:55",
+  "git_sha": "d54a100",
+  "params": {
+    "market_factor": "beta_baseline.market_returns（normal 樹全池等權）",
+    "residual": "beta_baseline._residuals（全窗 OLS）",
+    "pair_weighting": "群內 n(n−1)、群間 n_a·n_b"
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage1\\returns_monthly.parquet",
+      "sha256": "2ef7e650d8375714f9417197a1a13afaf6138196d44d52c5af4be0c88d1c6b40",
+      "bytes": 121414946,
+      "rows": 15527462
+    },
+    {
+      "path": "_frozen\\stage1\\returns_meta.parquet",
+      "sha256": "03877f910e2274b82188e7363e310c03dff2dac995b92415a5bf81a4ad6f91f2",
+      "bytes": 598357,
+      "rows": 55582
+    },
+    {
+      "path": "_frozen\\stage1\\strategy_marks.parquet",
+      "sha256": "7736936969eec876c7b114e7fb8f1aa52925322cd718b951ae55fef9cdba77a3",
+      "bytes": 2090256,
+      "rows": 55582
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_assign.parquet",
+      "sha256": "20c6c1e904bdb3d83b26a927439d7c39f64d665e096caf34b84bbd7ebe06b3d2",
+      "bytes": 2189692,
+      "rows": 204178
+    },
+    {
+      "path": "code\\results_artifacts_twfix\\TW_UNIVERSE_M\\UNIVERSE_EQW\\stock_data.parquet",
+      "sha256": "e04be83b0534ecde844bfa342c686ff00eff36232113d08c2b5637a619aa452d",
+      "bytes": 188429,
+      "rows": 6407
+    },
+    {
+      "path": "code\\results_artifacts\\US_UNIVERSE_M\\UNIVERSE_EQW\\stock_data.parquet",
+      "sha256": "2b0639055507bbb56ff94ecb7e548059f9663b6ff9a40dc28feb0e9e458da5da",
+      "bytes": 190098,
+      "rows": 6585
+    },
+    {
+      "path": "_analysis_outputs_robustness\\market_index_monthly.parquet",
+      "sha256": "143443042bdb2cb2ade7ccd84234ce379c893d5b119ffbbbf98bc47c4072f657",
+      "bytes": 16625,
+      "rows": 1237
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_analysis_outputs_robustness\\market_factor_representativeness.csv",
+      "sha256": "0e5a3a680d8e176535137997bf6f58178f5de769e36d0fa730a15056a37f8cc1",
+      "bytes": 605
+    },
+    {
+      "path": "_analysis_outputs_robustness\\residual_corr_within_between.csv",
+      "sha256": "84ef6be699bcd8a73afbc221a62bdd2614804972cb4d99857d0055d2887d9268",
+      "bytes": 3477
+    }
+  ],
+  "notes": "論文 4-3：市場因子代表性＋群內／群間殘差相關。2026-11-22 由暫存腳本 mktfac.py／l3resid.py 整理。"
+}

@@ -1,0 +1,103 @@
+{
+  "stage": "attribution_chain",
+  "produced_at": "2026-11-19T23:30:47",
+  "git_sha": "d54a100",
+  "params": {
+    "market": "TW",
+    "pool": "exclude_v1",
+    "rule": null,
+    "llm": true
+  },
+  "inputs": [
+    {
+      "path": "_frozen\\stage1\\returns_monthly.parquet",
+      "sha256": "2ef7e650d8375714f9417197a1a13afaf6138196d44d52c5af4be0c88d1c6b40",
+      "bytes": 121414946,
+      "rows": 15527462
+    },
+    {
+      "path": "_frozen\\stage1\\strategy_marks.parquet",
+      "sha256": "7736936969eec876c7b114e7fb8f1aa52925322cd718b951ae55fef9cdba77a3",
+      "bytes": 2090256,
+      "rows": 55582
+    },
+    {
+      "path": "_analysis_outputs_robustness\\walkforward_matrix_detail.csv",
+      "sha256": "56543ea84737797055e57b2cc1219fb9db3bb845f80d3bb80ac1df04098f52fe",
+      "bytes": 2206083
+    },
+    {
+      "path": "_analysis_outputs_applayer\\elite_grid_1027\\quarterly_TW_exclude_v1.parquet",
+      "sha256": "1a849581100384f9640b353e3e2d609be882a6de756b0d29156287e102761c01",
+      "bytes": 1662245,
+      "rows": 45892
+    },
+    {
+      "path": "_analysis_outputs_applayer\\elite_grid_1027\\combos_TW_exclude_v1.csv",
+      "sha256": "f3dee2847f663f6c17f3512a65a30ae2bfe5103526c9d17662f8bba42b4bebe0",
+      "bytes": 56358
+    },
+    {
+      "path": "_analysis_outputs_applayer\\elite_grid_1027\\promoted_TW_exclude_v1.csv",
+      "sha256": "15ce048169395fc3629b4efd0ecacb5d19771af8379c302b43aab4fa6994c406",
+      "bytes": 2425
+    },
+    {
+      "path": "_analysis_outputs_applayer\\anchored_w1_openSec_boost_exclude_v1.parquet",
+      "sha256": "1c893f939a2495e834efacbdeca77d0033db5f0109d265e9ac8a95b0b0a6b175",
+      "bytes": 9458,
+      "rows": 2
+    },
+    {
+      "path": "_analysis_outputs_applayer\\anchored_w2_openSec_boost_exclude_v1.parquet",
+      "sha256": "ee0d4b3327dab44272de6bf8d68376e326f3dd19e71481857aae2170aac8f2c8",
+      "bytes": 9858,
+      "rows": 2
+    },
+    {
+      "path": "_analysis_outputs_applayer\\anchored_w3_openSec_boost_exclude_v1.parquet",
+      "sha256": "b4618bbc084d27c4d55fcf9ea729b791ca5c7e567926f0f1eb7da7837b7c9a65",
+      "bytes": 9411,
+      "rows": 2
+    },
+    {
+      "path": "_analysis_outputs_applayer\\anchored_w4_openSec_boost_exclude_v1.parquet",
+      "sha256": "d38dc24100209a744301acec32ee23e4329c3e894d0ee232f39d8451186031c2",
+      "bytes": 9662,
+      "rows": 2
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_analysis_outputs_applayer\\attribution_chain\\TW_exclude_v1\\checks.csv",
+      "sha256": "d30309f63c25c506f2f038c5d2dcb0df16d73a6d5ec6a4541901fbbc2160b555",
+      "bytes": 234
+    },
+    {
+      "path": "_analysis_outputs_applayer\\attribution_chain\\TW_exclude_v1\\chain_cum.csv",
+      "sha256": "69332da899a500238b5ee73ff38cc022fab25054059fa62d4838fa555445f71f",
+      "bytes": 4821
+    },
+    {
+      "path": "_analysis_outputs_applayer\\attribution_chain\\TW_exclude_v1\\chain_quarterly.csv",
+      "sha256": "fc834f93dc17ec2435cdb0ccf8d14c3d0cf29e2e9c49bac3e2be1e02fce06a58",
+      "bytes": 8713
+    },
+    {
+      "path": "_analysis_outputs_applayer\\attribution_chain\\TW_exclude_v1\\dist_rules.csv",
+      "sha256": "7c9ad9911641314070758233ae60b083018e43e89f2988381ee36249f860ac10",
+      "bytes": 963
+    },
+    {
+      "path": "_analysis_outputs_applayer\\attribution_chain\\TW_exclude_v1\\dist_selection.csv",
+      "sha256": "fb293ac1f00ee9cdc9ed099320534ee5ec339290c32f849f5b6bf1006de860b4",
+      "bytes": 274
+    },
+    {
+      "path": "_analysis_outputs_applayer\\attribution_chain\\TW_exclude_v1\\llm_window4.csv",
+      "sha256": "3a9893877b602181b2a9bdde8d9309b9dbef67dedad2d5d0e5bbedef33179880",
+      "bytes": 12291
+    }
+  ],
+  "notes": "績效歸因鏈：大盤→全部買進→精選→control0→調權重；主＝累積相減，輔＝Carino linking"
+}

@@ -125,6 +125,11 @@ def main(argv=None):
         from app._step2_planD import setup
         ctx["md"], ctx["close"], ctx["mw"] = setup(a.market, a.pool)
         ctx["cand"] = SD.candidates(a.market, a.pool)
+        # 2026-11-17：三種風格平行時，pandas 索引第一次查詢會同時建立查表，偶發 KeyError（TW v2 含V1 踩到，
+        # 單執行緒重算同一季正常）。先在主執行緒把每季的特徵算一次，讓查表建好；結果不使用、不影響輸出。
+        for as_of in ctx["as_ofs"]:
+            if as_of in ctx["cand"]:
+                SD.features(ctx["md"], ctx["close"], ctx["mw"], ctx["cand"][as_of], as_of)
     print(f"[{a.market}/{a.pool}] 模型 {a.model}｜方案 {plans}｜風格 {a.styles}｜重複 {a.reps}｜已完成 {len(done)} 次", flush=True)
     styles = a.styles.split(",")
     # 2026-10-28：改成「重複」在外層——額度中途用完時，已完成的是「所有方案的前 n 次重複」，可直接互相比較

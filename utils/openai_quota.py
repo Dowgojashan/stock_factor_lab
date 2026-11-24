@@ -81,9 +81,12 @@ REQUEST_TIMEOUT = 15   # 秒。查用量是輕量的 metadata 讀取，不是模
 # 關掉煞車，會波及明天之後所有跑，不是使用者的意圖（使用者只同意「今天」付費）。
 # 只有顯式設定 `OPENAI_PAID_OVERRIDE=1` 的那次執行才會解除煞車，預設行為完全不變。
 _PAID_OVERRIDE = os.environ.get("OPENAI_PAID_OVERRIDE") == "1"
+# 🔴 2026-11-17 改：1M／10M → 250K／2.5M。用 `/organization/costs` 對帳發現，現在這組金鑰所屬的帳戶
+# 每天 mini 只免費約 250 萬（11-01 用 778 萬被收 $3.82、11-17 用 418 萬被收 $1.34，扣掉收費量都剩約 250 萬），
+# 與 OpenAI 資料分享方案「使用等級 1～2」的額度一致；舊數字是 08-29 從當時帳戶抄的。另見下方 `_org_cost_today`。
 FREE_TIER_LIMITS = {
-    "standard": 1_000_000_000 if _PAID_OVERRIDE else 1_000_000,
-    "mini": 10_000_000,
+    "standard": 1_000_000_000 if _PAID_OVERRIDE else 250_000,
+    "mini": 2_500_000,
 }
 
 #: 小模型池（10M）。比對時**優先於標準池**——`gpt-5-mini` 同時符合兩邊的前綴，
@@ -267,6 +270,34 @@ def today_totals(*, now: _dt.datetime | None = None,
 ORG_CACHE_TTL = 60
 _ORG_LOCK = threading.Lock()
 _ORG_CACHE: dict = {"t": 0.0, "day": None, "org": None}
+_COST_CACHE: dict = {"t": 0.0, "day": None, "usd": None}
+
+
+def _org_cost_today(admin_key: str | None = None) -> float:
+    """今天（UTC）整個帳戶的費用（USD），`/organization/costs`，管理端點、不花 tokens；快取 ORG_CACHE_TTL 秒。
+    2026-11-17 新增：上限常數抄錯時（11-01、11-17 被收 $5.16），只看用量擋不住，改成「有費用就停」。
+    查不到一律停，不放行。注意費用資料可能有幾分鐘延遲，所以仍以用量上限為主、這道為輔。"""
+    day = _day_key()
+    with _ORG_LOCK:
+        c = _COST_CACHE
+        if c["usd"] is None or c["day"] != day or time.time() - c["t"] > ORG_CACHE_TTL:
+            try:
+                key = admin_key or _read_admin_key()
+                if not key:
+                    raise RuntimeError("config.ini 的 [openai] admin_key 是空的")
+                start = _dt.datetime.now(_dt.timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+                r = requests.get(f"{OPENAI_API_BASE}/organization/costs",
+                                 headers={"Authorization": f"Bearer {key}"},
+                                 params={"start_time": int(start.timestamp()), "bucket_width": "1d", "limit": 1},
+                                 timeout=REQUEST_TIMEOUT)
+                raise_for_openai_response(r)
+                usd = sum(float(x["amount"]["value"]) for b in r.json().get("data", [])
+                          for x in b.get("results", []))
+            except Exception as e:  # noqa: BLE001 —— 查不到就停
+                raise FreeTierExhaustedError(
+                    f"查不到今天帳戶的費用（{type(e).__name__}: {e}），已暫停。→ 確認 admin_key／網路後重跑即可接續") from e
+            c.update(t=time.time(), day=day, usd=usd)
+        return float(c["usd"])
 
 
 def _read_admin_key() -> str:
@@ -382,7 +413,7 @@ def check_free_tier_budget(model: str, *, estimated_tokens: int = 0,
                            path: Path | None = None,
                            reserve_ratio: float = 0.0,
                            org_check: bool | None = None,
-                           _org_fetch=None) -> dict:
+                           _org_fetch=None, _cost_fetch=None) -> dict:
     """呼叫 LLM **之前**檢查今日免費額度還夠不夠。不夠就 raise FreeTierExhaustedError。
 
     `estimated_tokens`：本次預估會用掉多少（不知道就傳0，那就只擋「已經超額」的情況）。
@@ -416,6 +447,15 @@ def check_free_tier_budget(model: str, *, estimated_tokens: int = 0,
               "used_ledger": used_ledger, "used_org": used_org,
               "projected": projected, "budget": budget,
               "remaining": max(0, budget - used)}
+    # 2026-11-17：第二道保險——不管上限數字對不對，今天帳戶只要已經有費用就停（查詢不花 tokens）
+    # 測試傳假的 _org_fetch 卻沒傳 _cost_fetch 時不連網查費用
+    if org_check and not _PAID_OVERRIDE and (_org_fetch is None or _cost_fetch is not None):
+        cost = (_cost_fetch or _org_cost_today)()
+        status["cost_today_usd"] = cost
+        if cost > 0:
+            raise FreeTierExhaustedError(
+                f"今天（UTC）帳戶已經產生費用 ${cost:.4f}，代表免費額度已用完或比設定的上限還低。\n"
+                f"→ 已暫停，請決定：等明天額度重置／確認要付費（OPENAI_PAID_OVERRIDE=1）")
     if projected > budget:
         raise FreeTierExhaustedError(
             f"今日「{tier}」池免費額度不足（整個帳號）：已用 {used:,}"
@@ -717,7 +757,20 @@ def selftest(log=print) -> None:
         except FreeTierExhaustedError:
             pass
         _ORG_CACHE.update(org=None)
-        log("  ✓ 通過")
+        # 2026-11-17：今天已有費用 ⇒ 不管用量多少都要停；費用為 0 ⇒ 放行
+        small = lambda: {"standard": 0, "mini": 0, "unclassified": 0}
+        try:
+            check_free_tier_budget("gpt-5-mini", now=t0, path=p, org_check=True,
+                                   _org_fetch=small, _cost_fetch=lambda: 0.01)
+            raise AssertionError("今天已有費用時應停下")
+        except FreeTierExhaustedError:
+            pass
+        _ORG_CACHE.update(org=None)
+        st = check_free_tier_budget("gpt-5-mini", now=t0, path=p, org_check=True,
+                                    _org_fetch=small, _cost_fetch=lambda: 0.0)
+        assert st["cost_today_usd"] == 0.0, st
+        _ORG_CACHE.update(org=None)
+        log("  ✓ 通過（含「今天已有費用就停」）")
 
         log("== T11 帳本加鎖：多執行緒同時寫不可少記 ==")
         import concurrent.futures as cf

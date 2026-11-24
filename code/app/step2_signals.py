@@ -8,12 +8,14 @@ window4 每季季初（as_of）只用 as_of 以前的資料算：
   ③ 突破廣度：持股（control0）中收盤價創近 20 個交易日新高的比例；門檻只用 window1~3 校準
      （> p90＝「高」、> p75＝「偏高」）；另給「大盤是否創 20 日新高」
   ④ 回撤（只當資訊）：control0 淨值距 2015 年以來高點的回撤，及其在 window1~3 季末回撤中的百分位
-  ⑤ 策略群集中度 M2（只當資訊）：取自正式 checkpoint（只依代表策略的分群，不受價格修正影響）
+  ⑤ 策略群集中度 M2（只當資訊）：window4 代表策略名單在凍結分群（`_frozen/stage3/cluster_assign.parquet`，
+     {市場}_normal）下的最大群佔比 ÷ (1/k)，k＝`stage3_hrp.L1_TARGET`，用 `triggers.evaluate_m2_quarter` 逐季遲滯。
+     🔴 2026-11-17 改：原本讀正式模擬 checkpoint 的 m2 欄；研究部 11-14 重跑後台股分群與名單都換了，
+     checkpoint 過期，改成直接用同一套函式重算（模擬裡 M2 的成員就是固定的 window4 名單，見 simulate.py:285、326）。
+     驗證：美股兩組（名單與分群都沒變）重算結果與 checkpoint 逐季相同（狀態與 ratio_to_ideal）。
 結果快取 `step2/signals_{market}_{pool}.csv`。
 """
 from __future__ import annotations
-
-import json
 
 import numpy as np
 import pandas as pd
@@ -33,6 +35,23 @@ def breakout_share(close: pd.DataFrame, syms: list[str], as_of: str, window: int
 def index_at_high(bench: pd.Series, as_of: str, window: int = 20) -> bool:
     b = bench[bench.index <= pd.Timestamp(as_of)].iloc[-window:]
     return bool(b.iloc[-1] >= 0.999 * b.max())
+
+
+def m2_series(market: str, pool: str) -> dict:
+    """{quarter_end: evaluate_m2_quarter 的結果}，與正式模擬同一套函式與同一份成員（window4 equal 名單）。"""
+    from app import simulate, triggers
+    from app import weights as W
+    from app._elite_grid_offline import WF_MEMBERS, load_window
+    from research.stage3_hrp import L1_TARGET
+    cluster_of, _ = W.load_cluster_membership(RS.ROOT / "_frozen" / "stage3" / "cluster_assign.parquet",
+                                              tree_id=f"{market}_normal")
+    uids = load_window(market, pool, 4, pd.read_parquet(WF_MEMBERS))["uids"]
+    cond = triggers.register_m2(k=L1_TARGET[market])
+    out, prev = {}, "NONE"
+    for q in simulate.QUARTER_ENDS:
+        r = triggers.evaluate_m2_quarter(cond, cluster_of, uids, prev)
+        out[q], prev = r, r["state"]
+    return out
 
 
 def compute(market: str, pool: str) -> pd.DataFrame:
@@ -74,11 +93,7 @@ def compute(market: str, pool: str) -> pd.DataFrame:
     cond = triggers.register_hot_segment(market, pool)
 
     m1d = RS.m1d_series(market, pool)
-    m2 = {}
-    for line in open(RS.RUNS / RS.CKPT[(market, pool)], encoding="utf-8"):
-        cp = json.loads(line)
-        if cp.get("arm") in (None, "L2"):
-            m2[cp["quarter_end"]] = cp["m2"]
+    m2 = m2_series(market, pool)
 
     rows, hs_prev = [], "NONE"
     for a in as_ofs:

@@ -17,7 +17,7 @@
     日頻 MDD 與 Sharpe（rf=0、×√252；把各季選中規則的逐日淨值接起來）
   - 成本：一律用各規則在步驟1 自己路徑的成本（換規則多出的換手不計，屬近似；所有路徑同一口徑）。
     LLM 另附步驟2 用實際換手結算的累積報酬（`phase2*_settled`）當參考。
-資料版本：台股 elite_grid／step2 為 2026-10-30～11-02（股價已修正；策略名單為研究部重跑前的舊名單），美股 _liq 2026-10-28～29（有效）。
+資料版本：台股 elite_grid 為 2026-11-17、step2 為 2026-11-18～19（研究部 11-14 新池重建名單後重跑），美股 _liq 2026-10-28～29（有效）。
 輸出：`_analysis_outputs_applayer/rank_dynamics/greedy_vs_oracle/llm_vs_greedy_2024_25.csv`
 """
 from __future__ import annotations
@@ -37,7 +37,7 @@ GRID = RS.GRID
 STEP2 = RS.ROOT / "_analysis_outputs_applayer" / "step2"
 OUT = RS.ROOT / "_analysis_outputs_applayer" / "rank_dynamics" / "greedy_vs_oracle"
 GROUPS = [("TW", "exclude_v1"), ("US", "exclude_v1"), ("TW", "baseline"), ("US", "baseline")]
-VER = {"TW": "台股 2026-10-30～11-02（股價已修正；策略名單為研究部重跑前的舊名單）",
+VER = {"TW": "台股 2026-11-17～19（研究部 11-14 新池重建名單後重跑步驟1／步驟2）",
        "US": "美股 _liq 2026-10-28～29（資料未變，有效）"}
 STYLE = {"balanced": "平衡型", "momentum": "追強型", "contrarian": "逆勢型"}
 N_SEEDS, SEED = 1000, 20261114

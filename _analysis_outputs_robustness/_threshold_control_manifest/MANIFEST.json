@@ -1,7 +1,7 @@
 {
   "stage": "threshold_control",
-  "produced_at": "2026-11-08T14:29:41",
-  "git_sha": "78c66a7",
+  "produced_at": "2026-11-18T19:50:50",
+  "git_sha": "d54a100",
   "params": {
     "subset_schemes": [
       "E",
@@ -19,32 +19,32 @@
   "inputs": [
     {
       "path": "_frozen\\stage0\\candidate_index.parquet",
-      "sha256": "04a53c666ecc77b6a7ad0d0c2ef0033fd87195e598d603e12ee54d41e6bff7ba",
-      "bytes": 4873241,
-      "rows": 52498
+      "sha256": "44ca9e3e4de2dc897076e5b12bef2ab0a1ed870c70680d350e85dcae13dbe057",
+      "bytes": 5153577,
+      "rows": 55582
     },
     {
       "path": "_frozen\\stage1\\returns_monthly.parquet",
-      "sha256": "1d2d08fa8cd47a5307ca428152088ca2292a7811e2b6dcf704cce126b60fe189",
-      "bytes": 115036535,
-      "rows": 14711937
+      "sha256": "2ef7e650d8375714f9417197a1a13afaf6138196d44d52c5af4be0c88d1c6b40",
+      "bytes": 121414946,
+      "rows": 15527462
     },
     {
       "path": "_analysis_outputs_robustness\\walkforward_matrix_detail.csv",
-      "sha256": "3a9bb8237cfdc517f7145e2a8ea7a5b3668f523799a2ad92261317940bb62f37",
-      "bytes": 2205115
+      "sha256": "56543ea84737797055e57b2cc1219fb9db3bb845f80d3bb80ac1df04098f52fe",
+      "bytes": 2206083
     },
     {
       "path": "_analysis_outputs_robustness\\walkforward_partition.csv",
-      "sha256": "2291faf696912cea4a44d939c46d66c8d1bead4169f2acace1e8dfdfe6a45831",
-      "bytes": 635299
+      "sha256": "dff0320e29f60addf6cea390d54f26c767bf13a4f98f54529cccb58d72f54b39",
+      "bytes": 636208
     }
   ],
   "outputs": [
     {
       "path": "_analysis_outputs_robustness\\backfill_diagnosis.csv",
-      "sha256": "d87ea9f35865c25edde6541d30ffd362091341c75da6d9c725957f1da7125ee7",
-      "bytes": 2692
+      "sha256": "957ec70fdabfee1990593ba3083078d8980ee25470b353f0863b357b19100c7d",
+      "bytes": 2793
     }
   ],
   "notes": "M-15：多樣性門檻是 M-03/M-03b 的第二個變因。A=backfill 診斷（免費）；B=固定門檻變體（代表性子集），把門檻真的釘死看結論是否改變。"

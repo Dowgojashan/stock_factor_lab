@@ -1,8 +1,8 @@
 {
-  "produced_at": "2026-10-13T02:10:08",
-  "model": "gpt-5",
-  "n_pairs": 42,
-  "n_new_this_run": 42,
+  "produced_at": "2026-11-20T00:29:17",
+  "model": "gpt-5-mini",
+  "n_pairs": 112,
+  "n_new_this_run": 112,
   "resumed": false,
   "trees": [
     "TW_normal",

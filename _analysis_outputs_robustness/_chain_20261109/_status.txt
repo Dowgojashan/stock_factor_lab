@@ -50,3 +50,9 @@ STOP
 11-14_10:53 complementarity_sensitivity exit=0
 11-14_10:53 cluster_temporal_profile exit=0
 11-14_10:54 four_group_control exit=0
+11-18_19:50 walkforward_partition exit=0
+11-18_19:50 verify_walkforward_partition exit=0
+11-18_19:50 enb_rank_deficiency exit=0
+11-18_19:50 threshold_control_diagnose exit=0
+11-18_20:00 tests exit=0 115/131 通過
+ALL_DONE

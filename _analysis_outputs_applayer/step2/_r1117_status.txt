@@ -1,0 +1,42 @@
+=== START 11-17_08:09
+11-17_08:24 llm_v2_TW_baseline exit=1
+STOP
+11-17_08:47 llm_v1_TW_exclude_v1 exit=1
+STOP
+STOP_LLM
+11-17_08:47 llm_v2_TW_exclude_v1 exit=1
+STOP
+11-17_08:47 llm_v1_TW_baseline exit=1
+STOP
+=== START 11-18_23:30
+11-18_23:48 llm_v1_TW_exclude_v1 exit=0
+11-18_23:48 llm_v2_TW_exclude_v1 exit=0
+11-18_23:48 llm_v1_TW_baseline exit=0
+11-18_23:49 llm_v2_TW_baseline exit=0
+QUOTA_STOP 11-18_23:49
+=== START 11-19_22:09
+11-19_22:16 llm_v1_TW_exclude_v1 exit=0
+11-19_22:16 llm_v1_TW_baseline exit=0
+11-19_22:20 llm_v2_TW_exclude_v1 exit=0
+11-19_22:47 llm_v2_TW_baseline exit=0
+11-19_22:53 robust_v1 exit=0
+11-19_23:00 robust_v2 exit=0
+11-19_23:03 settle_v1_TW_exclude_v1 exit=0
+11-19_23:07 settle_v1_TW_baseline exit=0
+11-19_23:11 settle_v1_TW_exclude_v1_gpt5 exit=0
+11-19_23:15 settle_v2_TW_exclude_v1 exit=0
+11-19_23:19 settle_v2_TW_baseline exit=0
+11-19_23:26 settle_v2_TW_exclude_v1_gpt5 exit=0
+11-19_23:26 eval_v1 exit=0
+11-19_23:26 eval_v1_gpt5 exit=1
+STOP
+=== TAIL 11-19_23:27（移除 eval_gpt5 步驟後接續）
+11-19_23:27 eval_v2 exit=0
+11-19_23:27 figures exit=0
+11-19_23:30 weight_matrix exit=0
+11-19_23:30 reason exit=0
+11-19_23:30 attrib_TW_exclude_v1 exit=0
+11-19_23:30 attrib_TW_baseline exit=1
+STOP
+11-19_23:31 attrib_TW_baseline(--members-file walkforward_members 11-14) exit=0
+ALL_DONE 11-19_23:31

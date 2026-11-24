@@ -3,7 +3,7 @@
  "pool": "baseline",
  "windows": {
   "1": {
-   "n_strategies": 60,
+   "n_strategies": 30,
    "calendar": [
     [
      "2014-12-31",
@@ -57,7 +57,7 @@
    "bench_cum": 0.28664164150038096
   },
   "2": {
-   "n_strategies": 40,
+   "n_strategies": 45,
    "calendar": [
     [
      "2017-12-31",
@@ -111,7 +111,7 @@
    "bench_cum": 0.5597319411235662
   },
   "3": {
-   "n_strategies": 20,
+   "n_strategies": 25,
    "calendar": [
     [
      "2020-12-31",
@@ -212,5 +212,5 @@
   "liquidity": false,
   "sanity_trail_min": null
  },
- "generated": "2026-10-30T11:33:23.919457"
+ "generated": "2026-11-17T06:16:30.133338"
 }

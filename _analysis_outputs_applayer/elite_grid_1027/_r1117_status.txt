@@ -1,0 +1,17 @@
+=== START 11-17_05:27
+11-17_05:44 grid_TW_exclude_v1 exit=0
+11-17_05:44 analyze_TW_exclude_v1 exit=0
+11-17_05:58 sig_TW_exclude_v1 exit=0
+11-17_05:58 sig_analyze_TW_exclude_v1 exit=0
+11-17_06:16 grid_TW_baseline exit=0
+11-17_06:16 analyze_TW_baseline exit=0
+11-17_06:32 sig_TW_baseline exit=0
+11-17_06:32 sig_analyze_TW_baseline exit=0
+11-17_06:32 cum_tables exit=0
+11-17_06:32 cum_tables_liq exit=0
+11-17_06:32 figures exit=0
+11-17_06:32 figures_liq exit=0
+11-17_07:15 trigger_only exit=0
+11-17_07:40 phase0_v1 exit=0
+11-17_08:07 phase0_v2 exit=0
+ALL_DONE 11-17_08:07

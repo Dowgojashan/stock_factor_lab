@@ -1,7 +1,7 @@
 {
   "stage": "enb_null",
-  "produced_at": "2026-10-12T03:25:24",
-  "git_sha": "8292d71",
+  "produced_at": "2026-11-20T05:01:26",
+  "git_sha": "d54a100",
   "params": {
     "nulls": [
       "iid",
@@ -15,32 +15,32 @@
   "inputs": [
     {
       "path": "_frozen\\stage1\\returns_monthly.parquet",
-      "sha256": "4713dedffe8969263d19aed96166b25f3cb63c812a7a31c6b3700010396b1164",
-      "bytes": 114193546,
-      "rows": 14607899
+      "sha256": "2ef7e650d8375714f9417197a1a13afaf6138196d44d52c5af4be0c88d1c6b40",
+      "bytes": 121414946,
+      "rows": 15527462
     },
     {
       "path": "_frozen\\stage1\\strategy_marks.parquet",
-      "sha256": "d5ffb4a29aa775b2c681086fc7f4c0c2d63abfaf9606998947d36eb632d445db",
-      "bytes": 1891219,
-      "rows": 52111
+      "sha256": "7736936969eec876c7b114e7fb8f1aa52925322cd718b951ae55fef9cdba77a3",
+      "bytes": 2090256,
+      "rows": 55582
     },
     {
       "path": "_analysis_outputs_robustness\\effective_number_of_bets.csv",
-      "sha256": "cee7836dd1b8df9316d7565a20e5a9685f3004ab2279ebcf5a32f1f0d50d132b",
+      "sha256": "5a42ce19f5dabdc6f6a2d838e9572c3c28871315c87ce01d2b7f41b943e5c55f",
       "bytes": 293
     },
     {
       "path": "_analysis_outputs_robustness\\beta_baseline.csv",
-      "sha256": "fb5e429be0c6d9be84b130a5b9477a87c5e53493be1db4d618245400408bdc0c",
-      "bytes": 3596
+      "sha256": "7e3f8e5f0205e967e535418479bf893ecc8b9bbace5d4a03776d7ee2379508b0",
+      "bytes": 3820
     }
   ],
   "outputs": [
     {
       "path": "_analysis_outputs_robustness\\enb_null.csv",
-      "sha256": "dbf332c6e02ef5e4a56f0ac8307b4a3a88a47a3ea91f11ea8ad0c76965652550",
-      "bytes": 1776
+      "sha256": "dda72225598b4d58ed583b91d1828cd3429e00b69b406b0c0fd241bc0c82e486",
+      "bytes": 1768
     }
   ],
   "notes": "M-05：ENB 的虛無分布。iid 是純雜訊上界（受 N≫T 的秩限制，量級是 T 而非 N）；one_factor/two_factor 用逐策略實測 R² 校準，回答「ENB 這麼低是不是完全由市場 beta 解釋」。跨市場樹必須看 two_factor——單因子會低估虛無維度。"

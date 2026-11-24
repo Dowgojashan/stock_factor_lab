@@ -481,9 +481,12 @@ def fig_h_k_over_time(log=print) -> None:
     ax.set_xlabel("IS 窗結束時點")
     ax.set_ylabel("群數 k")
     ax.legend(fontsize=8, loc="upper left")
+    # 2026-11-22：固定值與窗次改由資料帶入（舊版寫死「台6／美7／跨3」「43 個窗次」，換池後過期）
+    kf = ks.groupby("tree_key").k_fixed.first()
+    n_off = int((~ks.same_as_fixed.astype(bool)).sum())
     ax.set_title("圖 H｜群數穩健性時間軸（回應老師 9-8 提問①）\n"
-                 "實線＝每個 IS 窗自選的 k；虛線＝固定值（台6／美7／跨3）；"
-                 "43 個窗次中多數偏離固定值，但走查矩陣結論不受影響（見 §1.4）",
+                 f"實線＝每個 IS 窗自選的 k；虛線＝固定值（台{kf['TW']}／美{kf['US']}／跨{kf['XM']}）；"
+                 f"{len(ks)} 個窗次中 {n_off} 個偏離固定值",
                  fontsize=10.5)
     _save(fig, "H_k_over_time.png", log)
 

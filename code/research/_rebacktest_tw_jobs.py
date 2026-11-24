@@ -28,6 +28,7 @@ NEW = CODE / "results_artifacts_twfix"
 NEW_P4 = CODE.parent / "_analysis_outputs_phase4_twfix"
 NEW_P1 = CODE.parent / "_analysis_outputs_phase1_twfix"
 NEW_P2 = CODE.parent / "_analysis_outputs_phase2_twfix"
+NEW_P3 = CODE.parent / "_analysis_outputs_phase3_twfix"
 MODULES = {"1": "phase1_linearity", "2": "phase2_pairing", "3": "phase3_conditions", "4": "phase4_valuation"}
 
 
@@ -55,6 +56,57 @@ def run_p4analyze(rest) -> int:
     return P4.main() or 0
 
 
+def run_atlas(rest) -> int:
+    """第四章 18 張圖鑑（`build_atlas.py` + `analyze_batch.py`，2026-11-22 加）：讀新目錄的 L3(v0)+L4(v1)。
+
+    `analyze_batch` 讀合併 stats 的路徑寫死在 `code/results_artifacts/{label}/`，所以合併檔在兩邊各放一份
+    （跑完都刪掉）；逐策略檔案由 `build_atlas.patch_artifact_resolver` 導回新目錄。成品照舊寫到
+    `_analysis_outputs_atlas/TW_{variant}/`（覆蓋前請先手動備份）。不改 build_atlas／analyze_batch 原始碼。"""
+    import shutil
+    import analyze_batch as AB
+    import build_atlas as BA
+    variant = rest[rest.index("--variant") + 1] if "--variant" in rest else "openSec_boost"
+    merged = f"TW_ATLAS_{variant}_M"
+    BA.ART = NEW                                   # 讀 L3/L4 與逐策略檔案都走新目錄
+    l3, l4, _ = BA.build_merged_stats("TW", variant, merged)
+    old_tmp = CODE / "results_artifacts" / merged  # analyze_batch 寫死讀這裡
+    old_tmp.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(NEW / merged / "stats.parquet", old_tmp / "stats.parquet")
+    BA.patch_artifact_resolver(l3, l4, merged)
+    argv = ["analyze_batch.py", "--label", merged] + (["--skip-credibility"] if "--skip-credibility" in rest else [])
+    print(f">> 重畫圖鑑｜讀 {NEW}/{l3}+{l4}", flush=True)
+    old_argv, sys.argv = sys.argv, argv
+    try:
+        AB.main()
+    finally:
+        sys.argv = old_argv
+        shutil.rmtree(old_tmp, ignore_errors=True)
+        shutil.rmtree(NEW / merged, ignore_errors=True)
+    src = CODE.parent / "_analysis_outputs" / merged
+    dst = BA.ATLAS_OUT / f"TW_{variant}"
+    if src.exists():
+        if dst.exists():
+            shutil.rmtree(dst)
+        shutil.move(str(src), str(dst))
+        print(f">> 圖鑑已存至 {dst}（{len(list((dst / 'figures').glob('*.png')))} 張圖）", flush=True)
+    return 0
+
+
+def run_p3analyze(rest) -> int:
+    """Phase 3 C 增益分析（`phase3_analyze.py`，2026-11-22 加）：讀新目錄的 Phase 3 回測、新宇宙基準與
+    `_analysis_outputs_phase2_twfix/` 的體質檢查表，輸出到 `_analysis_outputs_phase3_twfix/`（不覆蓋原本的 `_analysis_outputs_phase3/`）。"""
+    import phase2_analyze as P2A
+    import phase3_analyze as P3A
+    import universe_benchmark as UB
+    P2A.ART = NEW; P3A.ART = NEW; UB.ART_DIR = NEW
+    P3A.P2_DIR = NEW_P2
+    NEW_P3.mkdir(parents=True, exist_ok=True)
+    P3A.OUT = NEW_P3
+    print(f">> 重跑 Phase 3 C 增益分析｜讀 {NEW}｜白名單 {NEW_P2}｜輸出 → {NEW_P3}", flush=True)
+    sys.argv = [P3A.__file__] + rest
+    return P3A.main() or 0
+
+
 def run_p2analyze(rest) -> int:
     """Phase 2 配對分析（`phase2_analyze.py`，2026-11-09 加）：讀新目錄的配對回測與新宇宙基準，輸出到
     `_analysis_outputs_phase2_twfix/`（不覆蓋原本的 `_analysis_outputs_phase2/`）。Phase 1 判定照舊讀原檔
@@ -74,7 +126,9 @@ def run_p1analyze(rest) -> int:
     """Phase 1 線性檢定（`phase1_analyze.py`，2026-11-09 加）：讀新目錄的 9 桶回測，輸出到 `_analysis_outputs_phase1_twfix/`
     （不覆蓋原本的 `_analysis_outputs_phase1/`）。用來檢查台股股價修正後，Phase 1 的因子過關判定有沒有改變。"""
     import phase1_analyze as P1A
+    import universe_benchmark as UB
     P1A.ART = NEW
+    UB.ART_DIR = NEW   # 2026-11-22 補：原本漏設，基準誤讀股價修正前的 8.43%（見 開發待辦追蹤.md 14.7①）
     NEW_P1.mkdir(parents=True, exist_ok=True)
     P1A.OUT = NEW_P1
     print(f">> 重跑 Phase 1 線性檢定｜讀 {NEW}｜輸出 → {NEW_P1}", flush=True)
@@ -83,12 +137,12 @@ def run_p1analyze(rest) -> int:
 
 
 def main() -> int:
-    if len(sys.argv) >= 2 and sys.argv[1] in ("universe", "p4analyze", "p1analyze", "p2analyze"):
+    if len(sys.argv) >= 2 and sys.argv[1] in ("universe", "p4analyze", "p1analyze", "p2analyze", "p3analyze", "atlas"):
         assert Path.cwd().resolve() == CODE.resolve(), f"請在 code/ 底下執行（現在 {Path.cwd()}）"
         rest = sys.argv[2:]
         if "--market" in rest and rest[rest.index("--market") + 1] != "TW":
             raise SystemExit("這支只用來重跑台股")
-        return {"universe": run_universe, "p4analyze": run_p4analyze, "p1analyze": run_p1analyze, "p2analyze": run_p2analyze}[sys.argv[1]](rest)
+        return {"universe": run_universe, "p4analyze": run_p4analyze, "p1analyze": run_p1analyze, "p2analyze": run_p2analyze, "p3analyze": run_p3analyze, "atlas": run_atlas}[sys.argv[1]](rest)
     if len(sys.argv) < 2 or sys.argv[1] not in MODULES:
         print(__doc__); return 2
     phase, rest = sys.argv[1], sys.argv[2:]

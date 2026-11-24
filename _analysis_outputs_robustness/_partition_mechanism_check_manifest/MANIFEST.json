@@ -1,0 +1,56 @@
+{
+  "stage": "partition_mechanism_check",
+  "produced_at": "2026-11-22T23:24:21",
+  "git_sha": "d54a100",
+  "params": {
+    "note": "L1 群分布以全期凍結樹近似，只用 k_mode=fixed；隨機分群名單未存，未直接比對"
+  },
+  "inputs": [
+    {
+      "path": "_analysis_outputs_robustness\\walkforward_matrix_detail.csv",
+      "sha256": "56543ea84737797055e57b2cc1219fb9db3bb845f80d3bb80ac1df04098f52fe",
+      "bytes": 2206083
+    },
+    {
+      "path": "_analysis_outputs_robustness\\walkforward_partition.csv",
+      "sha256": "dff0320e29f60addf6cea390d54f26c767bf13a4f98f54529cccb58d72f54b39",
+      "bytes": 636208
+    },
+    {
+      "path": "_analysis_outputs_robustness\\walkforward_members.parquet",
+      "sha256": "817c260867651a9e173315a63bab781272eff2122a87f0ff5909d11ee65afb36",
+      "bytes": 93753276,
+      "rows": 8100
+    },
+    {
+      "path": "_frozen\\stage0\\candidate_index.parquet",
+      "sha256": "44ca9e3e4de2dc897076e5b12bef2ab0a1ed870c70680d350e85dcae13dbe057",
+      "bytes": 5153577,
+      "rows": 55582
+    },
+    {
+      "path": "_frozen\\stage3\\cluster_assign.parquet",
+      "sha256": "20c6c1e904bdb3d83b26a927439d7c39f64d665e096caf34b84bbd7ebe06b3d2",
+      "bytes": 2189692,
+      "rows": 204178
+    }
+  ],
+  "outputs": [
+    {
+      "path": "_analysis_outputs_robustness\\partition_mechanism_distance.csv",
+      "sha256": "82f5aa815de5316f6d21ac22c772f77369ae6daa1069fcf4bf2c18bb999a3a26",
+      "bytes": 3829
+    },
+    {
+      "path": "_analysis_outputs_robustness\\partition_mechanism_composition.csv",
+      "sha256": "5cd64d25a47b1be6f3e7fa6d88e98275ed48d4e2fc096b57316f431d89786874",
+      "bytes": 5194
+    },
+    {
+      "path": "_analysis_outputs_robustness\\partition_mechanism_backfill.csv",
+      "sha256": "30f362b378dbcad6796d26d43ac456f43d46c8fc50b65ad9fb7e4f81e49fca6d",
+      "bytes": 1641
+    }
+  ],
+  "notes": "論文 4-4：隨機分群勝過 HRP（美股、跨市場）的機制查證。"
+}
