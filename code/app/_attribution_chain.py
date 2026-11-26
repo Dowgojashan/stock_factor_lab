@@ -21,8 +21,10 @@
     實作落差 = L4−L3  ← 獨立列出，不歸給任何決策：混合了「月 vs 季」再平衡頻率、策略內部換股 vs 季內買進持有、
                         股票層換手成本、策略解不出持股時的現金部位
     調權重 = L5−L4，再拆成（規則鏈）：
-        優等生選股 = 資金比例 s ×（優等生組合毛報酬 r_E − control0 毛報酬）
-        成本差     = −（規則成本 − control0 成本）
+        優等生選股 =（1 − 規則成本）× 資金比例 s ×（優等生組合毛報酬 r_E − control0 毛報酬）
+        成本差     = −（規則成本 − control0 成本）×（1 + control0 毛報酬）
+        （2026-11-25 改為正式成本口徑：每季淨報酬 =（1−c）(1+g)−1，同步驟1 metrics_all／daily_net／phase0；
+          原本是 g−c 的簡化相減。L5−L4 =（1−c_r)(g_r−g_0) +（c_0−c_r)(1+g_0)，兩項相加恆等，不另有交互項）
       推導：overlay＝(1−s)·w0＋s·Σw0·elite（`elite_rules.overlay`），季內買進持有 ⇒ 毛報酬對權重線性，
             r_rule = (1−s)·r_c0 + s·r_E ⇒ r_E = (r_rule − (1−s)·r_c0)/s（不需要重產 w0）。
       ⚠️ 不拆 Brinson 的「配置×選股」交互項：overlay 是線性的，直接寫成 s×(r_E−r_c0)，沒有交互項需要分配。
@@ -265,15 +267,16 @@ def build(market: str, pool: str, members_file: Path | None, rule: str | None, w
         L["L2a 全部買進（含V1）"] = ew_quarterly(wide, pool_all, cal)
     L["L2 全部買進" + ("（排除V1）" if pool == "exclude_v1" else "")] = ew_quarterly(wide, pool_main, cal)
     L["L3 精選（策略層等權）"] = ew_quarterly(wide, None, cal, per_w)
-    rc0_net = (g["REF_control0"] - c["REF_control0"]).values
+    net = (1 - c) * (1 + g) - 1          # 2026-11-25：正式成本口徑（原為 g − c）
+    rc0_net = net["REF_control0"].values
     L["L4 control0（股票層）"] = rc0_net
-    L[f"L5 調權重（規則 {rule}）"] = (g[rule] - c[rule]).values
+    L[f"L5 調權重（規則 {rule}）"] = net[rule].values
     names = list(L)
     M = np.vstack([L[k] for k in names])                                  # J×44
 
     # 調權重拆解（逐季）
-    sel = s * (rE[rule].values - g["REF_control0"].values)
-    dcost = -(c[rule].values - c["REF_control0"].values)
+    sel = (1 - c[rule].values) * s * (rE[rule].values - g["REF_control0"].values)
+    dcost = -(c[rule].values - c["REF_control0"].values) * (1 + g["REF_control0"].values)
     assert np.allclose(sel + dcost, M[-1] - M[-2], atol=1e-12), "調權重拆解與 L5−L4 不一致"
 
     NAME = {"L2a": "策略池（⚠️全期篩選偏誤）", "L2": "排除V1" if pool == "exclude_v1" else "策略池（⚠️全期篩選偏誤）",
@@ -304,7 +307,6 @@ def build(market: str, pool: str, members_file: Path | None, rule: str | None, w
                                                         調權重_優等生選股=sel, 調權重_成本差=dcost)
 
     # 分布②：調權重貢獻在全部格的分布（同池同期，扣成本累積差）
-    net = g - c
     dist_rules = []
     for label, idx in [("全期", np.arange(44))] + [(f"window{w}", np.where(cal.window.values == w)[0]) for w in (1, 2, 3, 4)]:
         d = (np.prod(1 + net.values[idx], axis=0) - 1) - cum(rc0_net[idx])

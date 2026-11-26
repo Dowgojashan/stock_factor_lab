@@ -131,7 +131,8 @@
 附本專案實際踩過的陷阱清單）／`decision-log`（決策留痕）／
 `thesis-narrative-review`（論文章節審查；2026-11-22 起含第四章的分析與排版檢查）／
 `thesis-results-writing`（2026-11-22 新增：寫第四章等結果章節的流程，含盤點既有圖、
-過期就請實驗 session 重跑、畫論文格式的圖、排版檢查）。
+過期就請實驗 session 重跑、畫論文格式的圖、排版檢查）。／
+`thesis-word-export`（2026-11-24 新增：把指定章節連同參考文獻與附錄匯出成 Word，工具在 `論文/tools/word_export/`，只存在本機、換機器要手動複製）。
 用 `/<名稱>` 呼叫（⚠️ `文件/現況銜接.md` 已不存在，各 skill 的說明直接看 `.claude/skills/<名稱>/SKILL.md`）。
 
 ---

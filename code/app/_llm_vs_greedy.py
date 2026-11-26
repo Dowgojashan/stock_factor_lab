@@ -45,7 +45,7 @@ N_SEEDS, SEED = 1000, 20261114
 
 def load(market, pool):
     g, c = RS.load_returns(market, pool, with_sig=True)
-    n = g - c
+    n = (1 - c) * (1 + g) - 1          # 2026-11-25：正式成本口徑，同步驟1 metrics_all／daily_net／phase0（原為 g − c）
     assert len(n) == 44 and n.index.get_level_values(0)[-8:].tolist() == [4] * 8
     tag = RS.TAG[(market, pool)]
     parts = []

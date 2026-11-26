@@ -266,9 +266,12 @@ def practical_daily(log=print) -> list[dict]:
     for mkt, suf, ver in (("TW", "", "實戰層 elite_grid_1027 2026-11-17（研究部 11-14 新池重建名單後重跑步驟1）"),
                           ("US", "_liq", "實戰層 elite_grid_1027 2026-10-28 _liq（美股資料未變，有效）")):
         c0 = RD.load_daily(mkt, "exclude_v1", suf)["REF_control0"]
+        # 2026-11-24 補：論文 4-5 主名單是含 v1（pool=baseline），寫作 session 要求補成正式列
+        c0_in = RD.load_daily(mkt, "baseline", suf)["REF_control0"]
         b = load_benchmark(mkt).pct_change()
         for ev, segs in d2_segments(mkt).items():
             tag = {"市場": mkt, "事件": ev, "月份": f"{segs[0][0].date()}～{segs[-1][1].date()}", "頻率": "日", "資料版本": ver}
+            out.append({**tag, "組合": "優等生 control0（含v1，不調整）", **daily_loss(c0_in, segs)})
             out.append({**tag, "組合": "優等生 control0（排除V1，不調整）", **daily_loss(c0, segs)})
             out.append({**tag, "組合": "大盤（含息）", **daily_loss(b, segs)})
     return out

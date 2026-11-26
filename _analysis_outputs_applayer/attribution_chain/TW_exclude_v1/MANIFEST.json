@@ -1,7 +1,7 @@
 {
   "stage": "attribution_chain",
-  "produced_at": "2026-11-19T23:30:47",
-  "git_sha": "d54a100",
+  "produced_at": "2026-11-25T00:08:34",
+  "git_sha": "6006eb1",
   "params": {
     "market": "TW",
     "pool": "exclude_v1",
@@ -75,18 +75,18 @@
     },
     {
       "path": "_analysis_outputs_applayer\\attribution_chain\\TW_exclude_v1\\chain_cum.csv",
-      "sha256": "69332da899a500238b5ee73ff38cc022fab25054059fa62d4838fa555445f71f",
-      "bytes": 4821
+      "sha256": "a3141415a181ffe8d68f718c05b75010235a50828245bd9b6c272e0382aecb09",
+      "bytes": 4826
     },
     {
       "path": "_analysis_outputs_applayer\\attribution_chain\\TW_exclude_v1\\chain_quarterly.csv",
-      "sha256": "fc834f93dc17ec2435cdb0ccf8d14c3d0cf29e2e9c49bac3e2be1e02fce06a58",
-      "bytes": 8713
+      "sha256": "39d6801290c7adb66deb3117e41bbc7e11bbb6c1881e6374ddc06b8a01e33ea8",
+      "bytes": 8711
     },
     {
       "path": "_analysis_outputs_applayer\\attribution_chain\\TW_exclude_v1\\dist_rules.csv",
-      "sha256": "7c9ad9911641314070758233ae60b083018e43e89f2988381ee36249f860ac10",
-      "bytes": 963
+      "sha256": "268f4a47e22abf4ca4300c34667fc50fc49c6439399c70347afeee058158e2c6",
+      "bytes": 951
     },
     {
       "path": "_analysis_outputs_applayer\\attribution_chain\\TW_exclude_v1\\dist_selection.csv",
@@ -95,8 +95,8 @@
     },
     {
       "path": "_analysis_outputs_applayer\\attribution_chain\\TW_exclude_v1\\llm_window4.csv",
-      "sha256": "3a9893877b602181b2a9bdde8d9309b9dbef67dedad2d5d0e5bbedef33179880",
-      "bytes": 12291
+      "sha256": "19ea51ec8ded2947e5485c95e344cad920ad2bf79015bf72376b18c6336dfac0",
+      "bytes": 12283
     }
   ],
   "notes": "績效歸因鏈：大盤→全部買進→精選→control0→調權重；主＝累積相減，輔＝Carino linking"

@@ -63,7 +63,8 @@ def load(market: str, pool: str, suf: str):
     q = pd.read_parquet(SRC / f"quarterly_{market}_{pool}{suf}.parquet")
     c = pd.read_csv(SRC / f"combos_{market}_{pool}{suf}.csv")
     g = q.pivot_table(index="end", columns="combo", values="ret_gross").sort_index()
-    n = (q.assign(r=q.ret_gross - q.cost)).pivot_table(index="end", columns="combo", values="r").sort_index()
+    # 2026-11-25：正式成本口徑（1−c）(1+g)−1，同步驟1 metrics_all／daily_net／phase0（原為 ret_gross − cost）
+    n = (q.assign(r=(1 - q.cost) * (1 + q.ret_gross) - 1)).pivot_table(index="end", columns="combo", values="r").sort_index()
     assert len(g) == 44 and g.notna().all().all(), "每季報酬不完整"
     return g, n, c.set_index("combo")
 
